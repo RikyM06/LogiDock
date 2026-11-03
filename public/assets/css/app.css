@@ -1,0 +1,145 @@
+/* LogiDock: stile minimale. Le variabili in :root centralizzano colori e misure. */
+:root {
+    --color-bg: #f4f6f8;
+    --color-surface: #ffffff;
+    --color-text: #1f2933;
+    --color-muted: #637381;
+    --color-primary: #1d4ed8;
+    --color-primary-dark: #1e3a8a;
+    --color-border: #dde3ea;
+    --radius: 8px;
+    --space: 1rem;
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.5;
+}
+
+a {
+    color: var(--color-primary);
+}
+
+h1 {
+    margin: 0 0 var(--space);
+    font-size: 1.75rem;
+}
+
+h2 {
+    margin: 0 0 0.5rem;
+    font-size: 1.15rem;
+}
+
+.container {
+    width: 100%;
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 0 var(--space);
+}
+
+/* Barra superiore */
+.topbar {
+    background: var(--color-primary-dark);
+    color: #fff;
+}
+
+.topbar__inner {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    min-height: 3.5rem;
+}
+
+.brand {
+    color: #fff;
+    font-size: 1.2rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+.nav__link {
+    padding: 0.4rem 0.8rem;
+    border-radius: var(--radius);
+    color: #dbe4ff;
+    text-decoration: none;
+}
+
+.nav__link:hover,
+.nav__link.is-active {
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff;
+}
+
+/* Contenuto */
+.main {
+    flex: 1;
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+}
+
+.lead {
+    color: var(--color-muted);
+    font-size: 1.1rem;
+}
+
+.card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+}
+
+.list {
+    margin: 0;
+    padding-left: 1.25rem;
+}
+
+/* Pagina di errore */
+.error-page {
+    text-align: center;
+    padding: 3rem 0;
+}
+
+.error-page__code {
+    margin: 0;
+    color: var(--color-primary);
+    font-size: 4rem;
+    font-weight: 800;
+}
+
+.error-page__details {
+    max-width: 100%;
+    margin-top: 2rem;
+    padding: var(--space);
+    overflow-x: auto;
+    background: #1f2933;
+    color: #e4e7eb;
+    border-radius: var(--radius);
+    font-size: 0.8rem;
+    text-align: left;
+}
+
+.footer {
+    padding: var(--space) 0;
+    border-top: 1px solid var(--color-border);
+    color: var(--color-muted);
+    font-size: 0.9rem;
+}

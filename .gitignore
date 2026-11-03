@@ -1,0 +1,22 @@
+# Dipendenze
+/vendor/
+
+# Configurazione locale e segreti
+.env
+.env.*
+!.env.example
+
+# Log e backup (le cartelle restano grazie al .gitkeep)
+/storage/logs/*
+!/storage/logs/.gitkeep
+/backups/
+
+# Cache dei tool
+.phpunit.cache/
+.phpunit.result.cache
+
+# Editor e sistema operativo
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
