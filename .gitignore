@@ -20,3 +20,6 @@
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Istruzioni locali per Claude Code (non versionate)
+CLAUDE.md
