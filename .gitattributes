@@ -1,0 +1,8 @@
+# Normalizza i fine riga: nel repository sempre LF.
+* text=auto
+
+# File che devono restare LF anche su Windows (girano su Linux, o ne dipende il checksum).
+*.sql text eol=lf
+*.sh text eol=lf
+*.conf text eol=lf
+*.yml text eol=lf

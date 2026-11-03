@@ -20,12 +20,7 @@ final class Application
 
     public function __construct(private readonly string $basePath)
     {
-        // safeLoad: se .env manca (es. variabili passate dal server) non è un errore.
-        Dotenv::createImmutable($this->basePath)->safeLoad();
-
-        /** @var array<string, mixed> $config */
-        $config = require $this->basePath . '/config/app.php';
-        $this->config = $config;
+        $this->config = self::loadConfig($this->basePath);
 
         date_default_timezone_set((string) $this->config['timezone']);
 
@@ -33,6 +28,21 @@ final class Application
         $this->registerServices();
 
         $this->container->get(ErrorHandler::class)->register();
+    }
+
+    /**
+     * Carica .env e restituisce la configurazione. È statico perché serve anche agli script
+     * da riga di comando (bin/migrate.php, bin/seed.php), che non avviano l'intera applicazione web.
+     *
+     * @return array<string, mixed>
+     */
+    public static function loadConfig(string $basePath): array
+    {
+        // safeLoad: se .env manca (es. variabili passate dal server) non è un errore.
+        Dotenv::createImmutable($basePath)->safeLoad();
+
+        /** @var array<string, mixed> */
+        return require $basePath . '/config/app.php';
     }
 
     public function run(): void
@@ -50,6 +60,8 @@ final class Application
         $config = $this->config;
 
         $c->set(Logger::class, fn (): Logger => new Logger((string) $config['log_path']));
+
+        $c->set(Database::class, fn (): Database => new Database($config['db']));
 
         $c->set(View::class, fn (): View => new View(
             $this->basePath . '/templates',
