@@ -181,6 +181,178 @@ h2 {
     background: rgba(255, 255, 255, 0.15);
 }
 
+.card--form {
+    max-width: 640px;
+}
+
+.form select,
+.form__field select {
+    padding: 0.55rem 0.7rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: #fff;
+    font: inherit;
+    font-weight: 400;
+}
+
+.form__field input.has-error,
+.form__field select.has-error {
+    border-color: #c0392b;
+}
+
+.form__error {
+    color: #8a1c1c;
+    font-size: 0.875rem;
+    font-weight: 400;
+}
+
+.form__row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space);
+}
+
+.form__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space);
+}
+
+.button--secondary {
+    background: #e4e9f0;
+    color: var(--color-text);
+}
+
+.button--secondary:hover {
+    background: #d3dbe6;
+}
+
+.button--danger {
+    background: #b42318;
+}
+
+.button--danger:hover {
+    background: #8f1b12;
+}
+
+.button--small {
+    padding: 0.3rem 0.7rem;
+    font-size: 0.875rem;
+}
+
+a.button {
+    display: inline-block;
+    text-decoration: none;
+}
+
+/* Intestazione di pagina e ricerca */
+.page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space);
+    margin-bottom: var(--space);
+}
+
+.page-header h1 {
+    margin: 0;
+}
+
+.toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: var(--space);
+}
+
+.toolbar input[type="search"] {
+    flex: 1;
+    max-width: 380px;
+    padding: 0.5rem 0.7rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    font: inherit;
+}
+
+/* Tabelle */
+.table-wrap {
+    overflow-x: auto;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.table th,
+.table td {
+    padding: 0.65rem 0.9rem;
+    border-bottom: 1px solid var(--color-border);
+    text-align: left;
+    vertical-align: middle;
+}
+
+.table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.table th {
+    background: #f8fafc;
+    font-size: 0.85rem;
+    color: var(--color-muted);
+}
+
+.table__number {
+    text-align: right !important;
+    font-variant-numeric: tabular-nums;
+}
+
+.table__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.4rem;
+    white-space: nowrap;
+}
+
+.table__actions form {
+    margin: 0;
+}
+
+.is-inactive td {
+    color: var(--color-muted);
+    background: #fafbfc;
+}
+
+.badge {
+    display: inline-block;
+    padding: 0.1rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.badge--ok {
+    background: #e8f6ec;
+    color: #1d5a2e;
+}
+
+.badge--off {
+    background: #eceff3;
+    color: var(--color-muted);
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
 /* Messaggi */
 .alert {
     margin: 0 0 var(--space);

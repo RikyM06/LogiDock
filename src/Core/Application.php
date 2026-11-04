@@ -7,11 +7,14 @@ namespace LogiDock\Core;
 use Dotenv\Dotenv;
 use LogiDock\Controller\AuthController;
 use LogiDock\Controller\HomeController;
+use LogiDock\Controller\ProductController;
 use LogiDock\Middleware\AdminMiddleware;
 use LogiDock\Middleware\AuthMiddleware;
 use LogiDock\Middleware\CsrfMiddleware;
+use LogiDock\Repository\ProductRepository;
 use LogiDock\Repository\UserRepository;
 use LogiDock\Service\AuthService;
+use LogiDock\Service\ProductService;
 
 /**
  * Punto di avvio: carica la configurazione, registra i servizi nel container,
@@ -107,6 +110,13 @@ final class Application
             $c->get(Logger::class)
         ));
 
+        $c->set(ProductRepository::class, fn (Container $c): ProductRepository => new ProductRepository(
+            $c->get(Database::class)
+        ));
+        $c->set(ProductService::class, fn (Container $c): ProductService => new ProductService(
+            $c->get(ProductRepository::class)
+        ));
+
         // Middleware
         $c->set(CsrfMiddleware::class, fn (Container $c): CsrfMiddleware => new CsrfMiddleware($c->get(Csrf::class)));
         $c->set(AuthMiddleware::class, fn (Container $c): AuthMiddleware => new AuthMiddleware($c->get(AuthService::class)));
@@ -130,6 +140,12 @@ final class Application
         // Controller: uno per riga, con le dipendenze esplicite.
         $c->set(HomeController::class, fn (Container $c): HomeController => new HomeController(
             $c->get(View::class)
+        ));
+        $c->set(ProductController::class, fn (Container $c): ProductController => new ProductController(
+            $c->get(View::class),
+            $c->get(ProductService::class),
+            $c->get(AuthService::class),
+            $c->get(Session::class)
         ));
         $c->set(AuthController::class, fn (Container $c): AuthController => new AuthController(
             $c->get(View::class),

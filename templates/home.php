@@ -9,7 +9,7 @@
 <div class="card">
     <h2>Moduli previsti</h2>
     <ul class="list">
-        <li>Prodotti</li>
+        <li><a href="/products">Prodotti</a></li>
         <li>Bancali in ingresso e tracciabilità</li>
         <li>Pianificazione viaggi</li>
         <li>Bolle e DDT</li>

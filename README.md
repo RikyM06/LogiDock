@@ -6,8 +6,8 @@ tracciabilità dei movimenti, pianificazione dei viaggi, bolle e DDT, utenti e r
 È anche un progetto personale per il portfolio: tutto è costruito da zero (niente framework full-stack)
 per mostrare come funziona ogni pezzo.
 
-> **Stato:** Fasi 1-3 completate (scheletro, database, autenticazione). Le funzionalità
-> arrivano una alla volta, vedi [Roadmap](#roadmap).
+> **Stato:** Fasi 1-4 completate (scheletro, database, autenticazione, anagrafica prodotti).
+> Le altre funzionalità arrivano una alla volta, vedi [Roadmap](#roadmap).
 
 ## Stack
 
@@ -132,6 +132,38 @@ quelle di `SEED_ADMIN_PASSWORD` e `SEED_OPERATOR_PASSWORD` in `.env`.
 - **Non c'è** un limite ai tentativi di login: l'app è raggiungibile solo dalla rete locale.
   I tentativi falliti finiscono nel log (mai la password).
 
+### Anagrafica prodotti (esempio da replicare)
+
+La prima funzionalità completa, scritta per essere il modello delle prossime. Attraversa tutti i livelli:
+
+| Livello | File | Cosa fa |
+|---|---|---|
+| Rotte | `config/routes.php` | chi può fare cosa (qualunque utente consulta, solo l'admin modifica) |
+| Controller | `src/Controller/ProductController.php` | legge la richiesta, chiama il service, sceglie la risposta (render, redirect, 404) |
+| Service | `src/Service/ProductService.php` | validazione, normalizzazione, unicità del codice |
+| Repository | `src/Repository/ProductRepository.php` | solo SQL con prepared statement |
+| Modello | `src/Model/Product.php`, `ProductData.php` | dato letto dal database / dato validato da scrivere |
+| Template | `templates/products/` | lista con ricerca, form condiviso da creazione e modifica |
+
+| Rotta | Chi | Azione |
+|---|---|---|
+| `GET /products` | admin, operatore | lista, con ricerca `?q=` per codice o descrizione |
+| `GET /products/create`, `POST /products` | admin | nuovo prodotto |
+| `GET /products/{id}/edit`, `POST /products/{id}` | admin | modifica |
+| `POST /products/{id}/deactivate`, `.../activate` | admin | disattiva / riattiva |
+
+Scelte da sapere:
+- **Non si cancella mai**: un prodotto ha bancali collegati, quindi si disattiva (e si può riattivare).
+- **Validazione nel service**, che lancia `ValidationException` con un messaggio per campo. Il controller
+  ripresenta il form con gli errori e i valori digitati (risposta 422).
+- **Il peso è sempre una stringa**: `12,5` o `12.5` diventano `12.500` senza passare da float.
+- **Codice univoco anche in concorrenza**: il service controlla prima, ma l'ultima parola è del vincolo
+  UNIQUE del database; il repository traduce l'errore in `DuplicateEntryException`.
+- **Pattern post/redirect/get** con messaggi flash dopo ogni scrittura, così il refresh non ripete l'azione.
+- Nella lista non c'è paginazione (pochi prodotti): si aggiungerà se serve.
+
+Per aggiungere una nuova funzionalità si copiano questi sei file cambiando nome ed entità.
+
 Test PHPUnit: arrivano con la Fase 6.
 
 ## Roadmap
@@ -140,6 +172,6 @@ Test PHPUnit: arrivano con la Fase 6.
 - [x] **Fase 1:** scheletro (router, configurazione, gestione errori, layout)
 - [x] **Fase 2:** migrazioni SQL, script di migrazione, seed
 - [x] **Fase 3:** autenticazione, sessioni sicure, CSRF, ruoli
-- [ ] **Fase 4:** anagrafica prodotti (funzionalità verticale di esempio)
+- [x] **Fase 4:** anagrafica prodotti (funzionalità verticale di esempio)
 - [ ] **Fase 5:** Docker Compose, configurazione di produzione, backup
 - [ ] **Fase 6:** test PHPUnit e documentazione finale

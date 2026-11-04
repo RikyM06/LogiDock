@@ -14,7 +14,13 @@
 // Voci di navigazione: percorso => etichetta. Si aggiungono man mano che nascono le funzionalità.
 $navigation = [
     '/' => 'Home',
+    '/products' => 'Prodotti',
 ];
+
+// Home è attiva solo sulla home; le altre voci anche nelle loro sottopagine (/products/3/edit).
+$isActive = static fn (string $path): bool => $path === '/'
+    ? $currentPath === '/'
+    : str_starts_with($currentPath, $path);
 ?>
 <!DOCTYPE html>
 <html lang="it">
@@ -23,6 +29,7 @@ $navigation = [
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= e(isset($title) ? $title . ' · ' . $appName : $appName) ?></title>
     <link rel="stylesheet" href="/assets/css/app.css">
+    <script src="/assets/js/app.js" defer></script>
 </head>
 <body>
     <header class="topbar">
@@ -32,7 +39,7 @@ $navigation = [
             <?php if ($currentUser !== null) : ?>
                 <nav class="nav" aria-label="Navigazione principale">
                     <?php foreach ($navigation as $path => $label) : ?>
-                        <a class="nav__link<?= $path === $currentPath ? ' is-active' : '' ?>"
+                        <a class="nav__link<?= $isActive($path) ? ' is-active' : '' ?>"
                            href="<?= e($path) ?>"><?= e($label) ?></a>
                     <?php endforeach; ?>
                 </nav>
