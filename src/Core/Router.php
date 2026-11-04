@@ -23,8 +23,30 @@ final class Router
      */
     private array $routes = [];
 
+    /** @var list<class-string<MiddlewareInterface>> middleware dei gruppi aperti con group() */
+    private array $groupMiddleware = [];
+
     public function __construct(private readonly Container $container)
     {
+    }
+
+    /**
+     * Applica gli stessi middleware a tutte le rotte definite dentro $routes.
+     * I gruppi si possono annidare: i middleware dell'esterno girano per primi.
+     *
+     * @param list<class-string<MiddlewareInterface>> $middleware
+     * @param callable(self): void                    $routes
+     */
+    public function group(array $middleware, callable $routes): void
+    {
+        $previous = $this->groupMiddleware;
+        $this->groupMiddleware = array_merge($previous, $middleware);
+
+        try {
+            $routes($this);
+        } finally {
+            $this->groupMiddleware = $previous;
+        }
     }
 
     /**
@@ -55,7 +77,7 @@ final class Router
             'method' => strtoupper($method),
             'regex' => $this->compile($pattern),
             'handler' => $handler,
-            'middleware' => $middleware,
+            'middleware' => array_merge($this->groupMiddleware, $middleware),
         ];
     }
 

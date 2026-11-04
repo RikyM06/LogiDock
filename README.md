@@ -6,8 +6,8 @@ tracciabilità dei movimenti, pianificazione dei viaggi, bolle e DDT, utenti e r
 È anche un progetto personale per il portfolio: tutto è costruito da zero (niente framework full-stack)
 per mostrare come funziona ogni pezzo.
 
-> **Stato:** Fasi 1 e 2 completate (scheletro dell'applicazione e database). Login e prime
-> funzionalità arrivano nelle fasi successive, vedi [Roadmap](#roadmap).
+> **Stato:** Fasi 1-3 completate (scheletro, database, autenticazione). Le funzionalità
+> arrivano una alla volta, vedi [Roadmap](#roadmap).
 
 ## Stack
 
@@ -114,6 +114,24 @@ users ─┬──< pallets >── products          pallets: stato corrente di
        │      └──< transport_documents    (bolla / DDT, numerati con number_sequences)
 ```
 
+### Autenticazione
+
+Utenti di esempio (dal seed): `admin@logidock.test` e `operatore@logidock.test`; le password sono
+quelle di `SEED_ADMIN_PASSWORD` e `SEED_OPERATOR_PASSWORD` in `.env`.
+
+- **Password:** `password_hash` / `password_verify` (bcrypt oggi, con rehash automatico se l'algoritmo
+  predefinito di PHP cambia). Se l'email non esiste si fa comunque un `password_verify` su un hash finto,
+  così il tempo di risposta non rivela quali email sono registrate; il messaggio di errore è sempre lo stesso.
+- **Sessione:** cookie `HttpOnly` e `SameSite=Lax` (`Secure` se `APP_URL` è https), `use_strict_mode`,
+  nuovo ID di sessione a ogni login, scadenza per inattività (`SESSION_LIFETIME_MINUTES`).
+  Nella sessione c'è solo l'id utente: ruolo e stato attivo si rileggono dal database a ogni richiesta,
+  quindi disattivare un utente ha effetto subito.
+- **CSRF:** ogni POST richiede il token (campo `_csrf` o header `X-CSRF-Token`), altrimenti 419.
+- **Ruoli:** `AuthMiddleware` (qualunque utente collegato) e `AdminMiddleware` (solo admin, gli altri ricevono 403).
+  I middleware si assegnano alle rotte in `config/routes.php`, anche a gruppi con `$router->group()`.
+- **Non c'è** un limite ai tentativi di login: l'app è raggiungibile solo dalla rete locale.
+  I tentativi falliti finiscono nel log (mai la password).
+
 Test PHPUnit: arrivano con la Fase 6.
 
 ## Roadmap
@@ -121,7 +139,7 @@ Test PHPUnit: arrivano con la Fase 6.
 - [x] **Fase 0:** piano, schema del database e decisioni architetturali
 - [x] **Fase 1:** scheletro (router, configurazione, gestione errori, layout)
 - [x] **Fase 2:** migrazioni SQL, script di migrazione, seed
-- [ ] **Fase 3:** autenticazione, sessioni sicure, CSRF, ruoli
+- [x] **Fase 3:** autenticazione, sessioni sicure, CSRF, ruoli
 - [ ] **Fase 4:** anagrafica prodotti (funzionalità verticale di esempio)
 - [ ] **Fase 5:** Docker Compose, configurazione di produzione, backup
 - [ ] **Fase 6:** test PHPUnit e documentazione finale

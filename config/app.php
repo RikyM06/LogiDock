@@ -14,6 +14,13 @@ return [
     'url' => env('APP_URL', 'http://localhost'),
     'timezone' => env('APP_TIMEZONE', 'Europe/Rome'),
     'log_path' => $root . '/' . ltrim(env('LOG_PATH', 'storage/logs/app.log'), '/'),
+    'session' => [
+        'name' => 'logidock_session',
+        // Minuti di inattività dopo i quali bisogna rifare il login.
+        'lifetime_minutes' => max(1, (int) env('SESSION_LIFETIME_MINUTES', '120')),
+        // Cookie "Secure" (solo HTTPS) quando l'indirizzo dell'app è https.
+        'secure' => str_starts_with(strtolower(env('APP_URL', 'http://localhost')), 'https://'),
+    ],
     'db' => [
         'host' => env('DB_HOST', '127.0.0.1'),
         'port' => (int) env('DB_PORT', '3306'),
