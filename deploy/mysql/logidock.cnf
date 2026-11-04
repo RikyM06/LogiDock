@@ -1,0 +1,17 @@
+# Configurazione MySQL per LogiDock (Ubuntu Server 24.04, MySQL 8.0).
+# Installazione: /etc/mysql/mysql.conf.d/logidock.cnf, poi "sudo systemctl restart mysql".
+[mysqld]
+# Il database è raggiungibile solo dalla macchina stessa (è già il default di Ubuntu, qui è esplicito).
+bind-address = 127.0.0.1
+
+# Date sempre in UTC nel database: l'app le converte in Europe/Rome solo quando le mostra.
+default-time-zone = '+00:00'
+
+character-set-server = utf8mb4
+collation-server = utf8mb4_0900_ai_ci
+
+# MySQL 8 tiene il binary log attivo di default e in quel caso vieta di creare trigger a chi non è
+# SUPER (errore 1419). La migrazione 0009 crea i trigger che rendono pallet_movements append-only,
+# quindi serve questa riga. È sicura qui perché i trigger li crea solo l'utente delle migrazioni,
+# mentre l'utente dell'applicazione non ha il permesso TRIGGER.
+log_bin_trust_function_creators = 1

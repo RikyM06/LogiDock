@@ -1,0 +1,4 @@
+# Backup notturno del database LogiDock.
+# Installazione: /etc/cron.d/logidock-backup  (proprietario root, modo 644)
+# Ogni notte alle 02:30. L'output va nel log; se lo script fallisce, il codice di uscita lo segnala.
+30 2 * * * root bash /var/www/logidock/deploy/backup.sh >> /var/log/logidock-backup.log 2>&1

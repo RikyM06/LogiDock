@@ -6,8 +6,8 @@ tracciabilità dei movimenti, pianificazione dei viaggi, bolle e DDT, utenti e r
 È anche un progetto personale per il portfolio: tutto è costruito da zero (niente framework full-stack)
 per mostrare come funziona ogni pezzo.
 
-> **Stato:** Fasi 1-4 completate (scheletro, database, autenticazione, anagrafica prodotti).
-> Le altre funzionalità arrivano una alla volta, vedi [Roadmap](#roadmap).
+> **Stato:** Fasi 1-5 completate (scheletro, database, autenticazione, anagrafica prodotti, ambiente e
+> deploy). Le altre funzionalità arrivano una alla volta, vedi [Roadmap](#roadmap).
 
 ## Stack
 
@@ -56,7 +56,7 @@ src/Controller controller (sottili)
 src/Service    logica di business
 src/Repository accesso al database
 src/Model      entità e DTO
-bin/           script da riga di comando (migrate.php, seed.php)
+bin/           script da riga di comando (migrate.php, seed.php, create-user.php)
 config/        app.php (da .env) e routes.php (tutte le rotte)
 templates/     template PHP e layout
 database/      migrazioni SQL e seed
@@ -164,6 +164,37 @@ Scelte da sapere:
 
 Per aggiungere una nuova funzionalità si copiano questi sei file cambiando nome ed entità.
 
+### Avvio con Docker (sviluppo)
+
+`docker-compose.yml` avvia Nginx 1.24, PHP-FPM 8.3 e MySQL 8.0, le stesse versioni di Ubuntu 24.04.
+Nel `.env` imposta una `DB_PASSWORD` (e `DB_HOST=db`, anche se il compose lo forza comunque), poi:
+
+```powershell
+docker compose up -d --build
+docker compose run --rm php composer install
+docker compose run --rm php php bin/migrate.php
+docker compose run --rm php php bin/seed.php
+```
+
+Apri <http://localhost:8080>. MySQL è raggiungibile dal PC su `127.0.0.1:3307`.
+
+> **Non testato:** quando sono stati scritti non c'era Docker a disposizione, quindi `docker-compose.yml`
+> e i file in `docker/` non sono mai stati eseguiti. Se qualcosa non parte, il primo posto dove guardare
+> sono i log (`docker compose logs`).
+
+### Produzione e backup
+
+`deploy/` contiene la configurazione di Nginx (accesso limitato alla subnet locale, `.env` e `.git`
+bloccati, intestazioni di sicurezza), il pool PHP-FPM, `backup.sh` per cron, `deploy.sh` per gli
+aggiornamenti e la guida passo passo **[deploy/README.md](deploy/README.md)** per installare tutto
+su Ubuntu Server 24.04 da zero.
+
+Punti di sicurezza da conoscere:
+- L'applicazione in produzione usa un utente MySQL con **permessi minimi** (`grant-app-user.sh`): su
+  `pallet_movements` può solo leggere e inserire, quindi lo storico resta intatto anche in caso di bug.
+  Un altro utente, separato, applica le migrazioni.
+- Il seed è disabilitato in produzione: il primo admin si crea con `php bin/create-user.php`.
+
 Test PHPUnit: arrivano con la Fase 6.
 
 ## Roadmap
@@ -173,5 +204,5 @@ Test PHPUnit: arrivano con la Fase 6.
 - [x] **Fase 2:** migrazioni SQL, script di migrazione, seed
 - [x] **Fase 3:** autenticazione, sessioni sicure, CSRF, ruoli
 - [x] **Fase 4:** anagrafica prodotti (funzionalità verticale di esempio)
-- [ ] **Fase 5:** Docker Compose, configurazione di produzione, backup
+- [x] **Fase 5:** Docker Compose, configurazione di produzione, backup
 - [ ] **Fase 6:** test PHPUnit e documentazione finale

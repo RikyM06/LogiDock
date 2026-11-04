@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace LogiDock\Repository;
 
 use LogiDock\Core\Database;
+use LogiDock\Enum\UserRole;
 use LogiDock\Model\User;
+use PDOException;
 
 /**
  * Solo SQL: nessuna regola di business qui (quella sta in AuthService).
@@ -32,6 +34,28 @@ final class UserRepository
         $row = $statement->fetch();
 
         return $row === false ? null : User::fromRow($row);
+    }
+
+    /**
+     * @param string $passwordHash hash già calcolato con password_hash(): qui non arriva mai la password
+     * @throws DuplicateEntryException se esiste già un utente con questa email
+     */
+    public function insert(string $email, string $name, string $passwordHash, UserRole $role): int
+    {
+        try {
+            $this->database->pdo()
+                ->prepare('INSERT INTO users (email, name, password_hash, role) VALUES (?, ?, ?, ?)')
+                ->execute([$email, $name, $passwordHash, $role->value]);
+        } catch (PDOException $e) {
+            // 1062 = "Duplicate entry" di MySQL.
+            if ((int) ($e->errorInfo[1] ?? 0) === 1062) {
+                throw new DuplicateEntryException('Email già registrata', 0, $e);
+            }
+
+            throw $e;
+        }
+
+        return (int) $this->database->pdo()->lastInsertId();
     }
 
     public function touchLastLogin(int $id): void

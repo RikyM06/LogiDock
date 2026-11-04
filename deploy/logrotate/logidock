@@ -1,0 +1,11 @@
+# Rotazione del log applicativo di LogiDock.
+# Installazione: /etc/logrotate.d/logidock
+/var/www/logidock/storage/logs/*.log {
+    weekly
+    rotate 8
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0640 www-data www-data
+}
