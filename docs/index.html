@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>LogiDock · gestionale di magazzino e logistica</title>
+    <meta name="description" content="LogiDock è un gestionale web per un magazzino logistico, scritto da zero in PHP 8.3 e MySQL 8 senza framework. Qui trovi come funziona.">
+    <link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+    <header class="topbar">
+        <div class="container topbar__inner">
+            <a class="brand" href="#top">LogiDock</a>
+            <nav class="nav" aria-label="Sezioni">
+                <a class="nav__link" href="#funzioni">Funzioni</a>
+                <a class="nav__link" href="#architettura">Architettura</a>
+                <a class="nav__link" href="#sicurezza">Sicurezza</a>
+                <a class="nav__link" href="#database">Database</a>
+                <a class="nav__link" href="#test">Test</a>
+                <a class="nav__link" href="#avvio">Avvio</a>
+            </nav>
+            <a class="button button--ghost topbar__cta" href="https://github.com/RikyM06/LogiDock">GitHub</a>
+        </div>
+    </header>
+
+    <main id="top">
+        <section class="hero">
+            <div class="container hero__grid">
+                <div>
+                    <h1>Il magazzino sotto controllo, dal bancale al viaggio.</h1>
+                    <p class="lead">
+                        LogiDock è un gestionale web per una piccola azienda di logistica: prodotti, bancali in
+                        ingresso, tracciabilità, viaggi, bolle e DDT, utenti e ruoli. È costruito da zero in
+                        PHP 8.3 e MySQL 8, <strong>senza framework</strong>, per capire come funziona ogni pezzo.
+                    </p>
+                    <div class="hero__actions">
+                        <a class="button" href="#avvio">Provalo in locale</a>
+                        <a class="button button--secondary" href="#architettura">Come è fatto</a>
+                    </div>
+                </div>
+                <figure class="screenshot">
+                    <img src="assets/prodotti-app.png" alt="Pagina Prodotti di LogiDock: ricerca per codice o descrizione e tabella con pulsanti Modifica e Disattiva" width="2850" height="1286">
+                    <figcaption>L'anagrafica prodotti, la prima funzionalità completa (vista da amministratore).</figcaption>
+                </figure>
+            </div>
+        </section>
+
+        <section class="section" id="funzioni">
+            <div class="container">
+                <h2>Cosa fa</h2>
+                <p class="section__intro">
+                    Il progetto avanza una fase alla volta. Oggi sono pronte le fondamenta e l'anagrafica prodotti;
+                    il resto è già previsto nello schema del database.
+                </p>
+                <div class="grid">
+                    <article class="card">
+                        <h3>Prodotti <span class="badge badge--ok">Pronto</span></h3>
+                        <p>Lista con ricerca, creazione, modifica, disattivazione e riattivazione. Non si cancella mai: un prodotto ha bancali collegati.</p>
+                    </article>
+                    <article class="card">
+                        <h3>Utenti e ruoli <span class="badge badge--ok">Pronto</span></h3>
+                        <p>Login sicuro con due ruoli: l'<strong>admin</strong> modifica, l'<strong>operatore</strong> consulta.</p>
+                    </article>
+                    <article class="card">
+                        <h3>Bancali e movimenti <span class="badge badge--off">In arrivo</span></h3>
+                        <p>Ingresso dei bancali con codice univoco (<code>PAL-2026-000123</code>) e storico dei movimenti che non si può alterare.</p>
+                    </article>
+                    <article class="card">
+                        <h3>Viaggi e documenti <span class="badge badge--off">In arrivo</span></h3>
+                        <p>Composizione dei viaggi sui veicoli e bolle / DDT numerati in automatico. Niente pianificazione automatica per ora.</p>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <section class="section section--alt" id="architettura">
+            <div class="container">
+                <h2>Architettura</h2>
+                <p class="section__intro">
+                    Ogni richiesta attraversa gli stessi livelli, e ognuno ha un solo compito. Così il codice resta
+                    leggibile e ogni regola sta in un posto preciso.
+                </p>
+
+                <ul class="layers">
+                    <li><strong>Controller</strong><span>Sottile: legge la richiesta, chiama un service, restituisce una risposta. Nessuna regola.</span></li>
+                    <li><strong>Service</strong><span>La logica di business: validazione, regole e transazioni. Nessun SQL.</span></li>
+                    <li><strong>Repository</strong><span>Solo SQL, con PDO e prepared statement. Nessuna regola.</span></li>
+                    <li><strong>Model</strong><span>Oggetti semplici e immutabili che trasportano i dati.</span></li>
+                </ul>
+
+<pre class="diagram"><code>Browser
+   │  HTTP
+   ▼
+Nginx ──► public/index.php (front controller)
+              │
+              ▼
+          Application ──► Router ──► [Middleware] ──► Controller
+                                                          │
+                                                          ▼
+                                                       Service
+                                                          │
+                                                          ▼
+                                                     Repository
+                                                          │
+                                                          ▼
+                                                        MySQL
+              Controller ──► View (template PHP + layout) ──► Response ──► Browser</code></pre>
+
+                <div class="grid" style="margin-top: 2rem;">
+                    <article class="card">
+                        <h3>Router fatto in casa</h3>
+                        <p>Le rotte stanno tutte in <code>config/routes.php</code>. I pattern come <code>/products/{id}</code> diventano espressioni regolari, e distingue 404 (non esiste) da 405 (metodo sbagliato).</p>
+                    </article>
+                    <article class="card">
+                        <h3>Middleware a gruppi</h3>
+                        <p>CSRF, login e ruolo admin si applicano a interi gruppi di rotte. Il primo dichiarato è il più esterno.</p>
+                    </article>
+                    <article class="card">
+                        <h3>Dipendenze esplicite</h3>
+                        <p>Nessun autowiring: i collegamenti tra le classi si leggono in <code>Application::registerServices()</code>.</p>
+                    </article>
+                    <article class="card">
+                        <h3>Errori sotto controllo</h3>
+                        <p>Nessuna eccezione ingoiata: arrivano a un gestore centrale che scrive il log e mostra una pagina generica.</p>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <section class="section" id="stack">
+            <div class="container">
+                <h2>Stack</h2>
+                <p class="section__intro">Poche scelte, tutte spiegabili.</p>
+                <div class="table-wrap">
+                    <table class="table">
+                        <thead>
+                            <tr><th>Componente</th><th>Scelta</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>Linguaggio</td><td>PHP 8.3, tipi ovunque, <code>strict_types</code>, PSR-12</td></tr>
+                            <tr><td>Database</td><td>MySQL 8 con PDO e prepared statement, niente ORM</td></tr>
+                            <tr><td>Frontend</td><td>HTML, CSS e JavaScript vanilla, template PHP lato server</td></tr>
+                            <tr><td>Web server</td><td>Nginx + PHP-FPM su Ubuntu Server 24.04, raggiungibile solo dalla rete locale</td></tr>
+                            <tr><td>Sviluppo</td><td>PHP e MySQL in locale, oppure Docker Compose</td></tr>
+                            <tr><td>Pacchetti Composer</td><td><code>vlucas/phpdotenv</code> e <code>phpunit/phpunit</code> (solo sviluppo)</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section class="section section--alt" id="sicurezza">
+            <div class="container">
+                <h2>Sicurezza</h2>
+                <p class="section__intro">Le protezioni sono nel codice, non solo nella speranza che nessuno sbagli.</p>
+                <div class="grid">
+                    <article class="card">
+                        <h3>Password</h3>
+                        <p><code>password_hash</code> e <code>password_verify</code>. Anche con un'email inesistente si fa un controllo finto, così il tempo di risposta non rivela chi è registrato.</p>
+                    </article>
+                    <article class="card">
+                        <h3>Sessioni</h3>
+                        <p>Cookie <code>HttpOnly</code> e <code>SameSite</code>, nuovo ID a ogni login, scadenza per inattività. In sessione c'è solo l'id: ruolo e stato si rileggono dal database, quindi disattivare un utente ha effetto subito.</p>
+                    </article>
+                    <article class="card">
+                        <h3>CSRF</h3>
+                        <p>Ogni POST richiede un token, altrimenti la risposta è 419.</p>
+                    </article>
+                    <article class="card">
+                        <h3>SQL e HTML</h3>
+                        <p>L'input non finisce mai concatenato nell'SQL, e ogni output HTML passa da <code>e()</code>.</p>
+                    </article>
+                    <article class="card">
+                        <h3>Storico a prova di errore</h3>
+                        <p><code>pallet_movements</code> è append-only: due trigger bloccano UPDATE e DELETE, e in produzione l'utente dell'app può solo leggere e inserire.</p>
+                    </article>
+                    <article class="card">
+                        <h3>Tre utenti MySQL</h3>
+                        <p>Uno applica le migrazioni, uno è l'app con permessi minimi, uno fa i backup in sola lettura.</p>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <section class="section" id="database">
+            <div class="container">
+                <h2>Database</h2>
+                <p class="section__intro">
+                    Lo schema è già pronto per tutte le funzionalità future, in 11 migrazioni SQL numerate.
+                    Una migrazione già applicata non si modifica: il runner se ne accorge dal checksum e si ferma.
+                </p>
+<pre class="diagram"><code>users ─┬──&lt; pallets &gt;── products          pallets: stato corrente di ogni bancale
+       │      │  └───── suppliers         pallet_movements: storico append-only (solo INSERT)
+       │      └──────── warehouse_locations
+       ├──&lt; pallet_movements &gt;── pallets, warehouse_locations (da/a), trips
+       ├──&lt; trips &gt;── vehicles
+       │      ├──&lt; trip_items &gt;── pallets
+       │      └──&lt; transport_documents    (bolla / DDT, numerati con number_sequences)</code></pre>
+                <div class="grid" style="margin-top: 1.5rem;">
+                    <article class="card">
+                        <h3>Decimali senza float</h3>
+                        <p>Quantità e pesi sono <code>DECIMAL</code> nel database e stringhe validate in PHP: <code>12,5</code> diventa <code>12.500</code> senza errori di arrotondamento.</p>
+                    </article>
+                    <article class="card">
+                        <h3>Date in UTC</h3>
+                        <p>Nel database sono sempre in UTC, e si convertono in ora italiana solo quando si mostrano.</p>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <section class="section section--alt" id="test">
+            <div class="container">
+                <h2>Test</h2>
+                <p class="section__intro">
+                    53 test PHPUnit. Quelli sul service dei prodotti usano il vero repository su un database di test,
+                    dentro una transazione che si annulla a fine test.
+                </p>
+                <div class="table-wrap">
+                    <table class="table">
+                        <thead>
+                            <tr><th>Test</th><th>Tipo</th><th>Cosa verifica</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><code>RouterTest</code></td><td>unitario</td><td>rotte, parametri, 404 e 405, ordine dei middleware, gruppi</td></tr>
+                            <tr><td><code>RequestTest</code></td><td>unitario</td><td>normalizzazione di percorso e metodo</td></tr>
+                            <tr><td><code>MigrationRunnerTest</code></td><td>unitario</td><td>lo spezzatore delle istruzioni SQL</td></tr>
+                            <tr><td><code>ProductServiceTest</code></td><td>integrazione</td><td>validazione, duplicati, attiva/disattiva, ricerca</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="section__intro" style="margin-top: 1rem;">
+                    Una rete di sicurezza impedisce ai test di toccare il database vero: si rifiutano di partire
+                    se il nome del database non finisce in <code>_test</code>.
+                </p>
+            </div>
+        </section>
+
+        <section class="section" id="avvio">
+            <div class="container">
+                <h2>Provalo in locale</h2>
+                <p class="section__intro">Servono PHP 8.3, Composer e MySQL 8.</p>
+<pre class="diagram"><code>composer install
+Copy-Item .env.example .env      # poi modifica i valori in .env
+php bin/migrate.php              # crea le tabelle
+php bin/seed.php                 # dati di esempio (solo sviluppo)
+php -S localhost:8000 -t public  # apri http://localhost:8000</code></pre>
+                <p class="section__intro" style="margin-top: 1rem;">
+                    Il seed crea <code>admin@logidock.test</code> e <code>operatore@logidock.test</code>, con le password
+                    scelte in <code>.env</code>. I comandi per eseguire i test e la guida all'installazione su Ubuntu
+                    sono nel README e in <code>deploy/README.md</code>.
+                </p>
+            </div>
+        </section>
+
+        <section class="section section--alt" id="roadmap">
+            <div class="container">
+                <h2>Roadmap</h2>
+                <ul class="roadmap">
+                    <li><span class="badge badge--ok">Fatta</span> Fase 0: piano, schema del database e decisioni</li>
+                    <li><span class="badge badge--ok">Fatta</span> Fase 1: scheletro (router, configurazione, gestione errori, layout)</li>
+                    <li><span class="badge badge--ok">Fatta</span> Fase 2: migrazioni SQL, runner con checksum, seed</li>
+                    <li><span class="badge badge--ok">Fatta</span> Fase 3: autenticazione, sessioni sicure, CSRF, ruoli</li>
+                    <li><span class="badge badge--ok">Fatta</span> Fase 4: anagrafica prodotti (esempio da replicare)</li>
+                    <li><span class="badge badge--ok">Fatta</span> Fase 5: Docker Compose, configurazione di produzione, backup</li>
+                    <li><span class="badge badge--ok">Fatta</span> Fase 6: test PHPUnit e documentazione</li>
+                    <li><span class="badge badge--off">Prossima</span> Bancali in ingresso, tracciabilità, viaggi, bolle e DDT</li>
+                </ul>
+                <p class="section__intro" style="margin-top: 1rem;">
+                    <span class="badge badge--warn">Nota onesta</span>
+                    I file di Docker, Nginx, PHP-FPM e <code>deploy.sh</code> sono scritti ma non sono ancora stati
+                    eseguiti: sul PC di sviluppo non ci sono Docker né Ubuntu. Si proveranno alla prima installazione.
+                </p>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">LogiDock · gestionale di magazzino e logistica · progetto personale per il portfolio</div>
+    </footer>
+</body>
+</html>

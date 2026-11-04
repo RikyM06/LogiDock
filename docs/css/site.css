@@ -1,0 +1,385 @@
+/* Sito vetrina di LogiDock: stesse variabili e stesso stile dell'applicazione (public/assets/css/app.css). */
+:root {
+    --color-bg: #f4f6f8;
+    --color-surface: #ffffff;
+    --color-text: #1f2933;
+    --color-muted: #637381;
+    --color-primary: #1d4ed8;
+    --color-primary-dark: #1e3a8a;
+    --color-border: #dde3ea;
+    --radius: 8px;
+    --space: 1rem;
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 4.5rem;
+}
+
+body {
+    margin: 0;
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.6;
+}
+
+a {
+    color: var(--color-primary);
+}
+
+h1,
+h2,
+h3 {
+    line-height: 1.25;
+}
+
+h2 {
+    margin: 0 0 0.5rem;
+    font-size: 1.75rem;
+}
+
+h3 {
+    margin: 0 0 0.4rem;
+    font-size: 1.1rem;
+}
+
+code {
+    padding: 0.1rem 0.35rem;
+    border-radius: 4px;
+    background: #e9eef5;
+    font-size: 0.9em;
+}
+
+.container {
+    width: 100%;
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 0 var(--space);
+}
+
+/* Barra superiore (uguale a quella dell'app) */
+.topbar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--color-primary-dark);
+    color: #fff;
+}
+
+.topbar__inner {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    min-height: 3.5rem;
+}
+
+.brand {
+    color: #fff;
+    font-size: 1.2rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+.nav__link {
+    padding: 0.4rem 0.8rem;
+    border-radius: var(--radius);
+    color: #dbe4ff;
+    text-decoration: none;
+}
+
+.nav__link:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff;
+}
+
+.topbar__cta {
+    margin-left: auto;
+}
+
+/* Pulsanti */
+.button {
+    display: inline-block;
+    padding: 0.6rem 1.1rem;
+    border-radius: var(--radius);
+    background: var(--color-primary);
+    color: #fff;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.button:hover {
+    background: var(--color-primary-dark);
+}
+
+.button--ghost {
+    padding: 0.3rem 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    background: transparent;
+}
+
+.button--ghost:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.button--secondary {
+    background: #e4e9f0;
+    color: var(--color-text);
+}
+
+.button--secondary:hover {
+    background: #d3dbe6;
+}
+
+/* Sezioni */
+.hero {
+    padding: 4rem 0 3rem;
+    background: var(--color-surface);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.hero__grid {
+    display: grid;
+    grid-template-columns: 1fr 1.25fr;
+    gap: 2.5rem;
+    align-items: center;
+}
+
+.hero h1 {
+    margin: 0 0 var(--space);
+    font-size: 2.5rem;
+}
+
+.lead {
+    color: var(--color-muted);
+    font-size: 1.15rem;
+}
+
+.hero__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+}
+
+.section {
+    padding: 3.5rem 0;
+}
+
+.section--alt {
+    background: var(--color-surface);
+    border-top: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.section__intro {
+    max-width: 680px;
+    margin-bottom: 2rem;
+    color: var(--color-muted);
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: var(--space);
+}
+
+.card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+}
+
+.section--alt .card {
+    background: var(--color-bg);
+}
+
+.card p {
+    margin: 0;
+    color: var(--color-muted);
+}
+
+.badge {
+    display: inline-block;
+    padding: 0.1rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.badge--ok {
+    background: #e8f6ec;
+    color: #1d5a2e;
+}
+
+.badge--off {
+    background: #eceff3;
+    color: var(--color-muted);
+}
+
+.badge--warn {
+    background: #fff4dc;
+    color: #7a4b00;
+}
+
+/* Immagini */
+.screenshot {
+    margin: 0;
+}
+
+.screenshot img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    box-shadow: 0 8px 24px rgba(31, 41, 51, 0.12);
+}
+
+.screenshot figcaption {
+    margin-top: 0.5rem;
+    color: var(--color-muted);
+    font-size: 0.9rem;
+}
+
+/* Schemi di testo (architettura, schema DB) */
+.diagram {
+    margin: 0;
+    padding: 1.25rem;
+    overflow-x: auto;
+    background: #1f2933;
+    color: #e4e7eb;
+    border-radius: var(--radius);
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+
+/* Livelli dell'architettura */
+.layers {
+    display: grid;
+    gap: 0.5rem;
+    margin: 0 0 2rem;
+    padding: 0;
+    list-style: none;
+}
+
+.layers li {
+    display: grid;
+    grid-template-columns: 9rem 1fr;
+    gap: 1rem;
+    align-items: baseline;
+    padding: 0.75rem 1rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-left: 4px solid var(--color-primary);
+    border-radius: var(--radius);
+}
+
+.layers strong {
+    color: var(--color-primary-dark);
+}
+
+.layers span {
+    color: var(--color-muted);
+}
+
+/* Tabelle */
+.table-wrap {
+    overflow-x: auto;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.table th,
+.table td {
+    padding: 0.65rem 0.9rem;
+    border-bottom: 1px solid var(--color-border);
+    text-align: left;
+    vertical-align: top;
+}
+
+.table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.table th {
+    background: #f8fafc;
+    font-size: 0.85rem;
+    color: var(--color-muted);
+}
+
+/* Roadmap */
+.roadmap {
+    display: grid;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.roadmap li {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 1rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+}
+
+.roadmap .badge {
+    min-width: 4.5rem;
+    text-align: center;
+}
+
+pre.diagram code {
+    padding: 0;
+    background: none;
+    color: inherit;
+    font-size: inherit;
+}
+
+.footer {
+    padding: var(--space) 0;
+    border-top: 1px solid var(--color-border);
+    color: var(--color-muted);
+    font-size: 0.9rem;
+}
+
+@media (max-width: 800px) {
+    .hero__grid {
+        grid-template-columns: 1fr;
+    }
+
+    .hero h1 {
+        font-size: 2rem;
+    }
+
+    .nav {
+        display: none;
+    }
+
+    .layers li {
+        grid-template-columns: 1fr;
+        gap: 0.1rem;
+    }
+}
