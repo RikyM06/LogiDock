@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         cacheDirectory=".phpunit.cache"
+         colors="true"
+         failOnWarning="true"
+         failOnRisky="true">
+    <testsuites>
+        <testsuite name="LogiDock">
+            <directory>tests</directory>
+        </testsuite>
+    </testsuites>
+
+    <source>
+        <include>
+            <directory>src</directory>
+        </include>
+    </source>
+
+    <php>
+        <!--
+            I test di integrazione usano SEMPRE il database di test, mai quello di sviluppo.
+            "force" fa vincere questo valore su quello scritto in .env.
+        -->
+        <env name="DB_NAME" value="logidock_test" force="true"/>
+        <env name="APP_DEBUG" value="false" force="true"/>
+    </php>
+</phpunit>

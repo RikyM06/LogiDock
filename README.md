@@ -6,8 +6,8 @@ tracciabilità dei movimenti, pianificazione dei viaggi, bolle e DDT, utenti e r
 È anche un progetto personale per il portfolio: tutto è costruito da zero (niente framework full-stack)
 per mostrare come funziona ogni pezzo.
 
-> **Stato:** Fasi 1-5 completate (scheletro, database, autenticazione, anagrafica prodotti, ambiente e
-> deploy). Le altre funzionalità arrivano una alla volta, vedi [Roadmap](#roadmap).
+> **Stato:** Fasi 1-6 completate (scheletro, database, autenticazione, anagrafica prodotti, ambiente e
+> deploy, test). Le altre funzionalità arrivano una alla volta, vedi [Roadmap](#roadmap).
 
 ## Stack
 
@@ -195,7 +195,34 @@ Punti di sicurezza da conoscere:
   Un altro utente, separato, applica le migrazioni.
 - Il seed è disabilitato in produzione: il primo admin si crea con `php bin/create-user.php`.
 
-Test PHPUnit: arrivano con la Fase 6.
+## Test
+
+I test usano PHPUnit e stanno in `tests/`:
+
+| File | Tipo | Cosa verifica |
+|---|---|---|
+| `tests/Core/RouterTest.php` | unitario | rotte, parametri `{id}`, 404 e 405, ordine dei middleware, gruppi, middleware che blocca |
+| `tests/Core/RequestTest.php` | unitario | normalizzazione di percorso e metodo, lettura dell'input |
+| `tests/Core/MigrationRunnerTest.php` | unitario | lo spezzatore delle istruzioni SQL delle migrazioni |
+| `tests/Service/ProductServiceTest.php` | integrazione | validazione, normalizzazione, codici duplicati, attiva/disattiva, ricerca (con il vero repository) |
+
+I test del service parlano con MySQL, ma **solo con il database di test** (`logidock_test`):
+`phpunit.xml` forza `DB_NAME=logidock_test` e `TestDatabase` si rifiuta di partire con un database
+il cui nome non finisce in `_test`. Ogni test gira in una transazione che si annulla alla fine,
+quindi il database resta pulito. Se MySQL non è raggiungibile quei test vengono saltati (e lo dicono).
+
+Preparazione, una volta sola (serve un utente con permessi anche su `logidock_test`):
+
+```powershell
+# in MySQL: CREATE DATABASE logidock_test; GRANT ALL ON logidock_test.* TO 'logidock'@'localhost';
+$env:DB_NAME = 'logidock_test'; php bin/migrate.php; Remove-Item Env:DB_NAME
+composer test
+```
+
+Per lanciare un solo test: `php vendor/bin/phpunit --filter testDeactivateAndActivate`.
+
+Il database di test non va riempito col seed. Quando il codice cambia lo schema, rilancia la migrazione
+con la stessa riga di sopra.
 
 ## Roadmap
 
@@ -205,4 +232,7 @@ Test PHPUnit: arrivano con la Fase 6.
 - [x] **Fase 3:** autenticazione, sessioni sicure, CSRF, ruoli
 - [x] **Fase 4:** anagrafica prodotti (funzionalità verticale di esempio)
 - [x] **Fase 5:** Docker Compose, configurazione di produzione, backup
-- [ ] **Fase 6:** test PHPUnit e documentazione finale
+- [x] **Fase 6:** test PHPUnit e documentazione finale
+
+Prossime funzionalità (non ancora iniziate): bancali in ingresso e movimenti, tracciabilità, viaggi,
+bolle e DDT. Lo schema del database le prevede già.
