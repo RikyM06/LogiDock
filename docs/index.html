@@ -66,8 +66,8 @@
                         <p>Fornitori, clienti con il loro giro, veicoli, rimorchi, trasportatori, posizioni e tipi di bancale (EPAL 1 ed EPAL 3). Misure, altezza massima e giorni dell'avviso si cambiano da una schermata, non dal codice.</p>
                     </article>
                     <article class="card">
-                        <h3>Bancali e movimenti <span class="badge badge--off">In arrivo</span></h3>
-                        <p>Ingresso dei bancali con codice univoco (<code>PAL-2026-000123</code>) e storico dei movimenti che non si può alterare.</p>
+                        <h3>Arrivi di merce <span class="badge badge--ok">Pronto</span></h3>
+                        <p>Il documento del fornitore con le sue date e i bancali con prezzo, peso segnato e posizione. Ogni bancale riceve un codice (<code>PAL-2026-000123</code>) e un movimento nello storico che non si può alterare. Se il peso segnato non torna con quello calcolato, l'app lo evidenzia.</p>
                     </article>
                     <article class="card">
                         <h3>Viaggi e documenti <span class="badge badge--off">In arrivo</span></h3>
@@ -217,7 +217,7 @@ Nginx ──► public/index.php (front controller)
             <div class="container">
                 <h2>Test</h2>
                 <p class="section__intro">
-                    127 test PHPUnit. Quelli sui service (prodotti, anagrafiche, impostazioni) usano i veri repository
+                    151 test PHPUnit. Quelli sui service (prodotti, anagrafiche, impostazioni) usano i veri repository
                     su un database di test, dentro una transazione che si annulla a fine test.
                 </p>
                 <div class="table-wrap">
@@ -232,6 +232,8 @@ Nginx ──► public/index.php (front controller)
                             <tr><td><code>ValidatorTest</code></td><td>unitario</td><td>ogni controllo del validatore, con valori limite e input ostili</td></tr>
                             <tr><td><code>ProductServiceTest</code></td><td>integrazione</td><td>validazione, duplicati, attiva/disattiva, ricerca</td></tr>
                             <tr><td><code>MasterDataServicesTest</code></td><td>integrazione</td><td>regole delle anagrafiche: giri dei clienti, targhe, capacità, EPAL</td></tr>
+                            <tr><td><code>InboundServiceTest</code></td><td>integrazione</td><td>arrivo completo, codici consecutivi, capacità, peso, documento duplicato, tutto-o-niente</td></tr>
+                            <tr><td><code>DatabaseTransactionTest</code></td><td>integrazione</td><td>commit, rollback e savepoint nelle transazioni annidate</td></tr>
                             <tr><td><code>SettingServiceTest</code></td><td>integrazione</td><td>valori di partenza, salvataggio tutto-o-niente, limiti</td></tr>
                         </tbody>
                     </table>
@@ -272,7 +274,8 @@ php -S localhost:8000 -t public  # apri http://localhost:8000</code></pre>
                     <li><span class="badge badge--ok">Fatta</span> Fase 5: Docker Compose, configurazione di produzione, backup</li>
                     <li><span class="badge badge--ok">Fatta</span> Fase 6: test PHPUnit e documentazione</li>
                     <li><span class="badge badge--ok">Fatta</span> Fase 8: anagrafiche (fornitori, clienti, giri, veicoli, rimorchi, trasportatori, posizioni, tipi di bancale) e impostazioni</li>
-                    <li><span class="badge badge--off">Prossima</span> Arrivi giornalieri, richieste dei clienti, giacenze con avviso, pianificazione dei viaggi, documenti in PDF</li>
+                    <li><span class="badge badge--ok">Fatta</span> Fase 9: arrivi giornalieri (documento del fornitore, bancali con prezzo, peso e posizione)</li>
+                    <li><span class="badge badge--off">Prossima</span> Richieste dei clienti, giacenze con avviso, pianificazione dei viaggi, documenti in PDF</li>
                 </ul>
                 <p class="section__intro" style="margin-top: 1rem;">
                     <span class="badge badge--warn">Nota onesta</span>

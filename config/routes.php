@@ -6,6 +6,7 @@ use LogiDock\Controller\AuthController;
 use LogiDock\Controller\CarrierController;
 use LogiDock\Controller\CustomerController;
 use LogiDock\Controller\HomeController;
+use LogiDock\Controller\InboundController;
 use LogiDock\Controller\PalletTypeController;
 use LogiDock\Controller\ProductController;
 use LogiDock\Controller\RoundController;
@@ -68,6 +69,13 @@ return static function (Router $router): void {
             $router->get('/', [HomeController::class, 'index']);
             $router->get('/master-data', [HomeController::class, 'masterData']);
             $router->post('/logout', [AuthController::class, 'logout']);
+
+            // Arrivi di merce: li registra chiunque lavori in magazzino, non solo gli admin.
+            // "/inbound/create" va prima di "/inbound/{id}", altrimenti "create" sarebbe preso per un id.
+            $router->get('/inbound', [InboundController::class, 'index']);
+            $router->get('/inbound/create', [InboundController::class, 'create']);
+            $router->post('/inbound', [InboundController::class, 'store']);
+            $router->get('/inbound/{id}', [InboundController::class, 'show']);
 
             // Prodotti: tutti possono consultare l'anagrafica...
             $router->get('/products', [ProductController::class, 'index']);

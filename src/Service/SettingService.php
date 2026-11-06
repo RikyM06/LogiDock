@@ -23,6 +23,7 @@ final class SettingService
     public const PALLET_MAX_HEIGHT_MM = 'pallet_max_height_mm';
     public const AGING_THRESHOLD_DAYS = 'aging_threshold_days';
     public const LOCATION_DEFAULT_CAPACITY = 'location_default_capacity';
+    public const WEIGHT_TOLERANCE_PERCENT = 'weight_tolerance_percent';
     public const COMPANY_NAME = 'company_name';
     public const COMPANY_ADDRESS = 'company_address';
     public const COMPANY_VAT = 'company_vat';
@@ -71,6 +72,16 @@ final class SettingService
                 1,
                 65535,
                 'Vale per le posizioni che non hanno una capacità propria.'
+            ),
+            new SettingDefinition(
+                self::WEIGHT_TOLERANCE_PERCENT,
+                $warehouse,
+                'Tolleranza sul peso dei bancali (%)',
+                SettingDefinition::TYPE_INT,
+                '5',
+                0,
+                100,
+                'Se il peso segnato dal fornitore differisce da quello calcolato di più di questa percentuale, il bancale viene evidenziato.'
             ),
             new SettingDefinition(self::COMPANY_NAME, $company, 'Ragione sociale', SettingDefinition::TYPE_TEXT, '', 0, 150),
             new SettingDefinition(self::COMPANY_ADDRESS, $company, 'Indirizzo', SettingDefinition::TYPE_TEXT, '', 0, 255),

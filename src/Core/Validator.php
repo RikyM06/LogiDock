@@ -174,6 +174,46 @@ final class Validator
         return (int) $value;
     }
 
+    /**
+     * Come optionalReference(), ma il campo è obbligatorio.
+     *
+     * @param list<int> $allowedIds
+     */
+    public function requiredReference(string $field, string $label, array $allowedIds): int
+    {
+        if ($this->raw($field) === '') {
+            $this->fail($field, 'Il campo «' . $label . '» è obbligatorio.');
+
+            return 0;
+        }
+
+        return $this->optionalReference($field, $label, $allowedIds) ?? 0;
+    }
+
+    /**
+     * Data nel formato AAAA-MM-GG (quello dei campi <input type="date">), restituita uguale.
+     * Rifiuta le date che non esistono, come il 31 febbraio.
+     */
+    public function requiredDate(string $field, string $label): string
+    {
+        $value = $this->raw($field);
+
+        if ($value === '') {
+            $this->fail($field, 'Il campo «' . $label . '» è obbligatorio.');
+
+            return '';
+        }
+
+        return $this->checkDate($field, $label, $value);
+    }
+
+    public function optionalDate(string $field, string $label): ?string
+    {
+        $value = $this->raw($field);
+
+        return $value === '' ? null : $this->checkDate($field, $label, $value);
+    }
+
     public function fail(string $field, string $message): void
     {
         // Per ogni campo si mostra solo il primo errore.
@@ -196,6 +236,18 @@ final class Validator
         $value = $this->input[$field] ?? '';
 
         return is_scalar($value) ? trim((string) $value) : '';
+    }
+
+    private function checkDate(string $field, string $label, string $value): string
+    {
+        // Il "!" azzera l'ora; il confronto con format() scarta le date inesistenti (31/02 diventerebbe 03/03).
+        $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $value);
+
+        if ($date === false || $date->format('Y-m-d') !== $value) {
+            $this->fail($field, 'Il campo «' . $label . '» non è una data valida.');
+        }
+
+        return $value;
     }
 
     private function checkLength(string $field, string $label, string $value, int $max): string

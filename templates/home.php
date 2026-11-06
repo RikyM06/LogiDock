@@ -9,9 +9,10 @@
 <div class="card">
     <h2>Moduli</h2>
     <ul class="list">
+        <li><a href="/inbound">Arrivi</a>: documento del fornitore e bancali, con prezzo, peso e posizione</li>
         <li><a href="/products">Prodotti</a></li>
         <li><a href="/master-data">Anagrafiche</a>: fornitori, clienti, giri, veicoli, rimorchi, posizioni, tipi di bancale</li>
-        <li>Arrivi giornalieri e richieste dei clienti <span class="muted">(in arrivo)</span></li>
+        <li>Richieste dei clienti <span class="muted">(in arrivo)</span></li>
         <li>Pianificazione viaggi <span class="muted">(in arrivo)</span></li>
         <li>Bolle e DDT <span class="muted">(in arrivo)</span></li>
     </ul>

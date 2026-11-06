@@ -14,6 +14,7 @@
 // Voci di navigazione: percorso => etichetta. Si aggiungono man mano che nascono le funzionalità.
 $navigation = [
     '/' => 'Home',
+    '/inbound' => 'Arrivi',
     '/products' => 'Prodotti',
     '/master-data' => 'Anagrafiche',
 ];

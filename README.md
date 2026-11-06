@@ -6,8 +6,8 @@ tracciabilità dei movimenti, pianificazione dei viaggi, bolle e DDT, utenti e r
 È anche un progetto personale per il portfolio: tutto è costruito da zero (niente framework full-stack)
 per mostrare come funziona ogni pezzo.
 
-> **Stato:** Fasi 1-6 e 8 completate (scheletro, database, autenticazione, prodotti, ambiente e deploy,
-> test, anagrafiche e impostazioni). Le altre funzionalità arrivano una alla volta, vedi [Roadmap](#roadmap).
+> **Stato:** Fasi 1-6, 8 e 9 completate (scheletro, database, autenticazione, prodotti, ambiente e deploy,
+> test, anagrafiche e impostazioni, arrivi di merce). Le altre funzionalità arrivano una alla volta, vedi [Roadmap](#roadmap).
 
 ## Stack
 
@@ -114,7 +114,8 @@ users ─┬──< pallets >── products          pallets: stato corrente di
        │      └──< transport_documents    (bolla / DDT, numerati con number_sequences)
 ```
 
-Dalla Fase 8 si aggiungono: `settings` (impostazioni), `pallet_types` e `trailer_types` (misure), `rounds` e
+Dalla Fase 9 `supplier_documents` (documenti dei fornitori) e, su `pallets`, tipo di bancale, documento,
+prezzo d'acquisto e peso segnato. Dalla Fase 8 si aggiungono: `settings` (impostazioni), `pallet_types` e `trailer_types` (misure), `rounds` e
 `customers` (giri e clienti), `carriers` (trasportatori). `vehicles` punta a un tipo di rimorchio e a un
 trasportatore, `warehouse_locations` ha una capacità facoltativa.
 
@@ -198,6 +199,35 @@ passano sempre da prepared statement.
 Come per i prodotti, tutti consultano e solo gli admin modificano. Un riferimento già assegnato (il giro di
 un cliente) che viene disattivato resta sul record e non sparisce dal form, ma non si può assegnare a record nuovi.
 
+### Arrivi di merce
+
+Il lavoro di ogni giorno del magazzino: arriva un documento del fornitore con uno o più bancali. Lo
+registra **qualunque utente collegato** (non solo l'admin) da `/inbound`.
+
+Un arrivo è una testata (fornitore, numero del documento, data del documento, data di arrivo, note) più
+una riga per ogni bancale: prodotto, tipo di bancale, quantità, prezzo d'acquisto unitario, **peso lordo
+segnato dal fornitore**, lotto, scadenza e posizione. Il form aggiunge e toglie righe con un po' di
+JavaScript (`public/assets/js/app.js`); senza JavaScript funziona lo stesso con le righe già mostrate.
+
+| Pezzo | Dove | Cosa fa |
+|---|---|---|
+| Service | `src/Service/InboundService.php` | valida testata e righe, controlla la capacità, scrive tutto in una transazione |
+| Repository | `SupplierDocumentRepository`, `PalletRepository`, `PalletMovementRepository`, `NumberSequenceRepository` | solo SQL |
+| Controller e template | `InboundController`, `templates/inbound/` | lista, nuovo arrivo, dettaglio |
+
+Cosa succede quando si registra un arrivo, **tutto in una sola transazione** (se qualcosa non va non resta niente a metà):
+
+1. si salva il documento del fornitore (lo stesso fornitore non può avere due volte lo stesso numero con la stessa data);
+2. per ogni riga si assegna il codice `PAL-AAAA-NNNNNN` (numeratore per anno, senza buchi né doppioni anche con due utenti insieme);
+3. si salva il bancale (stato corrente) e **un movimento di ingresso** nello storico, che è append-only.
+
+Regole da sapere:
+- **Capacità:** una posizione non può superare la sua capacità (quella propria o, se vuota, quella delle impostazioni). Il conteggio è fatto nella stessa transazione; resta una piccola finestra se due persone riempiono la stessa posizione nello stesso istante: è un avviso pratico, non un vincolo come il codice univoco.
+- **Peso:** il peso segnato dal fornitore si confronta con quello calcolato (quantità × peso unitario del prodotto). Se differisce oltre la tolleranza delle impostazioni (5% di partenza) il bancale è evidenziato. Il confronto lo fa MySQL in DECIMAL, senza float in PHP.
+- **Date:** la data di arrivo non può essere nel futuro, il documento non può essere dopo l'arrivo, una scadenza non può precedere l'arrivo.
+- **Prezzo:** è il prezzo d'acquisto **per unità di misura** del prodotto (valore del bancale = quantità × prezzo).
+- **Un arrivo registrato non si modifica:** i movimenti sono uno storico. Una correzione si farà con un movimento di rettifica.
+
 ### Impostazioni
 
 Pagina `/settings`, solo admin. I valori di business non sono scritti nel codice: si chiedono a
@@ -208,6 +238,7 @@ Pagina `/settings`, solo admin. I valori di business non sono scritti nel codice
 | Altezza massima di carico del bancale | 750 mm (ogni tipo di bancale può avere la sua) |
 | Giorni dopo i quali un bancale fermo viene segnalato | 2 |
 | Capacità predefinita di una posizione | 300 bancali |
+| Tolleranza sul peso dei bancali (segnato dal fornitore contro calcolato) | 5 % |
 | Ragione sociale, indirizzo, partita IVA e piè di pagina dei documenti | vuoti |
 
 Le definizioni (limiti e valore di partenza) stanno in un solo elenco in `SettingService::definitions()`: nel
@@ -257,6 +288,9 @@ I test usano PHPUnit e stanno in `tests/`:
 | `tests/Service/ProductServiceTest.php` | integrazione | validazione, normalizzazione, codici duplicati, attiva/disattiva, ricerca (con il vero repository) |
 | `tests/Service/MasterDataServicesTest.php` | integrazione | regole comuni delle anagrafiche e quelle di ognuna (giri dei clienti, targhe, capacità, EPAL) |
 | `tests/Service/SettingServiceTest.php` | integrazione | valori di partenza, salvataggio, tutto-o-niente, limiti |
+| `tests/Service/InboundServiceTest.php` | integrazione | arrivo completo (documento, bancali, movimenti), codici consecutivi, errori sulla riga giusta, capacità, peso, documento duplicato, tutto-o-niente |
+| `tests/Core/DatabaseTransactionTest.php` | integrazione | commit, rollback e savepoint quando una transazione è già aperta |
+| `tests/Core/ApplicationConfigTest.php` | unitario | le variabili d'ambiente vere vincono su `.env` |
 
 I test del service parlano con MySQL, ma **solo con il database di test** (`logidock_test`):
 `phpunit.xml` forza `DB_NAME=logidock_test` e `TestDatabase` si rifiuta di partire con un database
@@ -297,7 +331,7 @@ camionisti). Serve anche lo storico di viaggi, forniture e pagamenti.
   bancale e di rimorchio, capacità delle posizioni); mancano documenti del fornitore, richieste e tappe dei viaggi,
   che si aggiungono insieme alle fasi che li usano
 - [x] **Fase 8:** anagrafiche (fornitori, clienti, giri, veicoli, trasportatori, rimorchi, posizioni, tipi di bancale) e impostazioni
-- [ ] **Fase 9:** arrivi giornalieri: documento del fornitore con date, bancali con prezzo e peso, posizione
+- [x] **Fase 9:** arrivi giornalieri: documento del fornitore con date, bancali con prezzo e peso, posizione
 - [ ] **Fase 10:** richieste dei clienti
 - [ ] **Fase 11:** giacenze e avviso per i bancali fermi da troppo tempo
 - [ ] **Fase 12:** pianificazione dei viaggi (assegnazione automatica ai rimorchi, modifica manuale e ricalcolo)

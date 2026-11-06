@@ -11,6 +11,7 @@
  * @var string|null           $inputmode  (facoltativo, es. "decimal" o "numeric")
  * @var bool|null             $comma      (facoltativo) mostra il punto decimale come virgola
  * @var string|null           $hint       (facoltativo) testo di aiuto sotto il campo
+ * @var string|null           $type       (facoltativo) "text" (default) oppure "date"
  */
 $value = $values[$name] ?? '';
 if (!empty($comma)) {
@@ -20,7 +21,7 @@ $hasError = isset($errors[$name]);
 ?>
 <div class="form__field">
     <label for="<?= e($name) ?>"><?= e($label) ?></label>
-    <input type="text" id="<?= e($name) ?>" name="<?= e($name) ?>" value="<?= e($value) ?>"
+    <input type="<?= e($type ?? 'text') ?>" id="<?= e($name) ?>" name="<?= e($name) ?>" value="<?= e($value) ?>"
            <?= isset($maxlength) ? 'maxlength="' . (int) $maxlength . '"' : '' ?>
            <?= ($required ?? true) ? 'required' : '' ?>
            <?= isset($inputmode) ? 'inputmode="' . e($inputmode) . '"' : '' ?>

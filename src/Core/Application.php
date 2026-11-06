@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace LogiDock\Core;
 
 use Dotenv\Dotenv;
+use Dotenv\Repository\Adapter\PutenvAdapter;
+use Dotenv\Repository\RepositoryBuilder;
 use LogiDock\Controller\AuthController;
 use LogiDock\Controller\CarrierController;
 use LogiDock\Controller\CustomerController;
 use LogiDock\Controller\HomeController;
+use LogiDock\Controller\InboundController;
 use LogiDock\Controller\PalletTypeController;
 use LogiDock\Controller\ProductController;
 use LogiDock\Controller\RoundController;
@@ -22,10 +25,14 @@ use LogiDock\Middleware\AuthMiddleware;
 use LogiDock\Middleware\CsrfMiddleware;
 use LogiDock\Repository\CarrierRepository;
 use LogiDock\Repository\CustomerRepository;
+use LogiDock\Repository\NumberSequenceRepository;
+use LogiDock\Repository\PalletMovementRepository;
+use LogiDock\Repository\PalletRepository;
 use LogiDock\Repository\PalletTypeRepository;
 use LogiDock\Repository\ProductRepository;
 use LogiDock\Repository\RoundRepository;
 use LogiDock\Repository\SettingRepository;
+use LogiDock\Repository\SupplierDocumentRepository;
 use LogiDock\Repository\SupplierRepository;
 use LogiDock\Repository\TrailerTypeRepository;
 use LogiDock\Repository\UserRepository;
@@ -34,6 +41,7 @@ use LogiDock\Repository\WarehouseLocationRepository;
 use LogiDock\Service\AuthService;
 use LogiDock\Service\CarrierService;
 use LogiDock\Service\CustomerService;
+use LogiDock\Service\InboundService;
 use LogiDock\Service\PalletTypeService;
 use LogiDock\Service\ProductService;
 use LogiDock\Service\RoundService;
@@ -74,8 +82,16 @@ final class Application
      */
     public static function loadConfig(string $basePath): array
     {
+        // Le variabili REALI dell'ambiente (systemd, Nginx, la shell...) devono vincere su .env.
+        // Con variables_order=GPCS compaiono solo in getenv(), che phpdotenv di default non guarda:
+        // senza PutenvAdapter vincerebbe sempre .env. "immutable" = non sovrascrive ciò che esiste già.
+        $repository = RepositoryBuilder::createWithDefaultAdapters()
+            ->addAdapter(PutenvAdapter::class)
+            ->immutable()
+            ->make();
+
         // safeLoad: se .env manca (es. variabili passate dal server) non è un errore.
-        Dotenv::createImmutable($basePath)->safeLoad();
+        Dotenv::create($repository, $basePath)->safeLoad();
 
         /** @var array<string, mixed> */
         return require $basePath . '/config/app.php';
@@ -214,6 +230,32 @@ final class Application
             $c->get(PalletTypeRepository::class)
         ));
 
+        // Arrivi di merce
+        $c->set(SupplierDocumentRepository::class, fn (Container $c): SupplierDocumentRepository => new SupplierDocumentRepository(
+            $c->get(Database::class)
+        ));
+        $c->set(PalletRepository::class, fn (Container $c): PalletRepository => new PalletRepository(
+            $c->get(Database::class)
+        ));
+        $c->set(PalletMovementRepository::class, fn (Container $c): PalletMovementRepository => new PalletMovementRepository(
+            $c->get(Database::class)
+        ));
+        $c->set(NumberSequenceRepository::class, fn (Container $c): NumberSequenceRepository => new NumberSequenceRepository(
+            $c->get(Database::class)
+        ));
+        $c->set(InboundService::class, fn (Container $c): InboundService => new InboundService(
+            $c->get(Database::class),
+            $c->get(SupplierDocumentRepository::class),
+            $c->get(PalletRepository::class),
+            $c->get(PalletMovementRepository::class),
+            $c->get(NumberSequenceRepository::class),
+            $c->get(SupplierService::class),
+            $c->get(ProductService::class),
+            $c->get(PalletTypeService::class),
+            $c->get(WarehouseLocationService::class),
+            $c->get(SettingService::class)
+        ));
+
         // Middleware
         $c->set(CsrfMiddleware::class, fn (Container $c): CsrfMiddleware => new CsrfMiddleware($c->get(Csrf::class)));
         $c->set(AuthMiddleware::class, fn (Container $c): AuthMiddleware => new AuthMiddleware($c->get(AuthService::class)));
@@ -302,6 +344,16 @@ final class Application
             $c->get(Session::class),
             $c->get(AuthService::class),
             $c->get(PalletTypeService::class)
+        ));
+        $c->set(InboundController::class, fn (Container $c): InboundController => new InboundController(
+            $c->get(View::class),
+            $c->get(Session::class),
+            $c->get(AuthService::class),
+            $c->get(InboundService::class),
+            $c->get(SupplierService::class),
+            $c->get(ProductService::class),
+            $c->get(PalletTypeService::class),
+            $c->get(WarehouseLocationService::class)
         ));
         $c->set(SettingController::class, fn (Container $c): SettingController => new SettingController(
             $c->get(View::class),
