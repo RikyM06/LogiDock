@@ -49,6 +49,13 @@ final class View
     {
         $file = $this->templatesPath . '/' . $template . '.php';
 
+        // $partial('nome', [...]) inserisce templates/partials/nome.php: pezzi di pagina riusati
+        // (un campo di form, i pulsanti di una riga). Vede le variabili della pagina più quelle passate.
+        $variables['partial'] = fn (string $name, array $data = []): string => $this->renderFile(
+            'partials/' . $name,
+            array_merge($variables, $data)
+        );
+
         // Funzione isolata: il template vede solo le sue variabili, non $this.
         $render = static function (string $file, array $variables): string {
             extract($variables, EXTR_SKIP);

@@ -6,15 +6,42 @@ namespace LogiDock\Core;
 
 use Dotenv\Dotenv;
 use LogiDock\Controller\AuthController;
+use LogiDock\Controller\CarrierController;
+use LogiDock\Controller\CustomerController;
 use LogiDock\Controller\HomeController;
+use LogiDock\Controller\PalletTypeController;
 use LogiDock\Controller\ProductController;
+use LogiDock\Controller\RoundController;
+use LogiDock\Controller\SettingController;
+use LogiDock\Controller\SupplierController;
+use LogiDock\Controller\TrailerTypeController;
+use LogiDock\Controller\VehicleController;
+use LogiDock\Controller\WarehouseLocationController;
 use LogiDock\Middleware\AdminMiddleware;
 use LogiDock\Middleware\AuthMiddleware;
 use LogiDock\Middleware\CsrfMiddleware;
+use LogiDock\Repository\CarrierRepository;
+use LogiDock\Repository\CustomerRepository;
+use LogiDock\Repository\PalletTypeRepository;
 use LogiDock\Repository\ProductRepository;
+use LogiDock\Repository\RoundRepository;
+use LogiDock\Repository\SettingRepository;
+use LogiDock\Repository\SupplierRepository;
+use LogiDock\Repository\TrailerTypeRepository;
 use LogiDock\Repository\UserRepository;
+use LogiDock\Repository\VehicleRepository;
+use LogiDock\Repository\WarehouseLocationRepository;
 use LogiDock\Service\AuthService;
+use LogiDock\Service\CarrierService;
+use LogiDock\Service\CustomerService;
+use LogiDock\Service\PalletTypeService;
 use LogiDock\Service\ProductService;
+use LogiDock\Service\RoundService;
+use LogiDock\Service\SettingService;
+use LogiDock\Service\SupplierService;
+use LogiDock\Service\TrailerTypeService;
+use LogiDock\Service\VehicleService;
+use LogiDock\Service\WarehouseLocationService;
 
 /**
  * Punto di avvio: carica la configurazione, registra i servizi nel container,
@@ -117,6 +144,76 @@ final class Application
             $c->get(ProductRepository::class)
         ));
 
+        // Impostazioni globali
+        $c->set(SettingRepository::class, fn (Container $c): SettingRepository => new SettingRepository(
+            $c->get(Database::class)
+        ));
+        $c->set(SettingService::class, fn (Container $c): SettingService => new SettingService(
+            $c->get(SettingRepository::class),
+            $c->get(Database::class)
+        ));
+
+        // Anagrafiche: ogni repository riceve il Database, ogni service il suo repository
+        // (più le altre anagrafiche a cui si riferisce).
+        $c->set(SupplierRepository::class, fn (Container $c): SupplierRepository => new SupplierRepository(
+            $c->get(Database::class)
+        ));
+        $c->set(SupplierService::class, fn (Container $c): SupplierService => new SupplierService(
+            $c->get(SupplierRepository::class)
+        ));
+
+        $c->set(RoundRepository::class, fn (Container $c): RoundRepository => new RoundRepository(
+            $c->get(Database::class)
+        ));
+        $c->set(RoundService::class, fn (Container $c): RoundService => new RoundService(
+            $c->get(RoundRepository::class)
+        ));
+
+        $c->set(CustomerRepository::class, fn (Container $c): CustomerRepository => new CustomerRepository(
+            $c->get(Database::class)
+        ));
+        $c->set(CustomerService::class, fn (Container $c): CustomerService => new CustomerService(
+            $c->get(CustomerRepository::class),
+            $c->get(RoundService::class)
+        ));
+
+        $c->set(CarrierRepository::class, fn (Container $c): CarrierRepository => new CarrierRepository(
+            $c->get(Database::class)
+        ));
+        $c->set(CarrierService::class, fn (Container $c): CarrierService => new CarrierService(
+            $c->get(CarrierRepository::class)
+        ));
+
+        $c->set(TrailerTypeRepository::class, fn (Container $c): TrailerTypeRepository => new TrailerTypeRepository(
+            $c->get(Database::class)
+        ));
+        $c->set(TrailerTypeService::class, fn (Container $c): TrailerTypeService => new TrailerTypeService(
+            $c->get(TrailerTypeRepository::class)
+        ));
+
+        $c->set(VehicleRepository::class, fn (Container $c): VehicleRepository => new VehicleRepository(
+            $c->get(Database::class)
+        ));
+        $c->set(VehicleService::class, fn (Container $c): VehicleService => new VehicleService(
+            $c->get(VehicleRepository::class),
+            $c->get(TrailerTypeService::class),
+            $c->get(CarrierService::class)
+        ));
+
+        $c->set(WarehouseLocationRepository::class, fn (Container $c): WarehouseLocationRepository => new WarehouseLocationRepository(
+            $c->get(Database::class)
+        ));
+        $c->set(WarehouseLocationService::class, fn (Container $c): WarehouseLocationService => new WarehouseLocationService(
+            $c->get(WarehouseLocationRepository::class)
+        ));
+
+        $c->set(PalletTypeRepository::class, fn (Container $c): PalletTypeRepository => new PalletTypeRepository(
+            $c->get(Database::class)
+        ));
+        $c->set(PalletTypeService::class, fn (Container $c): PalletTypeService => new PalletTypeService(
+            $c->get(PalletTypeRepository::class)
+        ));
+
         // Middleware
         $c->set(CsrfMiddleware::class, fn (Container $c): CsrfMiddleware => new CsrfMiddleware($c->get(Csrf::class)));
         $c->set(AuthMiddleware::class, fn (Container $c): AuthMiddleware => new AuthMiddleware($c->get(AuthService::class)));
@@ -149,6 +246,66 @@ final class Application
         ));
         $c->set(AuthController::class, fn (Container $c): AuthController => new AuthController(
             $c->get(View::class),
+            $c->get(AuthService::class),
+            $c->get(Session::class)
+        ));
+
+        // Controller delle anagrafiche: tutti con View, Session e AuthService, più il loro service.
+        $c->set(SupplierController::class, fn (Container $c): SupplierController => new SupplierController(
+            $c->get(View::class),
+            $c->get(Session::class),
+            $c->get(AuthService::class),
+            $c->get(SupplierService::class)
+        ));
+        $c->set(RoundController::class, fn (Container $c): RoundController => new RoundController(
+            $c->get(View::class),
+            $c->get(Session::class),
+            $c->get(AuthService::class),
+            $c->get(RoundService::class)
+        ));
+        $c->set(CustomerController::class, fn (Container $c): CustomerController => new CustomerController(
+            $c->get(View::class),
+            $c->get(Session::class),
+            $c->get(AuthService::class),
+            $c->get(CustomerService::class),
+            $c->get(RoundService::class)
+        ));
+        $c->set(CarrierController::class, fn (Container $c): CarrierController => new CarrierController(
+            $c->get(View::class),
+            $c->get(Session::class),
+            $c->get(AuthService::class),
+            $c->get(CarrierService::class)
+        ));
+        $c->set(TrailerTypeController::class, fn (Container $c): TrailerTypeController => new TrailerTypeController(
+            $c->get(View::class),
+            $c->get(Session::class),
+            $c->get(AuthService::class),
+            $c->get(TrailerTypeService::class)
+        ));
+        $c->set(VehicleController::class, fn (Container $c): VehicleController => new VehicleController(
+            $c->get(View::class),
+            $c->get(Session::class),
+            $c->get(AuthService::class),
+            $c->get(VehicleService::class),
+            $c->get(TrailerTypeService::class),
+            $c->get(CarrierService::class)
+        ));
+        $c->set(WarehouseLocationController::class, fn (Container $c): WarehouseLocationController => new WarehouseLocationController(
+            $c->get(View::class),
+            $c->get(Session::class),
+            $c->get(AuthService::class),
+            $c->get(WarehouseLocationService::class),
+            $c->get(SettingService::class)
+        ));
+        $c->set(PalletTypeController::class, fn (Container $c): PalletTypeController => new PalletTypeController(
+            $c->get(View::class),
+            $c->get(Session::class),
+            $c->get(AuthService::class),
+            $c->get(PalletTypeService::class)
+        ));
+        $c->set(SettingController::class, fn (Container $c): SettingController => new SettingController(
+            $c->get(View::class),
+            $c->get(SettingService::class),
             $c->get(AuthService::class),
             $c->get(Session::class)
         ));

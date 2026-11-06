@@ -101,11 +101,50 @@ return static function (Database $database): void {
             );
     }
 
+    // --- Giri, clienti, trasportatore e tipi di rimorchio (nomi di fantasia) --------------------
+    $roundIds = [];
+    foreach ([['Giro Nord', 'Bergamo, Brescia, Lecco'], ['Giro Sud', 'Parma, Piacenza, Cremona']] as [$name, $description]) {
+        $roundIds[$name] = $firstId('SELECT id FROM rounds WHERE name = ?', [$name])
+            ?? $insert('INSERT INTO rounds (name, description) VALUES (?, ?)', [$name, $description]);
+    }
+
+    $customers = [
+        ['Supermercato Il Girasole', 'Via Milano 21, Bergamo', 'Giro Nord'],
+        ['Alimentari Bianchi', 'Via Garibaldi 5, Lecco', 'Giro Nord'],
+        ['Emporio del Borgo', 'Piazza Duomo 3, Parma', 'Giro Sud'],
+    ];
+    foreach ($customers as [$name, $address, $round]) {
+        if ($firstId('SELECT id FROM customers WHERE name = ?', [$name]) === null) {
+            $insert(
+                'INSERT INTO customers (name, address, round_id) VALUES (?, ?, ?)',
+                [$name, $address, $roundIds[$round]]
+            );
+        }
+    }
+
+    $carrierId = $firstId('SELECT id FROM carriers WHERE name = ?', ['Autotrasporti Verdi'])
+        ?? $insert(
+            'INSERT INTO carriers (name, phone, trip_fee) VALUES (?, ?, ?)',
+            ['Autotrasporti Verdi', '0350000000', '180.00']
+        );
+
+    $trailerTypeId = $firstId('SELECT id FROM trailer_types WHERE name = ?', ['Rimorchio 7,2 m'])
+        ?? $insert(
+            'INSERT INTO trailer_types (name, length_mm, width_mm, inner_height_mm, max_weight_kg) VALUES (?, ?, ?, ?, ?)',
+            ['Rimorchio 7,2 m', 7200, 2450, 2600, '6500.00']
+        );
+    if ($firstId('SELECT id FROM trailer_types WHERE name = ?', ['Semirimorchio 13,6 m']) === null) {
+        $insert(
+            'INSERT INTO trailer_types (name, length_mm, width_mm, inner_height_mm, max_weight_kg) VALUES (?, ?, ?, ?, ?)',
+            ['Semirimorchio 13,6 m', 13600, 2450, 2700, '24000.00']
+        );
+    }
+
     // --- Mezzo ----------------------------------------------------------------------------------
     if ($firstId('SELECT id FROM vehicles WHERE plate = ?', ['FG456HJ']) === null) {
         $insert(
-            'INSERT INTO vehicles (plate, description, max_weight_kg, max_pallets) VALUES (?, ?, ?, ?)',
-            ['FG456HJ', 'Camion 12 bancali', '6500.00', 12]
+            'INSERT INTO vehicles (plate, description, max_weight_kg, max_pallets, trailer_type_id, carrier_id) VALUES (?, ?, ?, ?, ?, ?)',
+            ['FG456HJ', 'Camion 12 bancali', '6500.00', 12, $trailerTypeId, $carrierId]
         );
     }
 

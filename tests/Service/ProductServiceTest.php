@@ -4,44 +4,26 @@ declare(strict_types=1);
 
 namespace LogiDock\Tests\Service;
 
-use LogiDock\Core\Database;
-use LogiDock\Core\ValidationException;
 use LogiDock\Model\Product;
 use LogiDock\Repository\ProductRepository;
 use LogiDock\Service\ProductService;
-use LogiDock\Tests\Support\TestDatabase;
-use PDOException;
+use LogiDock\Tests\Support\IntegrationTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
-use PHPUnit\Framework\TestCase;
 
 /**
  * Test di integrazione: il service gira con il vero ProductRepository sul database di test
  * (ProductRepository è final e fa solo SQL, quindi un finto sarebbe meno utile).
- * Ogni test lavora dentro una transazione che si annulla alla fine: il database resta pulito.
+ * Collegamento e transazione per test: vedi IntegrationTestCase.
  */
-final class ProductServiceTest extends TestCase
+final class ProductServiceTest extends IntegrationTestCase
 {
-    private Database $database;
-
     private ProductService $service;
 
     protected function setUp(): void
     {
-        try {
-            $this->database = TestDatabase::connect();
-        } catch (PDOException $e) {
-            self::markTestSkipped('MySQL di test non raggiungibile: ' . $e->getMessage());
-        }
+        parent::setUp();
 
-        $this->database->pdo()->beginTransaction();
         $this->service = new ProductService(new ProductRepository($this->database));
-    }
-
-    protected function tearDown(): void
-    {
-        if (isset($this->database) && $this->database->pdo()->inTransaction()) {
-            $this->database->pdo()->rollBack();
-        }
     }
 
     // --- normalizeWeight (pura, senza database) ---
@@ -240,21 +222,5 @@ final class ProductServiceTest extends TestCase
             'unit_of_measure' => 'pz',
             'unit_weight_kg' => '1,5',
         ];
-    }
-
-    /**
-     * Esegue $action, che deve fallire la validazione, e restituisce gli errori per campo.
-     *
-     * @return array<string, string>
-     */
-    private function errorsOf(callable $action): array
-    {
-        try {
-            $action();
-        } catch (ValidationException $e) {
-            return $e->errors();
-        }
-
-        self::fail('Attesa una ValidationException.');
     }
 }

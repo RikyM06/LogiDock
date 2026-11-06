@@ -62,6 +62,10 @@
                         <p>Login sicuro con due ruoli: l'<strong>admin</strong> modifica, l'<strong>operatore</strong> consulta.</p>
                     </article>
                     <article class="card">
+                        <h3>Anagrafiche e impostazioni <span class="badge badge--ok">Pronto</span></h3>
+                        <p>Fornitori, clienti con il loro giro, veicoli, rimorchi, trasportatori, posizioni e tipi di bancale (EPAL 1 ed EPAL 3). Misure, altezza massima e giorni dell'avviso si cambiano da una schermata, non dal codice.</p>
+                    </article>
+                    <article class="card">
                         <h3>Bancali e movimenti <span class="badge badge--off">In arrivo</span></h3>
                         <p>Ingresso dei bancali con codice univoco (<code>PAL-2026-000123</code>) e storico dei movimenti che non si può alterare.</p>
                     </article>
@@ -213,8 +217,8 @@ Nginx ──► public/index.php (front controller)
             <div class="container">
                 <h2>Test</h2>
                 <p class="section__intro">
-                    53 test PHPUnit. Quelli sul service dei prodotti usano il vero repository su un database di test,
-                    dentro una transazione che si annulla a fine test.
+                    127 test PHPUnit. Quelli sui service (prodotti, anagrafiche, impostazioni) usano i veri repository
+                    su un database di test, dentro una transazione che si annulla a fine test.
                 </p>
                 <div class="table-wrap">
                     <table class="table">
@@ -225,7 +229,10 @@ Nginx ──► public/index.php (front controller)
                             <tr><td><code>RouterTest</code></td><td>unitario</td><td>rotte, parametri, 404 e 405, ordine dei middleware, gruppi</td></tr>
                             <tr><td><code>RequestTest</code></td><td>unitario</td><td>normalizzazione di percorso e metodo</td></tr>
                             <tr><td><code>MigrationRunnerTest</code></td><td>unitario</td><td>lo spezzatore delle istruzioni SQL</td></tr>
+                            <tr><td><code>ValidatorTest</code></td><td>unitario</td><td>ogni controllo del validatore, con valori limite e input ostili</td></tr>
                             <tr><td><code>ProductServiceTest</code></td><td>integrazione</td><td>validazione, duplicati, attiva/disattiva, ricerca</td></tr>
+                            <tr><td><code>MasterDataServicesTest</code></td><td>integrazione</td><td>regole delle anagrafiche: giri dei clienti, targhe, capacità, EPAL</td></tr>
+                            <tr><td><code>SettingServiceTest</code></td><td>integrazione</td><td>valori di partenza, salvataggio tutto-o-niente, limiti</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -264,7 +271,8 @@ php -S localhost:8000 -t public  # apri http://localhost:8000</code></pre>
                     <li><span class="badge badge--ok">Fatta</span> Fase 4: anagrafica prodotti (esempio da replicare)</li>
                     <li><span class="badge badge--ok">Fatta</span> Fase 5: Docker Compose, configurazione di produzione, backup</li>
                     <li><span class="badge badge--ok">Fatta</span> Fase 6: test PHPUnit e documentazione</li>
-                    <li><span class="badge badge--off">Prossima</span> Bancali in ingresso, tracciabilità, viaggi, bolle e DDT</li>
+                    <li><span class="badge badge--ok">Fatta</span> Fase 8: anagrafiche (fornitori, clienti, giri, veicoli, rimorchi, trasportatori, posizioni, tipi di bancale) e impostazioni</li>
+                    <li><span class="badge badge--off">Prossima</span> Arrivi giornalieri, richieste dei clienti, giacenze con avviso, pianificazione dei viaggi, documenti in PDF</li>
                 </ul>
                 <p class="section__intro" style="margin-top: 1rem;">
                     <span class="badge badge--warn">Nota onesta</span>

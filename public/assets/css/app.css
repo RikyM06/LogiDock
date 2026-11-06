@@ -398,6 +398,41 @@ a.button {
     text-align: left;
 }
 
+/* Anagrafiche e impostazioni */
+.muted {
+    color: var(--color-muted);
+}
+
+.form__hint {
+    color: var(--color-muted);
+    font-size: 0.85rem;
+    font-weight: 400;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: var(--space);
+}
+
+.card--link {
+    display: block;
+    color: inherit;
+    text-decoration: none;
+}
+
+.card--link:hover {
+    border-color: var(--color-primary);
+}
+
+.card--link p {
+    margin: 0;
+}
+
+.form .card--form {
+    max-width: 640px;
+}
+
 .footer {
     padding: var(--space) 0;
     border-top: 1px solid var(--color-border);

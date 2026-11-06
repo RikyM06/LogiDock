@@ -3,8 +3,17 @@
 declare(strict_types=1);
 
 use LogiDock\Controller\AuthController;
+use LogiDock\Controller\CarrierController;
+use LogiDock\Controller\CustomerController;
 use LogiDock\Controller\HomeController;
+use LogiDock\Controller\PalletTypeController;
 use LogiDock\Controller\ProductController;
+use LogiDock\Controller\RoundController;
+use LogiDock\Controller\SettingController;
+use LogiDock\Controller\SupplierController;
+use LogiDock\Controller\TrailerTypeController;
+use LogiDock\Controller\VehicleController;
+use LogiDock\Controller\WarehouseLocationController;
 use LogiDock\Core\Router;
 use LogiDock\Middleware\AdminMiddleware;
 use LogiDock\Middleware\AuthMiddleware;
@@ -15,28 +24,82 @@ use LogiDock\Middleware\CsrfMiddleware;
 // I middleware di un group() valgono per tutte le rotte al suo interno.
 
 return static function (Router $router): void {
+    // Le anagrafiche (fornitori, clienti...) hanno tutte le stesse rotte, con un controller ciascuna.
+    // Consultazione: la lista. Scrittura: nuovo, modifica, disattiva, riattiva.
+    $masterDataRead = static function (Router $router, string $path, string $controller): void {
+        $router->get($path, [$controller, 'index']);
+    };
+    $masterDataWrite = static function (Router $router, string $path, string $controller): void {
+        $router->get($path . '/create', [$controller, 'create']);
+        $router->post($path, [$controller, 'store']);
+        $router->get($path . '/{id}/edit', [$controller, 'edit']);
+        $router->post($path . '/{id}', [$controller, 'update']);
+        $router->post($path . '/{id}/deactivate', [$controller, 'deactivate']);
+        $router->post($path . '/{id}/activate', [$controller, 'activate']);
+    };
+
+    // Anagrafiche che tutti possono consultare ma solo gli admin modificano.
+    $sharedMasterData = [
+        '/suppliers' => SupplierController::class,
+        '/customers' => CustomerController::class,
+        '/rounds' => RoundController::class,
+        '/vehicles' => VehicleController::class,
+        '/trailer-types' => TrailerTypeController::class,
+        '/locations' => WarehouseLocationController::class,
+        '/pallet-types' => PalletTypeController::class,
+    ];
+
     // Tutta l'applicazione è protetta da CSRF: ogni POST deve portare il token.
-    $router->group([CsrfMiddleware::class], static function (Router $router): void {
+    $router->group([CsrfMiddleware::class], static function (Router $router) use (
+        $masterDataRead,
+        $masterDataWrite,
+        $sharedMasterData
+    ): void {
         // Rotte pubbliche
         $router->get('/login', [AuthController::class, 'showLogin']);
         $router->post('/login', [AuthController::class, 'login']);
 
         // Rotte per qualunque utente collegato (admin o operatore)
-        $router->group([AuthMiddleware::class], static function (Router $router): void {
+        $router->group([AuthMiddleware::class], static function (Router $router) use (
+            $masterDataRead,
+            $masterDataWrite,
+            $sharedMasterData
+        ): void {
             $router->get('/', [HomeController::class, 'index']);
+            $router->get('/master-data', [HomeController::class, 'masterData']);
             $router->post('/logout', [AuthController::class, 'logout']);
 
             // Prodotti: tutti possono consultare l'anagrafica...
             $router->get('/products', [ProductController::class, 'index']);
 
+            foreach ($sharedMasterData as $path => $controller) {
+                $masterDataRead($router, $path, $controller);
+            }
+
             // ...ma solo gli admin la modificano.
-            $router->group([AdminMiddleware::class], static function (Router $router): void {
+            $router->group([AdminMiddleware::class], static function (Router $router) use (
+                $masterDataRead,
+                $masterDataWrite,
+                $sharedMasterData
+            ): void {
                 $router->get('/products/create', [ProductController::class, 'create']);
                 $router->post('/products', [ProductController::class, 'store']);
                 $router->get('/products/{id}/edit', [ProductController::class, 'edit']);
                 $router->post('/products/{id}', [ProductController::class, 'update']);
                 $router->post('/products/{id}/deactivate', [ProductController::class, 'deactivate']);
                 $router->post('/products/{id}/activate', [ProductController::class, 'activate']);
+
+                foreach ($sharedMasterData as $path => $controller) {
+                    $masterDataWrite($router, $path, $controller);
+                }
+
+                // Trasportatori (compenso per viaggio): anche la lista è solo per gli admin.
+                $masterDataRead($router, '/carriers', CarrierController::class);
+                $masterDataWrite($router, '/carriers', CarrierController::class);
+
+                // Impostazioni globali.
+                $router->get('/settings', [SettingController::class, 'edit']);
+                $router->post('/settings', [SettingController::class, 'update']);
             });
         });
     });

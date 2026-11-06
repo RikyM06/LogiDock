@@ -6,8 +6,8 @@ tracciabilità dei movimenti, pianificazione dei viaggi, bolle e DDT, utenti e r
 È anche un progetto personale per il portfolio: tutto è costruito da zero (niente framework full-stack)
 per mostrare come funziona ogni pezzo.
 
-> **Stato:** Fasi 1-6 completate (scheletro, database, autenticazione, anagrafica prodotti, ambiente e
-> deploy, test). Le altre funzionalità arrivano una alla volta, vedi [Roadmap](#roadmap).
+> **Stato:** Fasi 1-6 e 8 completate (scheletro, database, autenticazione, prodotti, ambiente e deploy,
+> test, anagrafiche e impostazioni). Le altre funzionalità arrivano una alla volta, vedi [Roadmap](#roadmap).
 
 ## Stack
 
@@ -51,7 +51,7 @@ il repository non contiene regole. Gli errori non gestiti arrivano a un gestore 
 
 ```
 public/        unico document root esposto da Nginx (index.php, asset)
-src/Core/      router, request/response, container, view, logger, gestione errori
+src/Core/      router, request/response, container, view, logger, gestione errori, validatore
 src/Controller controller (sottili)
 src/Service    logica di business
 src/Repository accesso al database
@@ -114,6 +114,10 @@ users ─┬──< pallets >── products          pallets: stato corrente di
        │      └──< transport_documents    (bolla / DDT, numerati con number_sequences)
 ```
 
+Dalla Fase 8 si aggiungono: `settings` (impostazioni), `pallet_types` e `trailer_types` (misure), `rounds` e
+`customers` (giri e clienti), `carriers` (trasportatori). `vehicles` punta a un tipo di rimorchio e a un
+trasportatore, `warehouse_locations` ha una capacità facoltativa.
+
 ### Autenticazione
 
 Utenti di esempio (dal seed): `admin@logidock.test` e `operatore@logidock.test`; le password sono
@@ -164,6 +168,51 @@ Scelte da sapere:
 
 Per aggiungere una nuova funzionalità si copiano questi sei file cambiando nome ed entità.
 
+### Anagrafiche (fornitori, clienti, giri, veicoli, rimorchi, trasportatori, posizioni, tipi di bancale)
+
+Otto anagrafiche quasi identiche (lista con ricerca, nuovo, modifica, disattiva/riattiva), quindi non sono
+copiate otto volte: hanno una **base comune** e ognuna aggiunge solo le sue regole.
+
+| Pezzo | Dove | Cosa fa |
+|---|---|---|
+| Repository base | `src/Repository/MasterDataRepository.php` | ricerca, lettura, insert, update, attiva/disattiva. Le sottoclassi dicono solo tabella, colonne e dove cercare |
+| Service base | `src/Service/MasterDataService.php` | crea/modifica/cerca/disattiva, traduce i duplicati in errore sul campo. Ogni service scrive solo `validate()` |
+| Controller base | `src/Controller/MasterDataController.php` | il flusso della lista e dei form. Ogni controller dice rotta, nomi e campi |
+| Validatore | `src/Core/Validator.php` | testo, e-mail, interi, decimali (stringhe, mai float), codici, scelte, riferimenti ad altre anagrafiche |
+| Pezzi di pagina | `templates/partials/` | campo, menu a tendina, intestazione di lista, pulsanti di riga |
+
+Nell'SQL della base entrano solo nomi di tabelle e colonne scritti nel codice delle sottoclassi; i valori
+passano sempre da prepared statement.
+
+| Anagrafica | Rotta | Regole particolari |
+|---|---|---|
+| Fornitori | `/suppliers` | e-mail controllata |
+| Clienti | `/customers` | ogni cliente può avere un giro (solo giri attivi) |
+| Giri | `/rounds` | nome unico |
+| Veicoli | `/vehicles` | targa unica (maiuscola), tipo di rimorchio e trasportatore facoltativi |
+| Tipi di rimorchio | `/trailer-types` | lunghezza, larghezza, altezza interna (mm) e portata; il pianale è un rettangolo |
+| Trasportatori | `/carriers` | compenso fisso per viaggio; **solo admin**, anche la lista |
+| Posizioni di magazzino | `/locations` | codice unico, capacità facoltativa (vuota = capacità predefinita) |
+| Tipi di bancale | `/pallet-types` | codice unico; EPAL 3 (1200 × 1000 mm) ed EPAL 1 (1200 × 800 mm) già presenti |
+
+Come per i prodotti, tutti consultano e solo gli admin modificano. Un riferimento già assegnato (il giro di
+un cliente) che viene disattivato resta sul record e non sparisce dal form, ma non si può assegnare a record nuovi.
+
+### Impostazioni
+
+Pagina `/settings`, solo admin. I valori di business non sono scritti nel codice: si chiedono a
+`SettingService`.
+
+| Impostazione | Valore di partenza |
+|---|---|
+| Altezza massima di carico del bancale | 750 mm (ogni tipo di bancale può avere la sua) |
+| Giorni dopo i quali un bancale fermo viene segnalato | 2 |
+| Capacità predefinita di una posizione | 300 bancali |
+| Ragione sociale, indirizzo, partita IVA e piè di pagina dei documenti | vuoti |
+
+Le definizioni (limiti e valore di partenza) stanno in un solo elenco in `SettingService::definitions()`: nel
+database finisce solo ciò che l'admin salva. Per aggiungere un'impostazione basta una riga in quell'elenco.
+
 ### Avvio con Docker (sviluppo)
 
 `docker-compose.yml` avvia Nginx 1.24, PHP-FPM 8.3 e MySQL 8.0, le stesse versioni di Ubuntu 24.04.
@@ -204,7 +253,10 @@ I test usano PHPUnit e stanno in `tests/`:
 | `tests/Core/RouterTest.php` | unitario | rotte, parametri `{id}`, 404 e 405, ordine dei middleware, gruppi, middleware che blocca |
 | `tests/Core/RequestTest.php` | unitario | normalizzazione di percorso e metodo, lettura dell'input |
 | `tests/Core/MigrationRunnerTest.php` | unitario | lo spezzatore delle istruzioni SQL delle migrazioni |
+| `tests/Core/ValidatorTest.php` | unitario | ogni controllo del validatore, con valori limite e input ostili (apici, tag, array) |
 | `tests/Service/ProductServiceTest.php` | integrazione | validazione, normalizzazione, codici duplicati, attiva/disattiva, ricerca (con il vero repository) |
+| `tests/Service/MasterDataServicesTest.php` | integrazione | regole comuni delle anagrafiche e quelle di ognuna (giri dei clienti, targhe, capacità, EPAL) |
+| `tests/Service/SettingServiceTest.php` | integrazione | valori di partenza, salvataggio, tutto-o-niente, limiti |
 
 I test del service parlano con MySQL, ma **solo con il database di test** (`logidock_test`):
 `phpunit.xml` forza `DB_NAME=logidock_test` e `TestDatabase` si rifiuta di partire con un database
@@ -241,8 +293,10 @@ al programma cosa va su quale rimorchio e cosa resta in magazzino, avvisare quan
 troppo tempo, e produrre tutti i documenti (carico per camion, consegna per cliente, compenso per i
 camionisti). Serve anche lo storico di viaggi, forniture e pagamenti.
 
-- [ ] **Fase 7:** modello dati v2 (clienti, richieste, tipi di bancale, documenti del fornitore, trasportatori, tappe)
-- [ ] **Fase 8:** anagrafiche (fornitori, clienti, veicoli e trasportatori, posizioni di magazzino, tipi di bancale)
+- [ ] **Fase 7:** modello dati v2. *Fatto per le anagrafiche* (impostazioni, clienti, giri, trasportatori, tipi di
+  bancale e di rimorchio, capacità delle posizioni); mancano documenti del fornitore, richieste e tappe dei viaggi,
+  che si aggiungono insieme alle fasi che li usano
+- [x] **Fase 8:** anagrafiche (fornitori, clienti, giri, veicoli, trasportatori, rimorchi, posizioni, tipi di bancale) e impostazioni
 - [ ] **Fase 9:** arrivi giornalieri: documento del fornitore con date, bancali con prezzo e peso, posizione
 - [ ] **Fase 10:** richieste dei clienti
 - [ ] **Fase 11:** giacenze e avviso per i bancali fermi da troppo tempo

@@ -21,4 +21,14 @@ final class HomeController
     {
         return Response::html($this->view->render('home', ['title' => 'Home']));
     }
+
+    /**
+     * Indice delle anagrafiche (fornitori, clienti, veicoli...).
+     *
+     * @param array<string, string> $params
+     */
+    public function masterData(Request $request, array $params): Response
+    {
+        return Response::html($this->view->render('master-data', ['title' => 'Anagrafiche']));
+    }
 }

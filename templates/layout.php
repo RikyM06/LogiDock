@@ -15,12 +15,36 @@
 $navigation = [
     '/' => 'Home',
     '/products' => 'Prodotti',
+    '/master-data' => 'Anagrafiche',
+];
+if ($currentUser !== null && $currentUser->role === \LogiDock\Enum\UserRole::Admin) {
+    $navigation['/settings'] = 'Impostazioni';
+}
+
+// Le pagine delle anagrafiche stanno sotto percorsi diversi, ma evidenziano tutte la voce "Anagrafiche".
+$masterDataPaths = [
+    '/master-data', '/suppliers', '/customers', '/rounds', '/carriers',
+    '/vehicles', '/trailer-types', '/locations', '/pallet-types',
 ];
 
 // Home è attiva solo sulla home; le altre voci anche nelle loro sottopagine (/products/3/edit).
-$isActive = static fn (string $path): bool => $path === '/'
-    ? $currentPath === '/'
-    : str_starts_with($currentPath, $path);
+$isActive = static function (string $path) use ($currentPath, $masterDataPaths): bool {
+    if ($path === '/') {
+        return $currentPath === '/';
+    }
+
+    if ($path === '/master-data') {
+        foreach ($masterDataPaths as $masterDataPath) {
+            if (str_starts_with($currentPath, $masterDataPath)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    return str_starts_with($currentPath, $path);
+};
 ?>
 <!DOCTYPE html>
 <html lang="it">
