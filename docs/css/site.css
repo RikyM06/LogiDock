@@ -80,7 +80,14 @@ code {
     min-height: 3.5rem;
 }
 
+.brand__logo {
+    display: block;
+}
+
 .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
     color: #fff;
     font-size: 1.2rem;
     font-weight: 700;
@@ -255,6 +262,25 @@ code {
     box-shadow: 0 8px 24px rgba(31, 41, 51, 0.12);
 }
 
+/* Galleria delle schermate: due colonne, una sola sui telefoni */
+.gallery {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.75rem;
+}
+
+.gallery .screenshot img {
+    box-shadow: 0 4px 14px rgba(31, 41, 51, 0.1);
+}
+
+.gallery .screenshot a {
+    display: block;
+}
+
+.gallery .screenshot a:hover img {
+    border-color: var(--color-primary);
+}
+
 .screenshot figcaption {
     margin-top: 0.5rem;
     color: var(--color-muted);
@@ -372,7 +398,8 @@ pre.diagram code {
 }
 
 @media (max-width: 800px) {
-    .hero__grid {
+    .hero__grid,
+    .gallery {
         grid-template-columns: 1fr;
     }
 

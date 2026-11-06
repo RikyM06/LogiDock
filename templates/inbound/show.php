@@ -29,8 +29,8 @@ $mismatches = count(array_filter($pallets, static fn ($pallet): bool => $pallet-
 
 <?php if ($mismatches > 0) : ?>
     <p class="alert alert--warning" role="status">
-        <?= e($mismatches) ?> bancali hanno un peso segnato diverso da quello calcolato (quantità × peso unitario)
-        oltre la tolleranza delle <a href="/settings">impostazioni</a>.
+        <?= $mismatches === 1 ? '1 bancale ha' : e($mismatches) . ' bancali hanno' ?> un peso segnato diverso da quello
+        calcolato (quantità × peso unitario) oltre la tolleranza delle <a href="/settings">impostazioni</a>.
     </p>
 <?php endif; ?>
 
@@ -54,10 +54,10 @@ $mismatches = count(array_filter($pallets, static fn ($pallet): bool => $pallet-
         <tbody>
             <?php foreach ($pallets as $pallet) : ?>
                 <tr<?= $pallet->weightMismatch ? ' class="is-warning"' : '' ?>>
-                    <td><strong><?= e($pallet->code) ?></strong></td>
+                    <td class="nowrap"><strong><?= e($pallet->code) ?></strong></td>
                     <td><?= e($pallet->productCode) ?> <span class="muted"><?= e($pallet->productDescription) ?></span></td>
-                    <td><?= e($pallet->palletTypeName ?? '') ?></td>
-                    <td class="table__number"><?= e($it($pallet->quantity)) ?> <?= e($pallet->unitOfMeasure) ?></td>
+                    <td class="nowrap"><?= e($pallet->palletTypeName ?? '') ?></td>
+                    <td class="table__number nowrap"><?= e($it($pallet->quantity)) ?> <?= e($pallet->unitOfMeasure) ?></td>
                     <td class="table__number"><?= e($it($pallet->unitPrice ?? '')) ?></td>
                     <td class="table__number"><?= e($it($pallet->lineValue ?? '')) ?></td>
                     <td class="table__number"><?= e($it($pallet->recordedWeightKg ?? '')) ?></td>

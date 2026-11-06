@@ -9,6 +9,7 @@
  * @var \LogiDock\Model\User|null  $currentUser utente collegato, null se non c'è
  * @var string                     $csrfToken
  * @var array<string, list<string>> $flash      messaggi da mostrare una volta sola, per tipo (success, error)
+ * @var bool|null                  $wide       (facoltativo) pagina più larga, per le tabelle con molte colonne
  */
 
 // Voci di navigazione: percorso => etichetta. Si aggiungono man mano che nascono le funzionalità.
@@ -53,13 +54,17 @@ $isActive = static function (string $path) use ($currentPath, $masterDataPaths):
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= e(isset($title) ? $title . ' · ' . $appName : $appName) ?></title>
+    <link rel="icon" href="/assets/img/logo.svg" type="image/svg+xml">
     <link rel="stylesheet" href="/assets/css/app.css">
     <script src="/assets/js/app.js" defer></script>
 </head>
 <body>
     <header class="topbar">
-        <div class="container topbar__inner">
-            <a class="brand" href="/"><?= e($appName) ?></a>
+        <div class="container topbar__inner<?= !empty($wide) ? ' container--wide' : '' ?>">
+            <a class="brand" href="/">
+                <img class="brand__logo" src="/assets/img/logo.svg" alt="" width="30" height="30">
+                <?= e($appName) ?>
+            </a>
 
             <?php if ($currentUser !== null) : ?>
                 <nav class="nav" aria-label="Navigazione principale">
@@ -80,7 +85,7 @@ $isActive = static function (string $path) use ($currentPath, $masterDataPaths):
         </div>
     </header>
 
-    <main class="container main">
+    <main class="container main<?= !empty($wide) ? ' container--wide' : '' ?>">
         <?php foreach ($flash as $type => $messages) : ?>
             <?php foreach ($messages as $message) : ?>
                 <p class="alert alert--<?= e($type) ?>" role="status"><?= e($message) ?></p>
@@ -91,7 +96,7 @@ $isActive = static function (string $path) use ($currentPath, $masterDataPaths):
     </main>
 
     <footer class="footer">
-        <div class="container"><?= e($appName) ?> · gestionale di magazzino e logistica</div>
+        <div class="container<?= !empty($wide) ? ' container--wide' : '' ?>"><?= e($appName) ?> · gestionale di magazzino e logistica</div>
     </footer>
 </body>
 </html>

@@ -88,13 +88,15 @@ final class InboundController
         }
 
         $pallets = $this->inbound->palletsOf($id);
-        $this->session->flash('success', 'Arrivo registrato: ' . count($pallets) . ' bancali.');
+        $this->session->flash('success', 'Arrivo registrato: ' . (count($pallets) === 1 ? '1 bancale.' : count($pallets) . ' bancali.'));
 
         $mismatches = count(array_filter($pallets, static fn ($pallet): bool => $pallet->weightMismatch));
         if ($mismatches > 0) {
             $this->session->flash(
                 'warning',
-                $mismatches . ' bancali hanno un peso segnato diverso da quello calcolato oltre la tolleranza: controllali.'
+                ($mismatches === 1 ? '1 bancale ha' : $mismatches . ' bancali hanno')
+                . ' un peso segnato diverso da quello calcolato oltre la tolleranza: '
+                . ($mismatches === 1 ? 'controllalo.' : 'controllali.')
             );
         }
 
@@ -114,6 +116,7 @@ final class InboundController
 
         return Response::html($this->view->render('inbound/show', [
             'title' => 'Arrivo ' . $document->number,
+            'wide' => true,
             'document' => $document,
             'pallets' => $this->inbound->palletsOf($document->id),
         ]));
@@ -229,6 +232,7 @@ final class InboundController
 
         return Response::html($this->view->render('inbound/form', [
             'title' => 'Nuovo arrivo',
+            'wide' => true,
             'action' => '/inbound',
             'path' => '/inbound',
             'values' => $values,

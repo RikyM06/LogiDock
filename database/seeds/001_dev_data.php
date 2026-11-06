@@ -3,6 +3,21 @@
 declare(strict_types=1);
 
 use LogiDock\Core\Database;
+use LogiDock\Repository\NumberSequenceRepository;
+use LogiDock\Repository\PalletMovementRepository;
+use LogiDock\Repository\PalletRepository;
+use LogiDock\Repository\PalletTypeRepository;
+use LogiDock\Repository\ProductRepository;
+use LogiDock\Repository\SettingRepository;
+use LogiDock\Repository\SupplierDocumentRepository;
+use LogiDock\Repository\SupplierRepository;
+use LogiDock\Repository\WarehouseLocationRepository;
+use LogiDock\Service\InboundService;
+use LogiDock\Service\PalletTypeService;
+use LogiDock\Service\ProductService;
+use LogiDock\Service\SettingService;
+use LogiDock\Service\SupplierService;
+use LogiDock\Service\WarehouseLocationService;
 
 // Dati di esempio per lo sviluppo. Ripetibile: cerca ogni record per chiave naturale
 // (email, codice...) e lo inserisce solo se manca, quindi non crea doppioni né sovrascrive nulla.
@@ -208,4 +223,56 @@ return static function (Database $database): void {
         'INSERT INTO number_sequences (type, year, last_number) VALUES (?, ?, ?)
          ON DUPLICATE KEY UPDATE last_number = GREATEST(last_number, VALUES(last_number))'
     )->execute(['pallet', $year, count($pallets)]);
+
+    // --- Un arrivo completo (documento del fornitore + bancali) ---------------------------------
+    // Registrato con lo stesso InboundService dell'applicazione: stessi controlli, stessi codici
+    // bancale, stessi movimenti. Un bancale ha il peso segnato fuori tolleranza, per vedere l'avviso.
+    $documentNumber = sprintf('DDT %d/0158', $year);
+    $alreadyThere = $firstId(
+        'SELECT id FROM supplier_documents WHERE supplier_id = ? AND number = ?',
+        [$supplierIds['Dispensa Italia S.r.l.'], $documentNumber]
+    );
+
+    if ($alreadyThere === null) {
+        $palletTypeId = static fn (string $code): string => (string) $firstId('SELECT id FROM pallet_types WHERE code = ?', [$code]);
+        $settings = new SettingService(new SettingRepository($database), $database);
+
+        $inbound = new InboundService(
+            $database,
+            new SupplierDocumentRepository($database),
+            new PalletRepository($database),
+            new PalletMovementRepository($database),
+            new NumberSequenceRepository($database),
+            new SupplierService(new SupplierRepository($database)),
+            new ProductService(new ProductRepository($database)),
+            new PalletTypeService(new PalletTypeRepository($database)),
+            new WarehouseLocationService(new WarehouseLocationRepository($database)),
+            $settings
+        );
+
+        // [prodotto, tipo bancale, quantità, prezzo unitario, peso segnato, lotto, scadenza (giorni), posizione]
+        $lines = [
+            ['PAS-500', 'EPAL1', '96', '7.80', '610', 'P2611D', 180, 'A-02-01'],
+            ['PAS-500', 'EPAL1', '96', '7.80', '606', 'P2611D', 180, 'A-02-01'],
+            ['OLI-1L', 'EPAL3', '80', '24.50', '520', 'O2611A', 400, 'B-01-01'], // 80 x 5,9 = 472 kg: +10%
+        ];
+
+        $inbound->receive([
+            'supplier_id' => (string) $supplierIds['Dispensa Italia S.r.l.'],
+            'number' => $documentNumber,
+            'document_date' => substr($daysAgo(2), 0, 10),
+            'received_date' => substr($daysAgo(1), 0, 10),
+            'notes' => 'Consegna del mattino, scaricata alla baia 2.',
+            'lines' => array_map(static fn (array $line): array => [
+                'product_id' => (string) $productIds[$line[0]],
+                'pallet_type_id' => $palletTypeId($line[1]),
+                'quantity' => $line[2],
+                'unit_price' => $line[3],
+                'recorded_weight_kg' => $line[4],
+                'lot_number' => $line[5],
+                'expiry_date' => $inDays($line[6]),
+                'location_id' => (string) $locationIds[$line[7]],
+            ], $lines),
+        ], $operatorId);
+    }
 };

@@ -1,4 +1,6 @@
-# LogiDock
+# <img src="docs/assets/logo.svg" alt="" width="40" height="40" align="top"> LogiDock
+
+![Dettaglio di un arrivo in LogiDock](docs/assets/screenshots/arrivo-dettaglio.png)
 
 Gestionale web per una piccola azienda di logistica locale: anagrafica prodotti, bancali in ingresso,
 tracciabilità dei movimenti, pianificazione dei viaggi, bolle e DDT, utenti e ruoli.

@@ -63,10 +63,38 @@ h2 {
 }
 
 .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
     color: #fff;
     font-size: 1.2rem;
     font-weight: 700;
     text-decoration: none;
+}
+
+.brand__logo {
+    display: block;
+}
+
+/* Pagine con tabelle larghe (arrivi): più spazio in orizzontale. */
+.container--wide {
+    max-width: 1400px;
+}
+
+.nowrap {
+    white-space: nowrap;
+}
+
+/* Form divisi in più card (impostazioni, arrivi): spazio tra un campo e l'altro dentro la card. */
+.form > .card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space);
+}
+
+.form > .card > h2,
+.form > .card > p {
+    margin: 0;
 }
 
 .nav {
@@ -412,6 +440,19 @@ a.button {
 .table--lines td {
     min-width: 8rem;
     vertical-align: top;
+}
+
+/* Prodotto e tipo di bancale hanno testi lunghi; la colonna del pulsante "×" invece no. */
+.table--lines td:nth-child(1) {
+    min-width: 15rem;
+}
+
+.table--lines td:nth-child(2) {
+    min-width: 11rem;
+}
+
+.table--lines td:last-child {
+    min-width: 0;
 }
 
 .table--lines select,

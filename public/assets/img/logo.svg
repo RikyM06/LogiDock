@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="logidock-logo-title">
+  <title id="logidock-logo-title">LogiDock</title>
+  <!-- Fondo: lo stesso blu scuro della barra dell'applicazione -->
+  <rect width="64" height="64" rx="14" fill="#1e3a8a"/>
+  <!-- Tetto del magazzino (il "dock") -->
+  <polyline points="10,29 32,12 54,29" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Merce: tre colli impilati -->
+  <rect x="26.5" y="25" width="11" height="10" rx="1.5" fill="#93c5fd"/>
+  <rect x="20" y="36.5" width="11" height="10" rx="1.5" fill="#ffffff"/>
+  <rect x="33" y="36.5" width="11" height="10" rx="1.5" fill="#ffffff"/>
+  <!-- Bancale: piano e tre piedini -->
+  <rect x="17" y="48" width="30" height="3.2" rx="1" fill="#ffffff"/>
+  <rect x="18.5" y="51.2" width="4.5" height="3.3" fill="#ffffff"/>
+  <rect x="29.75" y="51.2" width="4.5" height="3.3" fill="#ffffff"/>
+  <rect x="41" y="51.2" width="4.5" height="3.3" fill="#ffffff"/>
+</svg>
