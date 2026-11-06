@@ -234,5 +234,19 @@ con la stessa riga di sopra.
 - [x] **Fase 5:** Docker Compose, configurazione di produzione, backup
 - [x] **Fase 6:** test PHPUnit e documentazione finale
 
-Prossime funzionalità (non ancora iniziate): bancali in ingresso e movimenti, tracciabilità, viaggi,
-bolle e DDT. Lo schema del database le prevede già.
+### Prossime fasi (dalle richieste dell'azienda)
+
+L'azienda vuole registrare le richieste dei clienti e i bancali che arrivano ogni giorno, far decidere
+al programma cosa va su quale rimorchio e cosa resta in magazzino, avvisare quando qualcosa è fermo da
+troppo tempo, e produrre tutti i documenti (carico per camion, consegna per cliente, compenso per i
+camionisti). Serve anche lo storico di viaggi, forniture e pagamenti.
+
+- [ ] **Fase 7:** modello dati v2 (clienti, richieste, tipi di bancale, documenti del fornitore, trasportatori, tappe)
+- [ ] **Fase 8:** anagrafiche (fornitori, clienti, veicoli e trasportatori, posizioni di magazzino, tipi di bancale)
+- [ ] **Fase 9:** arrivi giornalieri: documento del fornitore con date, bancali con prezzo e peso, posizione
+- [ ] **Fase 10:** richieste dei clienti
+- [ ] **Fase 11:** giacenze e avviso per i bancali fermi da troppo tempo
+- [ ] **Fase 12:** pianificazione dei viaggi (assegnazione automatica ai rimorchi, modifica manuale e ricalcolo)
+- [ ] **Fase 13:** documenti in PDF (carico per camion, consegna per cliente con prezzi, compenso camionisti)
+- [ ] **Fase 14:** storico viaggi, forniture per fornitore, pagamenti dei clienti, report
+- [ ] **Fase 15:** qualità finale e deploy
