@@ -361,7 +361,7 @@ LogiDock è **source available** e ha una **doppia licenza**:
   chiederla. È una pagina informativa: **non concede da sola nessuna licenza**.
 
 **Come richiedere una licenza commerciale:** scrivi a
-**[DA COMPLETARE: recapito per le richieste di licenza commerciale]** indicando chi sei, come vuoi usare
+**<riccardo.melis06@gmail.com>** indicando chi sei, come vuoi usare
 LogiDock, quante installazioni o utenti prevedi e per quanto tempo. Prezzo e condizioni si concordano
 nell'accordo scritto.
 

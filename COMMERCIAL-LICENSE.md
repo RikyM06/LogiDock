@@ -44,7 +44,7 @@ Se non sei sicuro che il tuo uso rientri in quello gratuito, chiedi **prima** di
 
 ## Come richiederla
 
-Scrivi a: **[DA COMPLETARE: recapito per le richieste di licenza commerciale]**
+Scrivi a: **<riccardo.melis06@gmail.com>**
 
 Nella richiesta indica:
 
