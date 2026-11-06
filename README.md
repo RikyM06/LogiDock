@@ -6,6 +6,11 @@ tracciabilità dei movimenti, pianificazione dei viaggi, bolle e DDT, utenti e r
 È anche un progetto personale per il portfolio: tutto è costruito da zero (niente framework full-stack)
 per mostrare come funziona ogni pezzo.
 
+Il codice è **source available** con doppia licenza: gratuito per gli usi non commerciali
+([PolyForm Noncommercial License 1.0.0](LICENSE)), a pagamento con una
+[licenza commerciale separata](COMMERCIAL-LICENSE.md) per gli usi commerciali o professionali.
+Dettagli in [Licenza](#licenza).
+
 > **Stato:** Fasi 1-6, 8 e 9 completate (scheletro, database, autenticazione, prodotti, ambiente e deploy,
 > test, anagrafiche e impostazioni, arrivi di merce). Le altre funzionalità arrivano una alla volta, vedi [Roadmap](#roadmap).
 
@@ -338,3 +343,36 @@ camionisti). Serve anche lo storico di viaggi, forniture e pagamenti.
 - [ ] **Fase 13:** documenti in PDF (carico per camion, consegna per cliente con prezzi, compenso camionisti)
 - [ ] **Fase 14:** storico viaggi, forniture per fornitore, pagamenti dei clienti, report
 - [ ] **Fase 15:** qualità finale e deploy
+
+## Licenza
+
+LogiDock è **source available** e ha una **doppia licenza**:
+
+| Uso | Licenza | Costo |
+|---|---|---|
+| Non commerciale: usi personali (studio, ricerca, hobby...) e uso da parte di enti benefici, istituti di istruzione, enti pubblici di ricerca, organizzazioni per la sicurezza o la salute pubblica, organizzazioni per la tutela dell'ambiente e istituzioni governative | [PolyForm Noncommercial License 1.0.0](LICENSE) | gratuito |
+| Commerciale o professionale, non consentito dalla licenza gratuita (per esempio un'azienda che lo usa per la propria attività) | accordo di licenza commerciale separato con il titolare dei diritti | a pagamento |
+
+- [LICENSE](LICENSE) contiene il testo ufficiale della PolyForm Noncommercial License 1.0.0, in inglese e
+  senza modifiche. È quello il testo che vale: questa tabella è solo un riassunto.
+- [NOTICE](NOTICE) contiene l'avviso di copyright (`Required Notice:`) che, secondo la licenza, deve
+  accompagnare ogni copia del software.
+- [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md) spiega quando serve la licenza commerciale e come
+  chiederla. È una pagina informativa: **non concede da sola nessuna licenza**.
+
+**Come richiedere una licenza commerciale:** scrivi a
+**[DA COMPLETARE: recapito per le richieste di licenza commerciale]** indicando chi sei, come vuoi usare
+LogiDock, quante installazioni o utenti prevedi e per quanto tempo. Prezzo e condizioni si concordano
+nell'accordo scritto.
+
+"Source available" e non "open source": il codice è pubblico e si può studiare, ma la licenza gratuita
+esclude l'uso commerciale, e la definizione di open source non ammette limiti di questo tipo.
+
+Da sapere:
+- Le versioni pubblicate prima dell'aggiunta del file `LICENSE` non avevano una licenza esplicita: per
+  quelle restano solo i diritti che i Termini di servizio di GitHub danno agli utenti sui repository
+  pubblici (per esempio il fork su GitHub).
+- Le librerie installate con Composer (MIT, BSD-3-Clause, Apache-2.0) e le immagini Docker di sviluppo
+  hanno le loro licenze, che non cambiano. Non sono incluse in questo repository: Composer e Docker le
+  scaricano a parte.
+- Il software non contiene sistemi di attivazione, pagamento o blocco.
