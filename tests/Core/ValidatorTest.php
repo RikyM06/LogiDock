@@ -119,6 +119,19 @@ final class ValidatorTest extends TestCase
         ];
     }
 
+    public function testRequiredEmail(): void
+    {
+        $errors = $this->errorsAfter(['vuota' => '', 'sbagliata' => 'mario.example.com', 'giusta' => ' mario@example.com '], static function (Validator $v): void {
+            $v->requiredEmail('vuota', 'E-mail');
+            $v->requiredEmail('sbagliata', 'E-mail');
+            self::assertSame('mario@example.com', $v->requiredEmail('giusta', 'E-mail'));
+        });
+
+        self::assertSame(['vuota', 'sbagliata'], array_keys($errors));
+        self::assertStringContainsString('obbligatorio', $errors['vuota']);
+        self::assertStringContainsString('non è un indirizzo e-mail valido', $errors['sbagliata']);
+    }
+
     // --- numeri interi ---
 
     #[DataProvider('intProvider')]

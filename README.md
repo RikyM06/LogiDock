@@ -194,7 +194,7 @@ passano sempre da prepared statement.
 
 | Anagrafica | Rotta | Regole particolari |
 |---|---|---|
-| Fornitori | `/suppliers` | e-mail controllata |
+| Fornitori | `/suppliers` | **tutti i campi obbligatori** (ragione sociale, partita IVA / codice fiscale, indirizzo, e-mail valida, telefono); nel database restano facoltativi per i fornitori registrati prima della regola |
 | Clienti | `/customers` | ogni cliente può avere un giro (solo giri attivi) |
 | Giri | `/rounds` | nome unico |
 | Veicoli | `/vehicles` | targa unica (maiuscola), tipo di rimorchio e trasportatore facoltativi |

@@ -60,6 +60,17 @@ final class Validator
         return $value === '' ? null : $this->checkLength($field, $label, $value, $max);
     }
 
+    public function requiredEmail(string $field, string $label): string
+    {
+        $value = $this->requiredString($field, $label, 255);
+
+        if ($value !== '' && filter_var($value, FILTER_VALIDATE_EMAIL) === false) {
+            $this->fail($field, 'Il campo «' . $label . '» non è un indirizzo e-mail valido.');
+        }
+
+        return $value;
+    }
+
     public function optionalEmail(string $field, string $label): ?string
     {
         $value = $this->optionalString($field, $label, 255);

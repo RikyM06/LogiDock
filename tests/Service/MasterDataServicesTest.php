@@ -57,33 +57,61 @@ final class MasterDataServicesTest extends IntegrationTestCase
 
     public function testCreateReadUpdateSupplier(): void
     {
-        $id = $this->suppliers->create(['name' => '  Zeta Forniture  ', 'contact_email' => 'info@zeta.example']);
+        $id = $this->suppliers->create($this->supplier(['name' => '  Zeta Forniture  ']));
 
         $supplier = $this->suppliers->find($id);
         self::assertNotNull($supplier);
         self::assertSame('Zeta Forniture', $supplier->name);
-        self::assertSame('info@zeta.example', $supplier->contactEmail);
-        self::assertNull($supplier->phone, 'Un campo facoltativo vuoto diventa NULL, non una stringa vuota.');
+        self::assertSame('IT00000000999', $supplier->taxCode);
+        self::assertSame('Via Prova 1, Milano', $supplier->address);
+        self::assertSame('info@zeta.test', $supplier->contactEmail);
+        self::assertSame('02 0000999', $supplier->phone);
         self::assertTrue($supplier->isActive);
 
-        $this->suppliers->update($id, ['name' => 'Zeta Forniture S.r.l.', 'phone' => '0123']);
+        $this->suppliers->update($id, $this->supplier(['name' => 'Zeta Forniture S.r.l.', 'phone' => '0123']));
 
         $updated = $this->suppliers->find($id);
         self::assertSame('Zeta Forniture S.r.l.', $updated?->name);
         self::assertSame('0123', $updated?->phone);
-        self::assertNull($updated?->contactEmail, 'Il form manda sempre tutti i campi: quelli vuoti si svuotano.');
     }
 
-    public function testSupplierValidation(): void
+    public function testEverySupplierFieldIsRequired(): void
     {
-        $errors = $this->errorsOf(fn () => $this->suppliers->create(['name' => '', 'contact_email' => 'no']));
+        $errors = $this->errorsOf(fn () => $this->suppliers->create([]));
 
-        self::assertSame(['name', 'contact_email'], array_keys($errors));
+        self::assertSame(['name', 'tax_code', 'address', 'contact_email', 'phone'], array_keys($errors));
+        foreach ($errors as $message) {
+            self::assertStringContainsString('obbligatorio', $message);
+        }
+    }
+
+    public function testSupplierFieldsMadeOfSpacesAreEmpty(): void
+    {
+        $errors = $this->errorsOf(fn () => $this->suppliers->create($this->supplier(['tax_code' => '   ', 'phone' => ' '])));
+
+        self::assertSame(['tax_code', 'phone'], array_keys($errors));
+    }
+
+    public function testSupplierEmailMustBeValid(): void
+    {
+        $errors = $this->errorsOf(fn () => $this->suppliers->create($this->supplier(['contact_email' => 'no'])));
+
+        self::assertSame(['contact_email'], array_keys($errors));
+        self::assertStringContainsString('non è un indirizzo e-mail valido', $errors['contact_email']);
+    }
+
+    public function testUpdatingASupplierAlsoNeedsEveryField(): void
+    {
+        $id = $this->suppliers->create($this->supplier());
+
+        $errors = $this->errorsOf(fn () => $this->suppliers->update($id, $this->supplier(['address' => ''])));
+
+        self::assertSame(['address'], array_keys($errors));
     }
 
     public function testDeactivateAndActivateKeepTheRecord(): void
     {
-        $id = $this->suppliers->create(['name' => 'Zeta']);
+        $id = $this->suppliers->create($this->supplier(['name' => 'Zeta']));
 
         $this->suppliers->deactivate($id);
         self::assertFalse($this->suppliers->find($id)?->isActive);
@@ -94,8 +122,8 @@ final class MasterDataServicesTest extends IntegrationTestCase
 
     public function testActiveOnesLeavesOutTheDeactivated(): void
     {
-        $keep = $this->suppliers->create(['name' => 'Zz Attivo']);
-        $drop = $this->suppliers->create(['name' => 'Zz Disattivato']);
+        $keep = $this->suppliers->create($this->supplier(['name' => 'Zz Attivo']));
+        $drop = $this->suppliers->create($this->supplier(['name' => 'Zz Disattivato']));
         $this->suppliers->deactivate($drop);
 
         $ids = array_map(static fn ($s): int => $s->id, $this->suppliers->activeOnes());
@@ -106,8 +134,8 @@ final class MasterDataServicesTest extends IntegrationTestCase
 
     public function testSearchTreatsWildcardsAsPlainCharacters(): void
     {
-        $this->suppliers->create(['name' => 'Zz Alfa']);
-        $this->suppliers->create(['name' => 'Zz 100% Bio']);
+        $this->suppliers->create($this->supplier(['name' => 'Zz Alfa']));
+        $this->suppliers->create($this->supplier(['name' => 'Zz 100% Bio']));
 
         $names = static fn (array $found): array => array_values(array_filter(
             array_map(static fn ($s): string => $s->name, $found),
@@ -144,9 +172,10 @@ final class MasterDataServicesTest extends IntegrationTestCase
 
     public function testCustomerWithoutRoundIsAllowed(): void
     {
-        $id = $this->customers->create(['name' => 'Bar Luna', 'round_id' => '']);
+        $id = $this->customers->create(['name' => 'Bar Luna', 'round_id' => '', 'phone' => '  ']);
 
         self::assertNull($this->customers->find($id)?->roundId);
+        self::assertNull($this->customers->find($id)?->phone, 'Un campo facoltativo vuoto diventa NULL, non una stringa vuota.');
     }
 
     public function testCustomerCannotGetANonExistingRound(): void
@@ -315,5 +344,22 @@ final class MasterDataServicesTest extends IntegrationTestCase
             'width_mm' => '1200',
         ]));
         self::assertSame(['code'], array_keys($errors));
+    }
+
+    /**
+     * Dati completi di un fornitore (nella scheda fornitore tutti i campi sono obbligatori).
+     *
+     * @param array<string, string> $overrides
+     * @return array<string, string>
+     */
+    private function supplier(array $overrides = []): array
+    {
+        return $overrides + [
+            'name' => 'Zz Fornitore',
+            'tax_code' => 'IT00000000999',
+            'address' => 'Via Prova 1, Milano',
+            'contact_email' => 'info@zeta.test',
+            'phone' => '02 0000999',
+        ];
     }
 }

@@ -8,6 +8,10 @@ use LogiDock\Core\Validator;
 use LogiDock\Model\Supplier;
 
 /**
+ * Nella scheda del fornitore tutti i campi sono obbligatori (richiesta del titolare).
+ * Nel database le colonne restano facoltative perché i fornitori registrati prima di questa regola
+ * possono non averle: alla prima modifica il form chiede di completarle.
+ *
  * @extends MasterDataService<Supplier>
  */
 final class SupplierService extends MasterDataService
@@ -18,10 +22,10 @@ final class SupplierService extends MasterDataService
 
         $values = [
             'name' => $v->requiredString('name', 'Ragione sociale', 150),
-            'tax_code' => $v->optionalString('tax_code', 'Partita IVA / codice fiscale', 30),
-            'address' => $v->optionalString('address', 'Indirizzo', 255),
-            'contact_email' => $v->optionalEmail('contact_email', 'E-mail'),
-            'phone' => $v->optionalString('phone', 'Telefono', 30),
+            'tax_code' => $v->requiredString('tax_code', 'Partita IVA / codice fiscale', 30),
+            'address' => $v->requiredString('address', 'Indirizzo', 255),
+            'contact_email' => $v->requiredEmail('contact_email', 'E-mail'),
+            'phone' => $v->requiredString('phone', 'Telefono', 30),
         ];
 
         $v->assertValid();

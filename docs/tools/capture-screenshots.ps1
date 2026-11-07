@@ -240,6 +240,19 @@ try {
 '@ | Out-Null
     Save-Screenshot 'richiesta-nuova'
 
+    # Scheda fornitore inviata vuota: mostra che tutti i campi sono obbligatori (non salva niente).
+    Open-Page '/suppliers/create'
+    Invoke-Js 'document.querySelector("form.form").submit(); true' | Out-Null
+    $shown = $false
+    for ($i = 0; $i -lt 50 -and -not $shown; $i++) {
+        Start-Sleep -Milliseconds 200
+        # Durante il cambio di pagina il browser può non rispondere: si riprova al giro dopo.
+        try { $shown = [bool] (Invoke-Js 'document.readyState === "complete" && document.querySelectorAll(".form__error").length > 0') } catch { }
+    }
+    if (-not $shown) { throw 'Il form del fornitore non ha mostrato gli errori.' }
+    Start-Sleep -Milliseconds 300
+    Save-Screenshot 'fornitore-obbligatori'
+
     Open-Page '/settings';     Save-Screenshot 'impostazioni'
 
     Invoke-Cdp 'Browser.close' | Out-Null

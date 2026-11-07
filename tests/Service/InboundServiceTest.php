@@ -77,7 +77,10 @@ final class InboundServiceTest extends IntegrationTestCase
             password_hash('non-importa', PASSWORD_DEFAULT),
             UserRole::Operatore
         );
-        $this->supplierId = $this->suppliers->create(['name' => 'Zz Fornitore']);
+        $this->supplierId = $this->suppliers->create([
+            'name' => 'Zz Fornitore', 'tax_code' => 'IT00000000998', 'address' => 'Via Prova 2, Milano',
+            'contact_email' => 'ordini@fornitore.test', 'phone' => '02 0000998',
+        ]);
         // Peso unitario 10 kg: 5 pezzi pesano 50 kg, il che rende facili i conti sul peso segnato.
         $this->productId = $this->products->create([
             'code' => 'ZZ-IN1',

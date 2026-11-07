@@ -90,18 +90,35 @@ return static function (Database $database): void {
             );
     }
 
-    // --- Fornitori (nomi di fantasia) -----------------------------------------------------------
+    // --- Fornitori (dati di fantasia: dominio .test riservato, partite IVA e telefoni fittizi) ----
+    // Nella scheda fornitore tutti i campi sono obbligatori, quindi anche i dati di esempio li hanno.
     $supplierIds = [];
     $suppliers = [
-        ['Sorgenti Alpine S.r.l.', 'Via delle Fonti 12, Bergamo'],
-        ['Dispensa Italia S.r.l.', 'Via Roma 45, Parma'],
-        ['Cartotecnica Lombarda S.r.l.', 'Via dell\'Industria 8, Brescia'],
-        ['Igiene Casa Distribuzione S.r.l.', 'Via Mazzini 101, Verona'],
+        ['Sorgenti Alpine S.r.l.', 'IT00000000101', 'Via delle Fonti 12, Bergamo', 'ordini@sorgentialpine.test', '035 0000101'],
+        ['Dispensa Italia S.r.l.', 'IT00000000102', 'Via Roma 45, Parma', 'ordini@dispensaitalia.test', '0521 0000102'],
+        ['Cartotecnica Lombarda S.r.l.', 'IT00000000103', 'Via dell\'Industria 8, Brescia', 'vendite@cartotecnicalombarda.test', '030 0000103'],
+        ['Igiene Casa Distribuzione S.r.l.', 'IT00000000104', 'Via Mazzini 101, Verona', 'info@igienecasa.test', '045 0000104'],
     ];
-    foreach ($suppliers as [$name, $address]) {
-        $supplierIds[$name] = $firstId('SELECT id FROM suppliers WHERE name = ?', [$name])
-            ?? $insert('INSERT INTO suppliers (name, address) VALUES (?, ?)', [$name, $address]);
+    foreach ($suppliers as [$name, $taxCode, $address, $email, $phone]) {
+        $existing = $firstId('SELECT id FROM suppliers WHERE name = ?', [$name]);
+
+        if ($existing === null) {
+            $supplierIds[$name] = $insert(
+                'INSERT INTO suppliers (name, tax_code, address, contact_email, phone) VALUES (?, ?, ?, ?, ?)',
+                [$name, $taxCode, $address, $email, $phone]
+            );
+            continue;
+        }
+
+        // Fornitore già presente (seed di prima): si completano solo i campi vuoti, senza sovrascrivere nulla.
+        $pdo->prepare(
+            'UPDATE suppliers SET tax_code = COALESCE(tax_code, ?), address = COALESCE(address, ?),
+                                  contact_email = COALESCE(contact_email, ?), phone = COALESCE(phone, ?)
+             WHERE id = ?'
+        )->execute([$taxCode, $address, $email, $phone, $existing]);
+        $supplierIds[$name] = $existing;
     }
+
     // --- Posizioni di magazzino -----------------------------------------------------------------
     $locationIds = [];
     $locations = [
