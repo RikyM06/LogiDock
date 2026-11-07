@@ -132,6 +132,7 @@ final class Application
             $this->basePath . '/templates',
             [
                 'appName' => (string) $config['name'],
+                'appVersion' => (string) $config['version'],
                 'currentPath' => '/',
                 'currentUser' => null,
                 'csrfToken' => '',

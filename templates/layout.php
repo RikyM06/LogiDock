@@ -3,6 +3,7 @@
  * Layout comune a tutte le pagine.
  *
  * @var string                     $appName
+ * @var string                     $appVersion  versione dal file VERSION (es. 0.0.10.0)
  * @var string                     $currentPath
  * @var string                     $content     HTML già renderizzato dal template della pagina (fidato, non va escapato)
  * @var string|null                $title
@@ -97,7 +98,7 @@ $isActive = static function (string $path) use ($currentPath, $masterDataPaths):
     </main>
 
     <footer class="footer">
-        <div class="container<?= !empty($wide) ? ' container--wide' : '' ?>"><?= e($appName) ?> · gestionale di magazzino e logistica</div>
+        <div class="container<?= !empty($wide) ? ' container--wide' : '' ?>"><?= e($appName) ?> · gestionale di magazzino e logistica · versione <?= e($appVersion ?? '') ?></div>
     </footer>
 </body>
 </html>

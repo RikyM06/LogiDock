@@ -203,6 +203,10 @@ passano sempre da prepared statement.
 | Posizioni di magazzino | `/locations` | codice unico, capacità facoltativa (vuota = capacità predefinita) |
 | Tipi di bancale | `/pallet-types` | codice unico; EPAL 3 (1200 × 1000 mm) ed EPAL 1 (1200 × 800 mm) già presenti |
 
+In tutte le schede i **campi obbligatori hanno un asterisco rosso** accanto all'etichetta (nelle tabelle a righe di
+arrivi e richieste, accanto al titolo della colonna). L'asterisco è solo visivo: ai lettori di schermo l'obbligo
+arriva dall'attributo `required` del campo, che i partial `field` e `select` mettono insieme all'asterisco.
+
 Come per i prodotti, tutti consultano e solo gli admin modificano. Un riferimento già assegnato (il giro di
 un cliente) che viene disattivato resta sul record e non sparisce dal form, ma non si può assegnare a record nuovi.
 
@@ -370,6 +374,25 @@ camionisti). Serve anche lo storico di viaggi, forniture e pagamenti.
 - [ ] **Fase 13:** documenti in PDF (carico per camion, consegna per cliente con prezzi, compenso camionisti)
 - [ ] **Fase 14:** storico viaggi, forniture per fornitore, pagamenti dei clienti, report
 - [ ] **Fase 15:** qualità finale e deploy
+
+## Versione
+
+La versione sta nel file [`VERSION`](VERSION) e si vede nel piè di pagina dell'applicazione e del sito.
+Il formato è `MAGGIORE.MINORE.FASE.COMMIT`, per esempio `0.0.10.0`:
+
+| Numero | Significato |
+|---|---|
+| FASE (terzo) | la fase di sviluppo in corso, per ora legata alla roadmap |
+| COMMIT (ultimo) | cresce di uno a ogni commit e riparte da 0 quando inizia una nuova fase |
+
+```powershell
+php bin/version.php            # mostra la versione
+php bin/version.php bump       # prima di ogni commit: +1 all'ultimo numero
+php bin/version.php phase 11   # all'inizio di una nuova fase: 0.0.11.0
+```
+
+Il comando aggiorna `VERSION` e il numero scritto nel sito vetrina; l'applicazione legge `VERSION` da sola.
+Non è *semantic versioning* (che ha tre numeri), per questo la versione non sta in `composer.json`.
 
 ## Licenza
 

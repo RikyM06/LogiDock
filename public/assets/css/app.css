@@ -597,3 +597,9 @@ a.button {
     background: var(--color-soft);
     color: var(--color-muted);
 }
+/* Asterisco rosso accanto all'etichetta dei campi obbligatori. È solo visivo (aria-hidden):
+   ai lettori di schermo l'obbligo arriva dall'attributo required del campo. */
+.required-mark {
+    color: var(--color-danger);
+    font-weight: 700;
+}

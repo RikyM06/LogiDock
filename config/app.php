@@ -9,6 +9,8 @@ $root = dirname(__DIR__);
 
 return [
     'name' => env('APP_NAME', 'LogiDock'),
+    // Versione MAGGIORE.MINORE.FASE.COMMIT, dal file VERSION (si aggiorna con php bin/version.php bump).
+    'version' => is_readable($root . '/VERSION') ? trim((string) file_get_contents($root . '/VERSION')) : 'sconosciuta',
     'env' => env('APP_ENV', 'production'),
     'debug' => filter_var(env('APP_DEBUG', 'false'), FILTER_VALIDATE_BOOLEAN),
     'url' => env('APP_URL', 'http://localhost'),

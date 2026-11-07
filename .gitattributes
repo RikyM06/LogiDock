@@ -13,3 +13,4 @@ deploy/logrotate/* text eol=lf
 # Testo ufficiale della licenza e avviso: identici byte per byte all'originale anche su Windows.
 LICENSE text eol=lf
 NOTICE text eol=lf
+VERSION text eol=lf

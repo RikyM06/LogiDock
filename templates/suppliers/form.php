@@ -15,7 +15,6 @@
     <form method="post" action="<?= e($action) ?>" class="form" novalidate>
         <input type="hidden" name="_csrf" value="<?= e($csrfToken) ?>">
 
-        <p class="muted">Tutti i campi sono obbligatori.</p>
         <?= $partial('field', ['name' => 'name', 'label' => 'Ragione sociale', 'maxlength' => 150]) ?>
         <?= $partial('field', ['name' => 'tax_code', 'label' => 'Partita IVA / codice fiscale', 'maxlength' => 30]) ?>
         <?= $partial('field', ['name' => 'address', 'label' => 'Indirizzo', 'maxlength' => 255]) ?>

@@ -17,7 +17,7 @@
         <input type="hidden" name="_csrf" value="<?= e($csrfToken) ?>">
 
         <div class="form__field">
-            <label for="code">Codice</label>
+            <label for="code">Codice <span class="required-mark" aria-hidden="true">*</span></label>
             <input type="text" id="code" name="code" value="<?= e($values['code']) ?>" maxlength="50" required
                    <?= isset($errors['code']) ? 'class="has-error" aria-invalid="true" aria-describedby="code-error"' : '' ?>>
             <?php if (isset($errors['code'])) : ?>
@@ -26,7 +26,7 @@
         </div>
 
         <div class="form__field">
-            <label for="description">Descrizione</label>
+            <label for="description">Descrizione <span class="required-mark" aria-hidden="true">*</span></label>
             <input type="text" id="description" name="description" value="<?= e($values['description']) ?>"
                    maxlength="255" required
                    <?= isset($errors['description']) ? 'class="has-error" aria-invalid="true" aria-describedby="description-error"' : '' ?>>
@@ -37,7 +37,7 @@
 
         <div class="form__row">
             <div class="form__field">
-                <label for="unit_of_measure">Unità di misura</label>
+                <label for="unit_of_measure">Unità di misura <span class="required-mark" aria-hidden="true">*</span></label>
                 <select id="unit_of_measure" name="unit_of_measure" required
                         <?= isset($errors['unit_of_measure']) ? 'class="has-error" aria-invalid="true" aria-describedby="unit-error"' : '' ?>>
                     <option value="">Scegli...</option>
@@ -53,7 +53,7 @@
             </div>
 
             <div class="form__field">
-                <label for="unit_weight_kg">Peso unitario (kg)</label>
+                <label for="unit_weight_kg">Peso unitario (kg) <span class="required-mark" aria-hidden="true">*</span></label>
                 <input type="text" id="unit_weight_kg" name="unit_weight_kg" inputmode="decimal"
                        value="<?= e(str_replace('.', ',', $values['unit_weight_kg'])) ?>" required
                        <?= isset($errors['unit_weight_kg']) ? 'class="has-error" aria-invalid="true" aria-describedby="weight-error"' : '' ?>>

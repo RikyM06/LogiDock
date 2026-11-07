@@ -14,7 +14,7 @@ $selected = $values[$name] ?? '';
 $hasError = isset($errors[$name]);
 ?>
 <div class="form__field">
-    <label for="<?= e($name) ?>"><?= e($label) ?></label>
+    <label for="<?= e($name) ?>"><?= e($label) ?><?php if ($required ?? false) : ?> <span class="required-mark" aria-hidden="true">*</span><?php endif; ?></label>
     <select id="<?= e($name) ?>" name="<?= e($name) ?>" <?= ($required ?? false) ? 'required' : '' ?>
             <?= $hasError ? 'class="has-error" aria-invalid="true" aria-describedby="' . e($name) . '-error"' : '' ?>>
         <option value=""><?= e($blank) ?></option>

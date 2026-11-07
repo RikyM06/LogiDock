@@ -52,9 +52,9 @@ $nextIndex = $lines === [] ? 0 : max(array_map('intval', array_keys($lines))) + 
             <table class="table table--lines">
                 <thead>
                     <tr>
-                        <th>Prodotto</th>
-                        <th>Quantità</th>
-                        <th>Prezzo di vendita (€)</th>
+                        <th>Prodotto <span class="required-mark" aria-hidden="true">*</span></th>
+                        <th>Quantità <span class="required-mark" aria-hidden="true">*</span></th>
+                        <th>Prezzo di vendita (€) <span class="required-mark" aria-hidden="true">*</span></th>
                         <th><span class="visually-hidden">Togli</span></th>
                     </tr>
                 </thead>
