@@ -371,14 +371,14 @@ camionisti). Serve anche lo storico di viaggi, forniture e pagamenti.
 - [x] **Fase 10:** richieste dei clienti
 - [ ] **Fase 11:** gestione degli utenti dall'applicazione (solo admin): elenco, nuovo utente, ruolo, disattivazione,
   reimpostazione della password, e "la mia password" per tutti
-- [ ] **Fase 12:** ricerca globale per descrizione: un testo cercato in tutti i campi di tutti i dati (clienti,
+- [ ] **Fase 12:** giacenze e avviso per i bancali fermi da troppo tempo
+- [ ] **Fase 13:** pianificazione dei viaggi (assegnazione automatica ai rimorchi, modifica manuale e ricalcolo)
+- [ ] **Fase 14:** documenti in PDF (carico per camion, consegna per cliente con prezzi, compenso camionisti)
+- [ ] **Fase 15:** storico viaggi, forniture per fornitore, pagamenti dei clienti, report
+- [ ] **Fase 16:** ricerca globale per descrizione: un testo cercato in tutti i campi di tutti i dati (clienti,
   fornitori, prodotti, arrivi, richieste...), con risultati di ogni tipo e il collegamento al dettaglio di ciascuno
   (i dettagli si definiscono quando si inizia la fase)
-- [ ] **Fase 13:** navigazione "a lisca di pesce" (da definire)
-- [ ] **Fase 14:** giacenze e avviso per i bancali fermi da troppo tempo
-- [ ] **Fase 15:** pianificazione dei viaggi (assegnazione automatica ai rimorchi, modifica manuale e ricalcolo)
-- [ ] **Fase 16:** documenti in PDF (carico per camion, consegna per cliente con prezzi, compenso camionisti)
-- [ ] **Fase 17:** storico viaggi, forniture per fornitore, pagamenti dei clienti, report
+- [ ] **Fase 17:** navigazione "a lisca di pesce" (da definire)
 - [ ] **Fase 18:** qualità finale e deploy
 
 ## Versione
