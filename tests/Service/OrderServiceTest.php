@@ -258,7 +258,7 @@ final class OrderServiceTest extends IntegrationTestCase
     public function testPlannedOrderCannotBeCancelled(): void
     {
         $id = $this->orders->create($this->input([$this->line($this->waterId)]), $this->userId, $this->now);
-        // Lo stato "pianificata" lo metterà la pianificazione dei viaggi (fase 12): qui lo si simula.
+        // Lo stato "pianificata" lo metterà la pianificazione dei viaggi (fase 15): qui lo si simula.
         $this->database->pdo()->prepare("UPDATE orders SET status = 'planned' WHERE id = ?")->execute([$id]);
 
         $this->expectException(OrderNotEditableException::class);
