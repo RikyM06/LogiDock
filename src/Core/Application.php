@@ -12,6 +12,7 @@ use LogiDock\Controller\CarrierController;
 use LogiDock\Controller\CustomerController;
 use LogiDock\Controller\HomeController;
 use LogiDock\Controller\InboundController;
+use LogiDock\Controller\OrderController;
 use LogiDock\Controller\PalletTypeController;
 use LogiDock\Controller\ProductController;
 use LogiDock\Controller\RoundController;
@@ -26,6 +27,7 @@ use LogiDock\Middleware\CsrfMiddleware;
 use LogiDock\Repository\CarrierRepository;
 use LogiDock\Repository\CustomerRepository;
 use LogiDock\Repository\NumberSequenceRepository;
+use LogiDock\Repository\OrderRepository;
 use LogiDock\Repository\PalletMovementRepository;
 use LogiDock\Repository\PalletRepository;
 use LogiDock\Repository\PalletTypeRepository;
@@ -42,6 +44,7 @@ use LogiDock\Service\AuthService;
 use LogiDock\Service\CarrierService;
 use LogiDock\Service\CustomerService;
 use LogiDock\Service\InboundService;
+use LogiDock\Service\OrderService;
 use LogiDock\Service\PalletTypeService;
 use LogiDock\Service\ProductService;
 use LogiDock\Service\RoundService;
@@ -256,6 +259,18 @@ final class Application
             $c->get(SettingService::class)
         ));
 
+        // Richieste dei clienti
+        $c->set(OrderRepository::class, fn (Container $c): OrderRepository => new OrderRepository(
+            $c->get(Database::class)
+        ));
+        $c->set(OrderService::class, fn (Container $c): OrderService => new OrderService(
+            $c->get(Database::class),
+            $c->get(OrderRepository::class),
+            $c->get(NumberSequenceRepository::class),
+            $c->get(CustomerService::class),
+            $c->get(ProductService::class)
+        ));
+
         // Middleware
         $c->set(CsrfMiddleware::class, fn (Container $c): CsrfMiddleware => new CsrfMiddleware($c->get(Csrf::class)));
         $c->set(AuthMiddleware::class, fn (Container $c): AuthMiddleware => new AuthMiddleware($c->get(AuthService::class)));
@@ -354,6 +369,14 @@ final class Application
             $c->get(ProductService::class),
             $c->get(PalletTypeService::class),
             $c->get(WarehouseLocationService::class)
+        ));
+        $c->set(OrderController::class, fn (Container $c): OrderController => new OrderController(
+            $c->get(View::class),
+            $c->get(Session::class),
+            $c->get(AuthService::class),
+            $c->get(OrderService::class),
+            $c->get(CustomerService::class),
+            $c->get(ProductService::class)
         ));
         $c->set(SettingController::class, fn (Container $c): SettingController => new SettingController(
             $c->get(View::class),

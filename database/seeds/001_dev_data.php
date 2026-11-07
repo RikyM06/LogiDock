@@ -3,18 +3,24 @@
 declare(strict_types=1);
 
 use LogiDock\Core\Database;
+use LogiDock\Repository\CustomerRepository;
 use LogiDock\Repository\NumberSequenceRepository;
+use LogiDock\Repository\OrderRepository;
 use LogiDock\Repository\PalletMovementRepository;
 use LogiDock\Repository\PalletRepository;
 use LogiDock\Repository\PalletTypeRepository;
 use LogiDock\Repository\ProductRepository;
+use LogiDock\Repository\RoundRepository;
 use LogiDock\Repository\SettingRepository;
 use LogiDock\Repository\SupplierDocumentRepository;
 use LogiDock\Repository\SupplierRepository;
 use LogiDock\Repository\WarehouseLocationRepository;
+use LogiDock\Service\CustomerService;
 use LogiDock\Service\InboundService;
+use LogiDock\Service\OrderService;
 use LogiDock\Service\PalletTypeService;
 use LogiDock\Service\ProductService;
+use LogiDock\Service\RoundService;
 use LogiDock\Service\SettingService;
 use LogiDock\Service\SupplierService;
 use LogiDock\Service\WarehouseLocationService;
@@ -96,7 +102,6 @@ return static function (Database $database): void {
         $supplierIds[$name] = $firstId('SELECT id FROM suppliers WHERE name = ?', [$name])
             ?? $insert('INSERT INTO suppliers (name, address) VALUES (?, ?)', [$name, $address]);
     }
-
     // --- Posizioni di magazzino -----------------------------------------------------------------
     $locationIds = [];
     $locations = [
@@ -274,5 +279,46 @@ return static function (Database $database): void {
                 'location_id' => (string) $locationIds[$line[7]],
             ], $lines),
         ], $operatorId);
+    }
+
+    // --- Richieste dei clienti (solo se non ce n'è ancora nessuna) ------------------------------
+    // Registrate con lo stesso OrderService dell'applicazione. L'Emporio chiede più acqua di quella
+    // in magazzino, per vedere l'avviso di giacenza; una richiesta è annullata, per vedere gli stati.
+    if ($firstId('SELECT id FROM orders LIMIT 1', []) === null) {
+        $orderService = new OrderService(
+            $database,
+            new OrderRepository($database),
+            new NumberSequenceRepository($database),
+            new CustomerService(new CustomerRepository($database), new RoundService(new RoundRepository($database))),
+            new ProductService(new ProductRepository($database))
+        );
+        $customerId = static fn (string $name): string => (string) $firstId('SELECT id FROM customers WHERE name = ?', [$name]);
+        $today = substr($daysAgo(0), 0, 10);
+
+        // [cliente, consegna tra (giorni), note, [[prodotto, quantità, prezzo di vendita], ...], annullata?]
+        $demoOrders = [
+            ['Supermercato Il Girasole', 2, 'Scarico dal retro, prima delle 9.', [['ACQ-050', '40', '4.20'], ['PAS-500', '30', '11.50'], ['OLI-1L', '12', '38.00']], false],
+            ['Alimentari Bianchi', 2, null, [['DET-LIQ', '15', '14.90'], ['PAN-ECO', '60', '7.40']], false],
+            ['Emporio del Borgo', 3, 'Consegna con sponda idraulica.', [['OLI-1L', '100', '37.50'], ['ACQ-050', '300', '4.10']], false],
+            ['Supermercato Il Girasole', 5, 'Doppione inserito per errore.', [['SCA-PIA', '200', '0.90']], true],
+        ];
+
+        foreach ($demoOrders as [$customer, $deliveryIn, $notes, $orderLines, $cancelled]) {
+            $orderId = $orderService->create([
+                'customer_id' => $customerId($customer),
+                'requested_date' => $today,
+                'delivery_date' => $inDays($deliveryIn),
+                'notes' => $notes ?? '',
+                'lines' => array_map(static fn (array $line): array => [
+                    'product_id' => (string) $productIds[$line[0]],
+                    'quantity' => $line[1],
+                    'unit_price' => $line[2],
+                ], $orderLines),
+            ], $operatorId);
+
+            if ($cancelled) {
+                $orderService->cancel($orderId);
+            }
+        }
     }
 };

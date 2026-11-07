@@ -16,6 +16,7 @@
 $navigation = [
     '/' => 'Home',
     '/inbound' => 'Arrivi',
+    '/orders' => 'Richieste',
     '/products' => 'Prodotti',
     '/master-data' => 'Anagrafiche',
 ];

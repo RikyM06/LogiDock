@@ -28,6 +28,8 @@ use LogiDock\Repository\SupplierDocumentRepository;
  */
 final class InboundService
 {
+    use LineInputHelpers;
+
     /** Righe (bancali) al massimo in un solo arrivo. */
     private const MAX_LINES = 200;
 
@@ -286,55 +288,5 @@ final class InboundService
         if ($errors !== []) {
             throw new ValidationException($errors);
         }
-    }
-
-    /**
-     * @param iterable<object> $items
-     * @return list<int>
-     */
-    private function idsOf(iterable $items): array
-    {
-        $ids = [];
-        foreach ($items as $item) {
-            $ids[] = $item->id;
-        }
-
-        return $ids;
-    }
-
-    /**
-     * @param array<string, mixed> $line
-     */
-    private function isBlank(array $line): bool
-    {
-        foreach ($line as $value) {
-            if (!is_scalar($value) || trim((string) $value) !== '') {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private function isDate(string $value): bool
-    {
-        $date = DateTimeImmutable::createFromFormat('!Y-m-d', $value);
-
-        return $date !== false && $date->format('Y-m-d') === $value;
-    }
-
-    private function hasLineErrors(Validator $validator): bool
-    {
-        try {
-            $validator->assertValid();
-        } catch (ValidationException $e) {
-            foreach (array_keys($e->errors()) as $field) {
-                if (str_starts_with($field, 'lines.')) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
     }
 }

@@ -13,8 +13,8 @@ Il codice è **source available** con doppia licenza: gratuito per gli usi non c
 [licenza commerciale separata](COMMERCIAL-LICENSE.md) per gli usi commerciali o professionali.
 Dettagli in [Licenza](#licenza).
 
-> **Stato:** Fasi 1-6, 8 e 9 completate (scheletro, database, autenticazione, prodotti, ambiente e deploy,
-> test, anagrafiche e impostazioni, arrivi di merce). Le altre funzionalità arrivano una alla volta, vedi [Roadmap](#roadmap).
+> **Stato:** Fasi 1-6 e 8-10 completate (scheletro, database, autenticazione, prodotti, ambiente e deploy,
+> test, anagrafiche e impostazioni, arrivi di merce, richieste dei clienti). Le altre funzionalità arrivano una alla volta, vedi [Roadmap](#roadmap).
 
 ## Stack
 
@@ -121,7 +121,7 @@ users ─┬──< pallets >── products          pallets: stato corrente di
        │      └──< transport_documents    (bolla / DDT, numerati con number_sequences)
 ```
 
-Dalla Fase 9 `supplier_documents` (documenti dei fornitori) e, su `pallets`, tipo di bancale, documento,
+Dalla Fase 10 `orders` e `order_lines` (richieste dei clienti e loro righe). Dalla Fase 9 `supplier_documents` (documenti dei fornitori) e, su `pallets`, tipo di bancale, documento,
 prezzo d'acquisto e peso segnato. Dalla Fase 8 si aggiungono: `settings` (impostazioni), `pallet_types` e `trailer_types` (misure), `rounds` e
 `customers` (giri e clienti), `carriers` (trasportatori). `vehicles` punta a un tipo di rimorchio e a un
 trasportatore, `warehouse_locations` ha una capacità facoltativa.
@@ -235,6 +235,30 @@ Regole da sapere:
 - **Prezzo:** è il prezzo d'acquisto **per unità di misura** del prodotto (valore del bancale = quantità × prezzo).
 - **Un arrivo registrato non si modifica:** i movimenti sono uno storico. Una correzione si farà con un movimento di rettifica.
 
+### Richieste dei clienti
+
+Cosa chiede ogni cliente, da `/orders`. Le registra **qualunque utente collegato**, come gli arrivi.
+
+Una richiesta ha un cliente (con il suo giro), la data della richiesta, la **consegna desiderata**, delle note e
+una riga per prodotto: quantità (nell'unità di misura del prodotto) e **prezzo di vendita** per unità. Il prezzo
+è una "fotografia" del momento: se cambia il listino, le richieste già fatte non cambiano.
+
+| Pezzo | Dove | Cosa fa |
+|---|---|---|
+| Service | `src/Service/OrderService.php` | valida testata e righe, assegna il codice, scrive in transazione, blocca le modifiche se non è più aperta |
+| Repository | `src/Repository/OrderRepository.php` | solo SQL: lista con totali, righe con giacenza, inserimento, sostituzione delle righe |
+| Controller e template | `OrderController`, `templates/orders/` | lista con filtri, nuova, dettaglio, modifica, annullamento |
+
+Regole da sapere:
+- **Codice** `ORD-AAAA-NNNNNN`, progressivo per anno, con lo stesso numeratore dei bancali (tipo `order`).
+- **Stati:** *aperta* (si modifica e si annulla), *pianificata* e *spedita* (li useranno pianificazione e consegne),
+  *annullata*. Una richiesta **non si cancella mai**: fa parte dello storico.
+- **Un prodotto una sola volta per richiesta:** se compare su due righe il form chiede di sommare le quantità.
+- **Date:** la richiesta non può essere nel futuro, la consegna non può essere prima della richiesta.
+- **Giacenza:** nel dettaglio, per ogni prodotto, si vede quanto ce n'è adesso in magazzino (bancali *in_stock*);
+  se non basta la riga è evidenziata. È un'indicazione: cosa va davvero a ogni cliente lo deciderà la pianificazione.
+- Un cliente o un prodotto disattivato dopo la richiesta resta su quella richiesta e non sparisce dal form di
+  modifica, ma non si può usare in una richiesta nuova.
 ### Impostazioni
 
 Pagina `/settings`, solo admin. I valori di business non sono scritti nel codice: si chiedono a
@@ -296,6 +320,7 @@ I test usano PHPUnit e stanno in `tests/`:
 | `tests/Service/MasterDataServicesTest.php` | integrazione | regole comuni delle anagrafiche e quelle di ognuna (giri dei clienti, targhe, capacità, EPAL) |
 | `tests/Service/SettingServiceTest.php` | integrazione | valori di partenza, salvataggio, tutto-o-niente, limiti |
 | `tests/Service/InboundServiceTest.php` | integrazione | arrivo completo (documento, bancali, movimenti), codici consecutivi, errori sulla riga giusta, capacità, peso, documento duplicato, tutto-o-niente |
+| `tests/Service/OrderServiceTest.php` | integrazione | richiesta completa, codici consecutivi, date, prodotto ripetuto, modifica che sostituisce le righe, annullamento, stati bloccati, giacenza |
 | `tests/Core/DatabaseTransactionTest.php` | integrazione | commit, rollback e savepoint quando una transazione è già aperta |
 | `tests/Core/ApplicationConfigTest.php` | unitario | le variabili d'ambiente vere vincono su `.env` |
 
@@ -339,7 +364,7 @@ camionisti). Serve anche lo storico di viaggi, forniture e pagamenti.
   che si aggiungono insieme alle fasi che li usano
 - [x] **Fase 8:** anagrafiche (fornitori, clienti, giri, veicoli, trasportatori, rimorchi, posizioni, tipi di bancale) e impostazioni
 - [x] **Fase 9:** arrivi giornalieri: documento del fornitore con date, bancali con prezzo e peso, posizione
-- [ ] **Fase 10:** richieste dei clienti
+- [x] **Fase 10:** richieste dei clienti
 - [ ] **Fase 11:** giacenze e avviso per i bancali fermi da troppo tempo
 - [ ] **Fase 12:** pianificazione dei viaggi (assegnazione automatica ai rimorchi, modifica manuale e ricalcolo)
 - [ ] **Fase 13:** documenti in PDF (carico per camion, consegna per cliente con prezzi, compenso camionisti)

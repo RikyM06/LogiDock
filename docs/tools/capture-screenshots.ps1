@@ -204,6 +204,42 @@ try {
 '@ | Out-Null
     Save-Screenshot 'arrivo-nuovo'
 
+    # Richieste dei clienti: lista, dettaglio di quella con l'avviso di giacenza (Emporio del Borgo), form compilato.
+    Open-Page '/orders';       Save-Screenshot 'richieste'
+    $order = Invoke-Js @'
+(() => {
+    const row = [...document.querySelectorAll('tbody tr')].find((tr) => tr.textContent.includes('Emporio del Borgo'));
+    const link = row ? row.querySelector('a[href^="/orders/"]') : null;
+    return link ? link.getAttribute('href') : '';
+})()
+'@
+    if ($order -eq '') { throw 'Richiesta demo non trovata: hai eseguito php bin/seed.php?' }
+    Open-Page $order;          Save-Screenshot 'richiesta-dettaglio'
+
+    Open-Page '/orders/create'
+    Invoke-Js @'
+(() => {
+    const pick = (name, text) => {
+        const select = document.querySelector(`[name="${name}"]`);
+        const option = [...select.options].find((o) => o.text.includes(text));
+        if (option) { select.value = option.value; }
+    };
+    const put = (name, value) => { document.querySelector(`[name="${name}"]`).value = value; };
+    const day = (offset) => new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10);
+
+    pick('customer_id', 'Alimentari Bianchi');
+    put('delivery_date', day(4));
+    put('notes', 'Chiamare prima della consegna.');
+    [['PAS-500', '24', '11,50'], ['OLI-1L', '6', '38,00']].forEach(([product, quantity, price], i) => {
+        pick(`lines[${i}][product_id]`, product);
+        put(`lines[${i}][quantity]`, quantity);
+        put(`lines[${i}][unit_price]`, price);
+    });
+    return true;
+})()
+'@ | Out-Null
+    Save-Screenshot 'richiesta-nuova'
+
     Open-Page '/settings';     Save-Screenshot 'impostazioni'
 
     Invoke-Cdp 'Browser.close' | Out-Null

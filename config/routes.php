@@ -7,6 +7,7 @@ use LogiDock\Controller\CarrierController;
 use LogiDock\Controller\CustomerController;
 use LogiDock\Controller\HomeController;
 use LogiDock\Controller\InboundController;
+use LogiDock\Controller\OrderController;
 use LogiDock\Controller\PalletTypeController;
 use LogiDock\Controller\ProductController;
 use LogiDock\Controller\RoundController;
@@ -76,6 +77,16 @@ return static function (Router $router): void {
             $router->get('/inbound/create', [InboundController::class, 'create']);
             $router->post('/inbound', [InboundController::class, 'store']);
             $router->get('/inbound/{id}', [InboundController::class, 'show']);
+
+            // Richieste dei clienti: anche queste fanno parte del lavoro di ogni giorno.
+            // "/orders/create" va prima di "/orders/{id}" per lo stesso motivo degli arrivi.
+            $router->get('/orders', [OrderController::class, 'index']);
+            $router->get('/orders/create', [OrderController::class, 'create']);
+            $router->post('/orders', [OrderController::class, 'store']);
+            $router->get('/orders/{id}', [OrderController::class, 'show']);
+            $router->get('/orders/{id}/edit', [OrderController::class, 'edit']);
+            $router->post('/orders/{id}', [OrderController::class, 'update']);
+            $router->post('/orders/{id}/cancel', [OrderController::class, 'cancel']);
 
             // Prodotti: tutti possono consultare l'anagrafica...
             $router->get('/products', [ProductController::class, 'index']);

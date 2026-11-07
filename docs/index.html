@@ -52,8 +52,8 @@
             <div class="container">
                 <h2>Cosa fa</h2>
                 <p class="section__intro">
-                    Il progetto avanza una fase alla volta. Oggi sono pronti le fondamenta, i prodotti, le anagrafiche
-                    e gli arrivi di merce; le altre parti arrivano nelle prossime fasi.
+                    Il progetto avanza una fase alla volta. Oggi sono pronti le fondamenta, i prodotti, le anagrafiche,
+                    gli arrivi di merce e le richieste dei clienti; le altre parti arrivano nelle prossime fasi.
                 </p>
                 <div class="grid">
                     <article class="card">
@@ -62,7 +62,7 @@
                     </article>
                     <article class="card">
                         <h3>Utenti e ruoli <span class="badge badge--ok">Pronto</span></h3>
-                        <p>Login sicuro con due ruoli: l'<strong>admin</strong> gestisce anagrafiche e impostazioni, l'<strong>operatore</strong> consulta e registra gli arrivi.</p>
+                        <p>Login sicuro con due ruoli: l'<strong>admin</strong> gestisce anagrafiche e impostazioni, l'<strong>operatore</strong> consulta e registra arrivi e richieste.</p>
                     </article>
                     <article class="card">
                         <h3>Anagrafiche e impostazioni <span class="badge badge--ok">Pronto</span></h3>
@@ -73,8 +73,12 @@
                         <p>Il documento del fornitore con le sue date e i bancali con prezzo, peso segnato e posizione. Ogni bancale riceve un codice (<code>PAL-2026-000123</code>) e un movimento nello storico che non si può alterare. Se il peso segnato non torna con quello calcolato, l'app lo evidenzia.</p>
                     </article>
                     <article class="card">
+                        <h3>Richieste dei clienti <span class="badge badge--ok">Pronto</span></h3>
+                        <p>Cosa chiede ogni cliente: prodotti, quantità, prezzo di vendita e data di consegna, con un codice (<code>ORD-2026-000123</code>). Per ogni prodotto si vede quanto ce n'è in magazzino; finché è aperta si modifica o si annulla, mai cancellata.</p>
+                    </article>
+                    <article class="card">
                         <h3>Viaggi e documenti <span class="badge badge--off">In arrivo</span></h3>
-                        <p>Richieste dei clienti, assegnazione dei bancali ai rimorchi per giro con modifica manuale, documenti di carico, DDT e compensi dei trasportatori in PDF.</p>
+                        <p>Assegnazione dei bancali ai rimorchi per giro con modifica manuale, documenti di carico, DDT e compensi dei trasportatori in PDF.</p>
                     </article>
                 </div>
             </div>
@@ -95,6 +99,18 @@
                     <figure class="screenshot">
                         <a href="assets/screenshots/arrivi.png"><img src="assets/screenshots/arrivi.png" alt="Lista degli arrivi con data, documento, fornitore, numero di bancali, valore e peso segnato" width="1440" height="900" loading="lazy"></a>
                         <figcaption><strong>Arrivi.</strong> Gli ultimi documenti registrati, con i totali.</figcaption>
+                    </figure>
+                    <figure class="screenshot">
+                        <a href="assets/screenshots/richiesta-nuova.png"><img src="assets/screenshots/richiesta-nuova.png" alt="Form di una nuova richiesta: cliente con il suo giro, data della richiesta e di consegna, e una riga per prodotto con quantità e prezzo di vendita" width="1440" height="900" loading="lazy"></a>
+                        <figcaption><strong>Nuova richiesta.</strong> Il cliente, le date e una riga per prodotto con il prezzo di vendita.</figcaption>
+                    </figure>
+                    <figure class="screenshot">
+                        <a href="assets/screenshots/richiesta-dettaglio.png"><img src="assets/screenshots/richiesta-dettaglio.png" alt="Dettaglio di una richiesta: righe con quantità, prezzo, valore e giacenza in magazzino, con l'avviso per il prodotto che non basta" width="1440" height="900" loading="lazy"></a>
+                        <figcaption><strong>Dettaglio della richiesta.</strong> Per ogni prodotto la giacenza attuale; se non basta, la riga è evidenziata.</figcaption>
+                    </figure>
+                    <figure class="screenshot">
+                        <a href="assets/screenshots/richieste.png"><img src="assets/screenshots/richieste.png" alt="Lista delle richieste con codice, cliente, giro, data di consegna, numero di prodotti, valore e stato" width="1440" height="900" loading="lazy"></a>
+                        <figcaption><strong>Richieste.</strong> Cerca per codice o cliente e filtra per stato.</figcaption>
                     </figure>
                     <figure class="screenshot">
                         <a href="assets/screenshots/prodotti.png"><img src="assets/screenshots/prodotti.png" alt="Lista dei prodotti con codice, descrizione, unità di misura, peso unitario e stato" width="1440" height="900" loading="lazy"></a>
@@ -256,7 +272,7 @@ Nginx ──► public/index.php (front controller)
             <div class="container">
                 <h2>Test</h2>
                 <p class="section__intro">
-                    151 test PHPUnit. Quelli sui service (prodotti, anagrafiche, impostazioni) usano i veri repository
+                    167 test PHPUnit. Quelli sui service (prodotti, anagrafiche, impostazioni, arrivi, richieste) usano i veri repository
                     su un database di test, dentro una transazione che si annulla a fine test.
                 </p>
                 <div class="table-wrap">
@@ -272,6 +288,7 @@ Nginx ──► public/index.php (front controller)
                             <tr><td><code>ProductServiceTest</code></td><td>integrazione</td><td>validazione, duplicati, attiva/disattiva, ricerca</td></tr>
                             <tr><td><code>MasterDataServicesTest</code></td><td>integrazione</td><td>regole delle anagrafiche: giri dei clienti, targhe, capacità, EPAL</td></tr>
                             <tr><td><code>InboundServiceTest</code></td><td>integrazione</td><td>arrivo completo, codici consecutivi, capacità, peso, documento duplicato, tutto-o-niente</td></tr>
+                            <tr><td><code>OrderServiceTest</code></td><td>integrazione</td><td>richiesta completa, codici, prodotto ripetuto, modifica, annullamento, giacenza</td></tr>
                             <tr><td><code>DatabaseTransactionTest</code></td><td>integrazione</td><td>commit, rollback e savepoint nelle transazioni annidate</td></tr>
                             <tr><td><code>SettingServiceTest</code></td><td>integrazione</td><td>valori di partenza, salvataggio tutto-o-niente, limiti</td></tr>
                         </tbody>
@@ -314,7 +331,8 @@ php -S localhost:8000 -t public  # apri http://localhost:8000</code></pre>
                     <li><span class="badge badge--ok">Fatta</span> Fase 6: test PHPUnit e documentazione</li>
                     <li><span class="badge badge--ok">Fatta</span> Fase 8: anagrafiche (fornitori, clienti, giri, veicoli, rimorchi, trasportatori, posizioni, tipi di bancale) e impostazioni</li>
                     <li><span class="badge badge--ok">Fatta</span> Fase 9: arrivi giornalieri (documento del fornitore, bancali con prezzo, peso e posizione)</li>
-                    <li><span class="badge badge--off">Prossima</span> Richieste dei clienti, giacenze con avviso, pianificazione dei viaggi, documenti in PDF</li>
+                    <li><span class="badge badge--ok">Fatta</span> Fase 10: richieste dei clienti (prodotti, quantità, prezzi, consegna e giacenza)</li>
+                    <li><span class="badge badge--off">Prossima</span> Giacenze con avviso, pianificazione dei viaggi, documenti in PDF, storico</li>
                 </ul>
                 <p class="section__intro" style="margin-top: 1rem;">
                     <span class="badge badge--warn">Nota onesta</span>

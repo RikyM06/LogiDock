@@ -12,7 +12,7 @@
         <li><a href="/inbound">Arrivi</a>: documento del fornitore e bancali, con prezzo, peso e posizione</li>
         <li><a href="/products">Prodotti</a></li>
         <li><a href="/master-data">Anagrafiche</a>: fornitori, clienti, giri, veicoli, rimorchi, posizioni, tipi di bancale</li>
-        <li>Richieste dei clienti <span class="muted">(in arrivo)</span></li>
+        <li><a href="/orders">Richieste</a>: cosa chiede ogni cliente, con quantità, prezzi e data di consegna</li>
         <li>Pianificazione viaggi <span class="muted">(in arrivo)</span></li>
         <li>Bolle e DDT <span class="muted">(in arrivo)</span></li>
     </ul>
