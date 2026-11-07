@@ -1,17 +1,29 @@
 /* Sito vetrina di LogiDock: stesse variabili e stesso stile dell'applicazione (public/assets/css/app.css). */
 :root {
-    --color-bg: #f4f6f8;
+    /* Palette: verde oliva, lime come accento, fondo crema caldo.
+       Ogni coppia testo/sfondo rispetta il contrasto WCAG AA (almeno 4,5:1). */
+    --color-bg: #f8f6f1;
     --color-surface: #ffffff;
-    --color-text: #1f2933;
-    --color-muted: #637381;
-    --color-primary: #1d4ed8;
-    --color-primary-dark: #1e3a8a;
-    --color-border: #dde3ea;
+    --color-text: #303030;
+    --color-muted: #646363;
+    --color-primary: #41661c;
+    --color-primary-dark: #33501a;
+    --color-accent: #a2c617;
+    --color-border: #e4dfd3;
+    --color-nav-text: #e8efd0;
+    --color-soft: #ece7dc;
+    --color-soft-dark: #ddd5c4;
+    --color-table-head: #faf8f3;
+    --color-row-muted: #f5f2ea;
+    --color-danger: #e30613;
+    --color-danger-dark: #b8050f;
+    --color-success-bg: #eef4dc;
+    --color-success-border: #c8dc8e;
+    --color-success-text: #3a5a18;
+    --color-code-dark: #2a3122;
     --radius: 8px;
     --space: 1rem;
-}
-
-*,
+}*,
 *::before,
 *::after {
     box-sizing: border-box;
@@ -53,7 +65,7 @@ h3 {
 code {
     padding: 0.1rem 0.35rem;
     border-radius: 4px;
-    background: #e9eef5;
+    background: var(--color-soft);
     font-size: 0.9em;
 }
 
@@ -103,7 +115,7 @@ code {
 .nav__link {
     padding: 0.4rem 0.8rem;
     border-radius: var(--radius);
-    color: #dbe4ff;
+    color: var(--color-nav-text);
     text-decoration: none;
 }
 
@@ -142,12 +154,12 @@ code {
 }
 
 .button--secondary {
-    background: #e4e9f0;
+    background: var(--color-soft);
     color: var(--color-text);
 }
 
 .button--secondary:hover {
-    background: #d3dbe6;
+    background: var(--color-soft-dark);
 }
 
 /* Sezioni */
@@ -234,12 +246,12 @@ code {
 }
 
 .badge--ok {
-    background: #e8f6ec;
-    color: #1d5a2e;
+    background: var(--color-success-bg);
+    color: var(--color-success-text);
 }
 
 .badge--off {
-    background: #eceff3;
+    background: var(--color-soft);
     color: var(--color-muted);
 }
 
@@ -259,7 +271,7 @@ code {
     height: auto;
     border: 1px solid var(--color-border);
     border-radius: var(--radius);
-    box-shadow: 0 8px 24px rgba(31, 41, 51, 0.12);
+    box-shadow: 0 8px 24px rgba(48, 48, 48, 0.12);
 }
 
 /* Galleria delle schermate: due colonne, una sola sui telefoni */
@@ -270,7 +282,7 @@ code {
 }
 
 .gallery .screenshot img {
-    box-shadow: 0 4px 14px rgba(31, 41, 51, 0.1);
+    box-shadow: 0 4px 14px rgba(48, 48, 48, 0.1);
 }
 
 .gallery .screenshot a {
@@ -292,8 +304,8 @@ code {
     margin: 0;
     padding: 1.25rem;
     overflow-x: auto;
-    background: #1f2933;
-    color: #e4e7eb;
+    background: var(--color-code-dark);
+    color: #eef0e6;
     border-radius: var(--radius);
     font-size: 0.85rem;
     line-height: 1.5;
@@ -354,7 +366,7 @@ code {
 }
 
 .table th {
-    background: #f8fafc;
+    background: var(--color-table-head);
     font-size: 0.85rem;
     color: var(--color-muted);
 }
