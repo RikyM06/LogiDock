@@ -22,6 +22,7 @@ $navigation = [
     '/master-data' => 'Anagrafiche',
 ];
 if ($currentUser !== null && $currentUser->role === \LogiDock\Enum\UserRole::Admin) {
+    $navigation['/users'] = 'Utenti';
     $navigation['/settings'] = 'Impostazioni';
 }
 
@@ -78,6 +79,7 @@ $isActive = static function (string $path) use ($currentPath, $masterDataPaths):
 
                 <div class="topbar__user">
                     <span><?= e($currentUser->name) ?> (<?= e($currentUser->role->value) ?>)</span>
+                    <a class="topbar__link" href="/account/password">La mia password</a>
                     <form method="post" action="/logout">
                         <input type="hidden" name="_csrf" value="<?= e($csrfToken) ?>">
                         <button type="submit" class="button button--ghost">Esci</button>

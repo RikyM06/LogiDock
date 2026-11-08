@@ -12,7 +12,9 @@
  * @var string|null           $inputmode  (facoltativo, es. "decimal" o "numeric")
  * @var bool|null             $comma      (facoltativo) mostra il punto decimale come virgola
  * @var string|null           $hint       (facoltativo) testo di aiuto sotto il campo
- * @var string|null           $type       (facoltativo) "text" (default) oppure "date"
+ * @var string|null           $type       (facoltativo) "text" (default), "date" oppure "password"
+ * @var string|null           $autocomplete (facoltativo) es. "new-password" o "current-password", per i
+ *                                        gestori di password del browser
  */
 $value = $values[$name] ?? '';
 if (!empty($comma)) {
@@ -26,6 +28,7 @@ $hasError = isset($errors[$name]);
            <?= isset($maxlength) ? 'maxlength="' . (int) $maxlength . '"' : '' ?>
            <?= ($required ?? true) ? 'required' : '' ?>
            <?= isset($inputmode) ? 'inputmode="' . e($inputmode) . '"' : '' ?>
+           <?= isset($autocomplete) ? 'autocomplete="' . e($autocomplete) . '"' : '' ?>
            <?= $hasError ? 'class="has-error" aria-invalid="true" aria-describedby="' . e($name) . '-error"' : '' ?>>
     <?php if (isset($hint)) : ?>
         <span class="form__hint"><?= e($hint) ?></span>

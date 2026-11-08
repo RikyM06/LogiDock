@@ -10,7 +10,7 @@ use LogiDock\Model\User;
 use PDOException;
 
 /**
- * Solo SQL: nessuna regola di business qui (quella sta in AuthService).
+ * Solo SQL: nessuna regola di business qui (quella sta in AuthService e UserService).
  */
 final class UserRepository
 {
@@ -56,6 +56,60 @@ final class UserRepository
         }
 
         return (int) $this->database->pdo()->lastInsertId();
+    }
+
+    /**
+     * Gli utenti attivi per primi, poi per nome. Con $search filtra per nome o e-mail.
+     *
+     * @return list<User>
+     */
+    public function search(string $search = ''): array
+    {
+        $sql = 'SELECT * FROM users';
+        $params = [];
+
+        if ($search !== '') {
+            // % e _ scritti dall'utente valgono come caratteri normali, non come jolly del LIKE.
+            $like = '%' . addcslashes($search, '%_\\') . '%';
+            $sql .= ' WHERE name LIKE ? OR email LIKE ?';
+            $params = [$like, $like];
+        }
+
+        $statement = $this->database->pdo()->prepare($sql . ' ORDER BY is_active DESC, name ASC');
+        $statement->execute($params);
+
+        return array_map(User::fromRow(...), $statement->fetchAll());
+    }
+
+    public function updateProfile(int $id, string $name, UserRole $role): void
+    {
+        $this->database->pdo()
+            ->prepare('UPDATE users SET name = ?, role = ? WHERE id = ?')
+            ->execute([$name, $role->value, $id]);
+    }
+
+    public function setActive(int $id, bool $active): void
+    {
+        $this->database->pdo()
+            ->prepare('UPDATE users SET is_active = ? WHERE id = ?')
+            ->execute([$active ? 1 : 0, $id]);
+    }
+
+    /**
+     * Gli id degli admin attivi, BLOCCANDO quelle righe fino alla fine della transazione (FOR UPDATE).
+     * Va chiamata dentro una transazione: così due admin che si tolgono il ruolo a vicenda nello stesso
+     * istante non possono lasciare l'applicazione senza nessun admin (il secondo aspetta il primo).
+     *
+     * @return list<int>
+     */
+    public function lockActiveAdminIds(): array
+    {
+        $statement = $this->database->pdo()->prepare(
+            "SELECT id FROM users WHERE role = 'admin' AND is_active = 1 FOR UPDATE"
+        );
+        $statement->execute();
+
+        return array_map('intval', $statement->fetchAll(\PDO::FETCH_COLUMN));
     }
 
     public function touchLastLogin(int $id): void

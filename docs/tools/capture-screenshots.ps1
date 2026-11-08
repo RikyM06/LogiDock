@@ -255,6 +255,19 @@ try {
 
     Open-Page '/settings';     Save-Screenshot 'impostazioni'
 
+    # Gestione utenti: lista e form di un nuovo utente (le password non si compilano mai).
+    Open-Page '/users';        Save-Screenshot 'utenti'
+    Open-Page '/users/create'
+    Invoke-Js @'
+(() => {
+    document.querySelector('[name="email"]').value = 'nuovo.operatore@logidock.test';
+    document.querySelector('[name="name"]').value = 'Nuovo Operatore';
+    document.querySelector('[name="role"]').value = 'operatore';
+    return true;
+})()
+'@ | Out-Null
+    Save-Screenshot 'utente-nuovo'
+
     Invoke-Cdp 'Browser.close' | Out-Null
 } finally {
     if ($null -ne $socket) { $socket.Dispose() }

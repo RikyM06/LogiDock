@@ -64,7 +64,8 @@ h2 {
 
 .container {
     width: 100%;
-    max-width: 1080px;
+    /* 1280 px: la barra in alto deve stare su una riga anche con tutte le voci del menu di un admin. */
+    max-width: 1280px;
     margin: 0 auto;
     padding: 0 var(--space);
 }
@@ -78,7 +79,7 @@ h2 {
 .topbar__inner {
     display: flex;
     align-items: center;
-    gap: 2rem;
+    gap: 1.5rem;
     min-height: 3.5rem;
 }
 
@@ -125,6 +126,7 @@ h2 {
 
 .nav__link {
     padding: 0.4rem 0.8rem;
+    white-space: nowrap;
     border-radius: var(--radius);
     color: var(--color-nav-text);
     text-decoration: none;
@@ -144,6 +146,7 @@ h2 {
 .topbar__user {
     display: flex;
     align-items: center;
+    white-space: nowrap;
     gap: 0.75rem;
     margin-left: auto;
     font-size: 0.9rem;
@@ -602,4 +605,18 @@ a.button {
 .required-mark {
     color: var(--color-danger);
     font-weight: 700;
+}
+/* Gestione utenti */
+.topbar__link {
+    color: var(--color-nav-text);
+    font-size: 0.85rem;
+}
+
+.topbar__link:hover {
+    color: #fff;
+}
+
+.form__static {
+    padding: 0.55rem 0;
+    font-weight: 400;
 }

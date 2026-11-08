@@ -7,6 +7,7 @@ use LogiDock\Core\Database;
 use LogiDock\Enum\UserRole;
 use LogiDock\Repository\DuplicateEntryException;
 use LogiDock\Repository\UserRepository;
+use LogiDock\Service\PasswordPolicy;
 
 // Crea un utente da riga di comando. Serve soprattutto per il PRIMO admin in produzione,
 // dove il seed è disabilitato.
@@ -69,7 +70,8 @@ try {
     $role = UserRole::tryFrom($roleValue)
         ?? throw new InvalidArgumentException('Ruolo non valido: usa "admin" oppure "operatore".');
 
-    $email = trim($email);
+    // In minuscolo, come fa la gestione utenti dell'applicazione: l'e-mail è la chiave del login.
+    $email = mb_strtolower(trim($email));
     if (filter_var($email, FILTER_VALIDATE_EMAIL) === false || strlen($email) > 255) {
         throw new InvalidArgumentException('Email non valida.');
     }
@@ -79,9 +81,11 @@ try {
         throw new InvalidArgumentException('Il nome è obbligatorio (massimo 120 caratteri).');
     }
 
+    // Stesse regole della gestione utenti dell'applicazione (src/Service/PasswordPolicy.php).
     $password = readPassword();
-    if (mb_strlen($password) < 12) {
-        throw new InvalidArgumentException('La password deve avere almeno 12 caratteri.');
+    $problem = PasswordPolicy::problem($password);
+    if ($problem !== null) {
+        throw new InvalidArgumentException($problem);
     }
 
     $config = Application::loadConfig($root);

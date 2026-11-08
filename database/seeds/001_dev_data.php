@@ -72,6 +72,15 @@ return static function (Database $database): void {
             );
     }
 
+    // Un utente disattivato, per vedere lo stato nella gestione utenti. La password è casuale e non
+    // viene salvata da nessuna parte: nessuno la conosce, e comunque un utente disattivato non entra.
+    if ($firstId('SELECT id FROM users WHERE email = ?', ['magazziniere@logidock.test']) === null) {
+        $insert(
+            'INSERT INTO users (email, name, password_hash, role, is_active) VALUES (?, ?, ?, ?, 0)',
+            ['magazziniere@logidock.test', 'Magazziniere Demo', password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT), 'operatore']
+        );
+    }
+
     // --- Prodotti (codice, descrizione, unità, peso unitario in kg) -----------------------------
     $productIds = [];
     $products = [

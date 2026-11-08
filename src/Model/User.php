@@ -14,8 +14,14 @@ final readonly class User
         public string $name,
         public string $passwordHash,
         public UserRole $role,
-        public bool $isActive
+        public bool $isActive,
+        public ?string $lastLoginAt = null
     ) {
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->role === UserRole::Admin;
     }
 
     /**
@@ -29,7 +35,8 @@ final readonly class User
             (string) $row['name'],
             (string) $row['password_hash'],
             UserRole::from((string) $row['role']),
-            (bool) $row['is_active']
+            (bool) $row['is_active'],
+            isset($row['last_login_at']) ? (string) $row['last_login_at'] : null
         );
     }
 }

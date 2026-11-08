@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use LogiDock\Controller\AccountController;
 use LogiDock\Controller\AuthController;
 use LogiDock\Controller\CarrierController;
 use LogiDock\Controller\CustomerController;
@@ -14,6 +15,7 @@ use LogiDock\Controller\RoundController;
 use LogiDock\Controller\SettingController;
 use LogiDock\Controller\SupplierController;
 use LogiDock\Controller\TrailerTypeController;
+use LogiDock\Controller\UserController;
 use LogiDock\Controller\VehicleController;
 use LogiDock\Controller\WarehouseLocationController;
 use LogiDock\Core\Router;
@@ -71,6 +73,10 @@ return static function (Router $router): void {
             $router->get('/master-data', [HomeController::class, 'masterData']);
             $router->post('/logout', [AuthController::class, 'logout']);
 
+            // «La mia password»: ogni utente collegato cambia la propria.
+            $router->get('/account/password', [AccountController::class, 'passwordForm']);
+            $router->post('/account/password', [AccountController::class, 'changePassword']);
+
             // Arrivi di merce: li registra chiunque lavori in magazzino, non solo gli admin.
             // "/inbound/create" va prima di "/inbound/{id}", altrimenti "create" sarebbe preso per un id.
             $router->get('/inbound', [InboundController::class, 'index']);
@@ -119,6 +125,17 @@ return static function (Router $router): void {
                 // Impostazioni globali.
                 $router->get('/settings', [SettingController::class, 'edit']);
                 $router->post('/settings', [SettingController::class, 'update']);
+
+                // Gestione degli utenti ("/users/create" prima di "/users/{id}...").
+                $router->get('/users', [UserController::class, 'index']);
+                $router->get('/users/create', [UserController::class, 'create']);
+                $router->post('/users', [UserController::class, 'store']);
+                $router->get('/users/{id}/edit', [UserController::class, 'edit']);
+                $router->post('/users/{id}', [UserController::class, 'update']);
+                $router->post('/users/{id}/deactivate', [UserController::class, 'deactivate']);
+                $router->post('/users/{id}/activate', [UserController::class, 'activate']);
+                $router->get('/users/{id}/password', [UserController::class, 'passwordForm']);
+                $router->post('/users/{id}/password', [UserController::class, 'resetPassword']);
             });
         });
     });

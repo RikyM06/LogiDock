@@ -62,7 +62,7 @@
                     </article>
                     <article class="card">
                         <h3>Utenti e ruoli <span class="badge badge--ok">Pronto</span></h3>
-                        <p>Login sicuro con due ruoli: l'<strong>admin</strong> gestisce anagrafiche e impostazioni, l'<strong>operatore</strong> consulta e registra arrivi e richieste.</p>
+                        <p>Login sicuro con due ruoli: l'<strong>admin</strong> gestisce anagrafiche, impostazioni e utenti, l'<strong>operatore</strong> consulta e registra arrivi e richieste. Gli admin creano utenti, cambiano ruoli, disattivano e reimpostano password; ognuno cambia la propria. Deve restare sempre almeno un admin attivo.</p>
                     </article>
                     <article class="card">
                         <h3>Anagrafiche e impostazioni <span class="badge badge--ok">Pronto</span></h3>
@@ -127,6 +127,14 @@
                     <figure class="screenshot">
                         <a href="assets/screenshots/fornitore-obbligatori.png"><img src="assets/screenshots/fornitore-obbligatori.png" alt="Scheda di un nuovo fornitore inviata vuota: ragione sociale, partita IVA, indirizzo, e-mail e telefono con l'asterisco rosso ed evidenziati come obbligatori" width="1440" height="900" loading="lazy"></a>
                         <figcaption><strong>Scheda fornitore.</strong> I campi obbligatori hanno l'asterisco rosso; inviando il form vuoto li segnala uno per uno.</figcaption>
+                    </figure>
+                    <figure class="screenshot">
+                        <a href="assets/screenshots/utenti.png"><img src="assets/screenshots/utenti.png" alt="Gestione utenti: elenco con nome, e-mail, ruolo, ultimo accesso e stato; l'admin collegato non ha i pulsanti per disattivarsi" width="1440" height="900" loading="lazy"></a>
+                        <figcaption><strong>Utenti.</strong> Ruoli, ultimo accesso e stato; l'admin collegato non può disattivarsi.</figcaption>
+                    </figure>
+                    <figure class="screenshot">
+                        <a href="assets/screenshots/utente-nuovo.png"><img src="assets/screenshots/utente-nuovo.png" alt="Form di un nuovo utente: e-mail, nome, ruolo e password iniziale con conferma" width="1440" height="900" loading="lazy"></a>
+                        <figcaption><strong>Nuovo utente.</strong> E-mail (non si cambia più), ruolo e password iniziale di almeno 12 caratteri.</figcaption>
                     </figure>
                     <figure class="screenshot">
                         <a href="assets/screenshots/impostazioni.png"><img src="assets/screenshots/impostazioni.png" alt="Pagina delle impostazioni: altezza massima dei bancali, giorni dell'avviso, capacità delle posizioni, tolleranza sul peso e dati dell'azienda" width="1440" height="900" loading="lazy"></a>
@@ -276,7 +284,7 @@ Nginx ──► public/index.php (front controller)
             <div class="container">
                 <h2>Test</h2>
                 <p class="section__intro">
-                    167 test PHPUnit. Quelli sui service (prodotti, anagrafiche, impostazioni, arrivi, richieste) usano i veri repository
+                    210 test PHPUnit. Quelli sui service (prodotti, anagrafiche, impostazioni, arrivi, richieste, utenti) usano i veri repository
                     su un database di test, dentro una transazione che si annulla a fine test.
                 </p>
                 <div class="table-wrap">
@@ -292,6 +300,7 @@ Nginx ──► public/index.php (front controller)
                             <tr><td><code>ProductServiceTest</code></td><td>integrazione</td><td>validazione, duplicati, attiva/disattiva, ricerca</td></tr>
                             <tr><td><code>MasterDataServicesTest</code></td><td>integrazione</td><td>regole delle anagrafiche: giri dei clienti, targhe, capacità, EPAL</td></tr>
                             <tr><td><code>InboundServiceTest</code></td><td>integrazione</td><td>arrivo completo, codici consecutivi, capacità, peso, documento duplicato, tutto-o-niente</td></tr>
+                            <tr><td><code>UserServiceTest</code></td><td>integrazione</td><td>utenti, ruoli, disattivazione, password e protezioni contro il blocco degli admin</td></tr>
                             <tr><td><code>OrderServiceTest</code></td><td>integrazione</td><td>richiesta completa, codici, prodotto ripetuto, modifica, annullamento, giacenza</td></tr>
                             <tr><td><code>DatabaseTransactionTest</code></td><td>integrazione</td><td>commit, rollback e savepoint nelle transazioni annidate</td></tr>
                             <tr><td><code>SettingServiceTest</code></td><td>integrazione</td><td>valori di partenza, salvataggio tutto-o-niente, limiti</td></tr>
@@ -336,7 +345,8 @@ php -S localhost:8000 -t public  # apri http://localhost:8000</code></pre>
                     <li><span class="badge badge--ok">Fatta</span> Fase 8: anagrafiche (fornitori, clienti, giri, veicoli, rimorchi, trasportatori, posizioni, tipi di bancale) e impostazioni</li>
                     <li><span class="badge badge--ok">Fatta</span> Fase 9: arrivi giornalieri (documento del fornitore, bancali con prezzo, peso e posizione)</li>
                     <li><span class="badge badge--ok">Fatta</span> Fase 10: richieste dei clienti (prodotti, quantità, prezzi, consegna e giacenza)</li>
-                    <li><span class="badge badge--off">Prossima</span> Gestione degli utenti, giacenze con avviso, pianificazione dei viaggi, documenti in PDF, storico, ricerca globale su tutti i dati, navigazione "a lisca di pesce"</li>
+                    <li><span class="badge badge--ok">Fatta</span> Fase 11: gestione degli utenti (ruoli, disattivazione, password, protezioni contro il blocco degli admin)</li>
+                    <li><span class="badge badge--off">Prossima</span> Giacenze con avviso, pianificazione dei viaggi, documenti in PDF, storico, ricerca globale su tutti i dati, navigazione "a lisca di pesce"</li>
                 </ul>
                 <p class="section__intro" style="margin-top: 1rem;">
                     <span class="badge badge--warn">Nota onesta</span>
@@ -376,7 +386,7 @@ php -S localhost:8000 -t public  # apri http://localhost:8000</code></pre>
     <footer class="footer">
         <div class="container">
             LogiDock · gestionale di magazzino e logistica · progetto personale per il portfolio ·
-            source available, <a href="#licenza">licenza</a> · versione <span data-version>0.0.10.2</span>
+            source available, <a href="#licenza">licenza</a> · versione <span data-version>0.0.11.0</span>
         </div>
     </footer>
 </body>

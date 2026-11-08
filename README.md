@@ -263,6 +263,33 @@ Regole da sapere:
   se non basta la riga è evidenziata. È un'indicazione: cosa va davvero a ogni cliente lo deciderà la pianificazione.
 - Un cliente o un prodotto disattivato dopo la richiesta resta su quella richiesta e non sparisce dal form di
   modifica, ma non si può usare in una richiesta nuova.
+### Utenti
+
+Gli admin gestiscono gli utenti da `/users`; ogni utente cambia la propria password da «La mia password»,
+in alto accanto al nome.
+
+| Chi | Cosa può fare |
+|---|---|
+| Admin | elenco (nome, e-mail, ruolo, stato, ultimo accesso), nuovo utente con password iniziale, modifica di nome e ruolo, disattivazione e riattivazione, nuova password per un altro utente |
+| Tutti | «La mia password»: serve quella attuale |
+
+Regole per non restare chiusi fuori (in `src/Service/UserService.php`):
+- un admin **non può disattivare sé stesso** né **togliersi il ruolo** di admin;
+- deve restare **sempre almeno un admin attivo**: il controllo blocca le righe degli admin (`SELECT ... FOR UPDATE`)
+  dentro una transazione, così due admin che si tolgono il ruolo a vicenda nello stesso istante non lasciano
+  l'applicazione senza admin;
+- un admin non reimposta la propria password dalla lista: usa «La mia password», che chiede quella attuale.
+
+Sicurezza:
+- **Password** (`src/Service/PasswordPolicy.php`, la usa anche `bin/create-user.php`): almeno 12 caratteri, al massimo
+  72 byte (oltre, bcrypt ignorerebbe il resto senza dirlo), niente spazi all'inizio o alla fine. Le password non si
+  ripresentano mai nei form dopo un errore.
+- **Sessioni chiuse quando cambia la password:** nella sessione c'è un'impronta della password (un hash del suo
+  hash). Se un admin reimposta la password di qualcuno, le sessioni già aperte di quella persona si chiudono alla
+  richiesta successiva; chi cambia la propria resta collegato solo nella sessione da cui l'ha cambiata.
+- Un utente **disattivato** esce subito, perché ruolo e stato si rileggono dal database a ogni richiesta.
+- L'e-mail si salva in minuscolo ed è unica; non si cambia dopo la creazione, perché è il nome con cui si entra.
+- Gli utenti **non si cancellano**: sono collegati ad arrivi, richieste e movimenti. Si disattivano.
 ### Impostazioni
 
 Pagina `/settings`, solo admin. I valori di business non sono scritti nel codice: si chiedono a
@@ -324,6 +351,8 @@ I test usano PHPUnit e stanno in `tests/`:
 | `tests/Service/MasterDataServicesTest.php` | integrazione | regole comuni delle anagrafiche e quelle di ognuna (giri dei clienti, targhe, capacità, EPAL) |
 | `tests/Service/SettingServiceTest.php` | integrazione | valori di partenza, salvataggio, tutto-o-niente, limiti |
 | `tests/Service/InboundServiceTest.php` | integrazione | arrivo completo (documento, bancali, movimenti), codici consecutivi, errori sulla riga giusta, capacità, peso, documento duplicato, tutto-o-niente |
+| `tests/Service/UserServiceTest.php` | integrazione | creazione, e-mail unica in minuscolo, password, modifica, disattivazione, protezioni contro il blocco degli admin, reset e «la mia password» |
+| `tests/Service/PasswordPolicyTest.php` | unitario | lunghezza minima, limite di 72 byte (anche con lettere accentate), spazi |
 | `tests/Service/OrderServiceTest.php` | integrazione | richiesta completa, codici consecutivi, date, prodotto ripetuto, modifica che sostituisce le righe, annullamento, stati bloccati, giacenza |
 | `tests/Core/DatabaseTransactionTest.php` | integrazione | commit, rollback e savepoint quando una transazione è già aperta |
 | `tests/Core/ApplicationConfigTest.php` | unitario | le variabili d'ambiente vere vincono su `.env` |
@@ -369,7 +398,7 @@ camionisti). Serve anche lo storico di viaggi, forniture e pagamenti.
 - [x] **Fase 8:** anagrafiche (fornitori, clienti, giri, veicoli, trasportatori, rimorchi, posizioni, tipi di bancale) e impostazioni
 - [x] **Fase 9:** arrivi giornalieri: documento del fornitore con date, bancali con prezzo e peso, posizione
 - [x] **Fase 10:** richieste dei clienti
-- [ ] **Fase 11:** gestione degli utenti dall'applicazione (solo admin): elenco, nuovo utente, ruolo, disattivazione,
+- [x] **Fase 11:** gestione degli utenti dall'applicazione (solo admin): elenco, nuovo utente, ruolo, disattivazione,
   reimpostazione della password, e "la mia password" per tutti
 - [ ] **Fase 12:** giacenze e avviso per i bancali fermi da troppo tempo
 - [ ] **Fase 13:** pianificazione dei viaggi (assegnazione automatica ai rimorchi, modifica manuale e ricalcolo)

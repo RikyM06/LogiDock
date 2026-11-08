@@ -19,6 +19,7 @@ use LogiDock\Repository\UserRepository;
 final class AuthService
 {
     private const SESSION_USER_KEY = 'user_id';
+    private const SESSION_FINGERPRINT_KEY = 'password_fingerprint';
 
     /**
      * Hash di una password casuale mai usata. Serve a fare comunque un password_verify quando l'email
@@ -56,14 +57,17 @@ final class AuthService
         }
 
         // Se l'algoritmo predefinito di PHP è cambiato, aggiorna l'hash ora che abbiamo la password in chiaro.
-        if (password_needs_rehash($user->passwordHash, PASSWORD_DEFAULT)) {
-            $this->users->updatePasswordHash($user->id, password_hash($password, PASSWORD_DEFAULT));
+        $passwordHash = $user->passwordHash;
+        if (password_needs_rehash($passwordHash, PASSWORD_DEFAULT)) {
+            $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+            $this->users->updatePasswordHash($user->id, $passwordHash);
         }
 
         // Nuovo ID di sessione e nuovo token CSRF: nulla di ciò che esisteva prima del login vale dopo.
         $this->session->regenerate();
         $this->csrf->rotate();
         $this->session->set(self::SESSION_USER_KEY, $user->id);
+        $this->session->set(self::SESSION_FINGERPRINT_KEY, self::fingerprint($passwordHash));
 
         $this->users->touchLastLogin($user->id);
         $this->logger->info('Login riuscito', ['user_id' => $user->id, 'ip' => $ip]);
@@ -103,7 +107,43 @@ final class AuthService
             return null;
         }
 
+        // Password cambiata dopo questo login (per esempio reimpostata da un admin perché rubata):
+        // anche questa sessione non vale più, chi era collegato deve rifare l'accesso.
+        $fingerprint = $this->session->get(self::SESSION_FINGERPRINT_KEY);
+        if (!is_string($fingerprint) || !hash_equals(self::fingerprint($user->passwordHash), $fingerprint)) {
+            $this->session->invalidate();
+
+            return null;
+        }
+
         return $this->currentUser = $user;
+    }
+
+    /**
+     * Da chiamare dopo che l'utente collegato ha cambiato la PROPRIA password: resta dentro in questa
+     * sessione (con un nuovo ID e la nuova impronta), mentre le sue altre sessioni si chiudono.
+     */
+    public function refreshAfterOwnPasswordChange(): void
+    {
+        $id = $this->session->get(self::SESSION_USER_KEY);
+        $user = is_int($id) ? $this->users->findById($id) : null;
+        if ($user === null) {
+            return;
+        }
+
+        $this->session->regenerate();
+        $this->session->set(self::SESSION_FINGERPRINT_KEY, self::fingerprint($user->passwordHash));
+        $this->currentUser = $user;
+        $this->currentUserResolved = true;
+    }
+
+    /**
+     * Impronta della password salvata nella sessione: cambia quando cambia la password.
+     * È un hash dell'hash: nella sessione non finisce mai la password né il suo hash.
+     */
+    private static function fingerprint(string $passwordHash): string
+    {
+        return hash('sha256', $passwordHash);
     }
 
     public function hasRole(UserRole $role): bool

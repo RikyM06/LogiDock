@@ -7,6 +7,7 @@ namespace LogiDock\Core;
 use Dotenv\Dotenv;
 use Dotenv\Repository\Adapter\PutenvAdapter;
 use Dotenv\Repository\RepositoryBuilder;
+use LogiDock\Controller\AccountController;
 use LogiDock\Controller\AuthController;
 use LogiDock\Controller\CarrierController;
 use LogiDock\Controller\CustomerController;
@@ -19,6 +20,7 @@ use LogiDock\Controller\RoundController;
 use LogiDock\Controller\SettingController;
 use LogiDock\Controller\SupplierController;
 use LogiDock\Controller\TrailerTypeController;
+use LogiDock\Controller\UserController;
 use LogiDock\Controller\VehicleController;
 use LogiDock\Controller\WarehouseLocationController;
 use LogiDock\Middleware\AdminMiddleware;
@@ -51,6 +53,7 @@ use LogiDock\Service\RoundService;
 use LogiDock\Service\SettingService;
 use LogiDock\Service\SupplierService;
 use LogiDock\Service\TrailerTypeService;
+use LogiDock\Service\UserService;
 use LogiDock\Service\VehicleService;
 use LogiDock\Service\WarehouseLocationService;
 
@@ -260,6 +263,12 @@ final class Application
             $c->get(SettingService::class)
         ));
 
+        // Gestione degli utenti
+        $c->set(UserService::class, fn (Container $c): UserService => new UserService(
+            $c->get(Database::class),
+            $c->get(UserRepository::class)
+        ));
+
         // Richieste dei clienti
         $c->set(OrderRepository::class, fn (Container $c): OrderRepository => new OrderRepository(
             $c->get(Database::class)
@@ -378,6 +387,18 @@ final class Application
             $c->get(OrderService::class),
             $c->get(CustomerService::class),
             $c->get(ProductService::class)
+        ));
+        $c->set(UserController::class, fn (Container $c): UserController => new UserController(
+            $c->get(View::class),
+            $c->get(Session::class),
+            $c->get(AuthService::class),
+            $c->get(UserService::class)
+        ));
+        $c->set(AccountController::class, fn (Container $c): AccountController => new AccountController(
+            $c->get(View::class),
+            $c->get(Session::class),
+            $c->get(AuthService::class),
+            $c->get(UserService::class)
         ));
         $c->set(SettingController::class, fn (Container $c): SettingController => new SettingController(
             $c->get(View::class),
