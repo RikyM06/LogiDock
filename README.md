@@ -240,6 +240,32 @@ Regole da sapere:
 - **Prezzo:** è il prezzo d'acquisto **per unità di misura** del prodotto (valore del bancale = quantità × prezzo).
 - **Un arrivo registrato non si modifica:** i movimenti sono uno storico. Una correzione si farà con un movimento di rettifica.
 
+### Giacenze e avviso dei bancali fermi
+
+Cosa c'è adesso in magazzino, da `/stock`, per **qualunque utente collegato**. La pagina ha un riepilogo **per
+prodotto** (bancali, quantità totale, arrivo più vecchio, quanti sono fermi) e la **lista dei bancali**, dal più
+vecchio, filtrabile per prodotto, posizione e "solo fermi". La home mostra lo stesso avviso con i 5 bancali più vecchi.
+
+| Pezzo | Dove | Cosa fa |
+|---|---|---|
+| Regola | `src/Service/AgingRule.php` | quando un bancale è fermo: giorni in magazzino, confronto con la soglia, data limite per l'SQL |
+| Service | `src/Service/StockService.php` | crea la regola (soglia dalle impostazioni + data di oggi) e chiede i dati al repository |
+| Repository | `src/Repository/StockRepository.php` | solo SQL di lettura: riepilogo per prodotto, lista filtrata, conteggio dei fermi |
+| Controller e template | `StockController`, `templates/stock/`, `HomeController`, `templates/home.php` | pagina Giacenze e avviso nella home |
+
+Regole da sapere:
+- **In magazzino** vuol dire stato *in_stock* oppure *reserved* (prenotato per un viaggio ma non ancora partito):
+  i bancali spediti o scartati non contano. I prenotati li creerà la pianificazione e hanno l'etichetta "Prenotato".
+- **Fermo** vuol dire in magazzino da **più** giorni della soglia (`aging_threshold_days`, 2 di partenza, nelle
+  impostazioni). I giorni sono giorni di calendario dalla data di arrivo, anche se il bancale è stato spostato:
+  con soglia 2 un bancale arrivato lunedì è segnalato da giovedì.
+- La regola sta **in un posto solo** (`AgingRule`): la usa PHP per i giorni e l'etichetta "Fermo", e la traduce
+  per MySQL in una data limite (`received_at < data`), che usa l'indice su `received_at`. Un test controlla che
+  le due versioni diano sempre la stessa risposta.
+- Le quantità si sommano in MySQL in DECIMAL, mai con i float.
+- Da quando contare i giorni, cosa fare con un bancale fermo e se serve un avviso sulle scadenze sono domande
+  ancora aperte con l'azienda (issue #26): le scelte di oggi sono un punto di partenza.
+
 ### Richieste dei clienti
 
 Cosa chiede ogni cliente, da `/orders`. Le registra **qualunque utente collegato**, come gli arrivi.
@@ -355,6 +381,8 @@ I test usano PHPUnit e stanno in `tests/`:
 | `tests/Service/UserServiceTest.php` | integrazione | creazione, e-mail unica in minuscolo, password, modifica, disattivazione, protezioni contro il blocco degli admin, reset e «la mia password» |
 | `tests/Service/PasswordPolicyTest.php` | unitario | lunghezza minima, limite di 72 byte (anche con lettere accentate), spazi |
 | `tests/Service/OrderServiceTest.php` | integrazione | richiesta completa, codici consecutivi, date, prodotto ripetuto, modifica che sostituisce le righe, annullamento, stati bloccati, giacenza |
+| `tests/Service/AgingRuleTest.php` | unitario | la regola dei bancali fermi con date fisse: giorni di calendario, soglia, ora legale, stessa risposta in PHP e in SQL |
+| `tests/Service/StockServiceTest.php` | integrazione | riepilogo per prodotto (solo bancali in magazzino, somme DECIMAL), filtri, ordine, bancali al limite della soglia, soglia dalle impostazioni |
 | `tests/Core/DatabaseTransactionTest.php` | integrazione | commit, rollback e savepoint quando una transazione è già aperta |
 | `tests/Core/ApplicationConfigTest.php` | unitario | le variabili d'ambiente vere vincono su `.env` |
 
@@ -401,7 +429,7 @@ camionisti). Serve anche lo storico di viaggi, forniture e pagamenti.
 - [x] **Fase 10:** richieste dei clienti
 - [x] **Fase 11:** gestione degli utenti dall'applicazione (solo admin): elenco, nuovo utente, ruolo, disattivazione,
   reimpostazione della password, e "la mia password" per tutti
-- [ ] **Fase 12:** giacenze e avviso per i bancali fermi da troppo tempo
+- [x] **Fase 12:** giacenze per prodotto e per bancale, avviso per i bancali fermi da troppo tempo (nella home e nella lista)
 - [ ] **Fase 13:** pianificazione dei viaggi (assegnazione automatica ai rimorchi, modifica manuale e ricalcolo)
 - [ ] **Fase 14:** documenti in PDF (carico per camion, consegna per cliente con prezzi, compenso camionisti)
 - [ ] **Fase 15:** storico viaggi, forniture per fornitore, pagamenti dei clienti, report

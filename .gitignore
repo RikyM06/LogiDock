@@ -21,5 +21,6 @@
 .DS_Store
 Thumbs.db
 
-# Istruzioni locali per Claude Code (non versionate)
+# Istruzioni locali per Claude Code e domande in sospeso (non versionate)
 CLAUDE.md
+DOMANDE.md

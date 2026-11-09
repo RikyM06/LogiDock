@@ -13,6 +13,7 @@ use LogiDock\Controller\PalletTypeController;
 use LogiDock\Controller\ProductController;
 use LogiDock\Controller\RoundController;
 use LogiDock\Controller\SettingController;
+use LogiDock\Controller\StockController;
 use LogiDock\Controller\SupplierController;
 use LogiDock\Controller\TrailerTypeController;
 use LogiDock\Controller\UserController;
@@ -83,6 +84,8 @@ return static function (Router $router): void {
             $router->get('/inbound/create', [InboundController::class, 'create']);
             $router->post('/inbound', [InboundController::class, 'store']);
             $router->get('/inbound/{id}', [InboundController::class, 'show']);
+
+        $router->get('/stock', [StockController::class, 'index']);
 
             // Richieste dei clienti: anche queste fanno parte del lavoro di ogni giorno.
             // "/orders/create" va prima di "/orders/{id}" per lo stesso motivo degli arrivi.

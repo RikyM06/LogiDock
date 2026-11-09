@@ -53,7 +53,8 @@
                 <h2>Cosa fa</h2>
                 <p class="section__intro">
                     Il progetto avanza una fase alla volta. Oggi sono pronti le fondamenta, i prodotti, le anagrafiche,
-                    gli arrivi di merce e le richieste dei clienti; le altre parti arrivano nelle prossime fasi.
+                    gli arrivi di merce, le giacenze con l'avviso dei bancali fermi e le richieste dei clienti; le altre
+                    parti arrivano nelle prossime fasi.
                 </p>
                 <div class="grid">
                     <article class="card">
@@ -71,6 +72,10 @@
                     <article class="card">
                         <h3>Arrivi di merce <span class="badge badge--ok">Pronto</span></h3>
                         <p>Il documento del fornitore con le sue date e i bancali con prezzo, peso segnato e posizione. Ogni bancale riceve un codice (<code>PAL-2026-000123</code>) e un movimento nello storico che non si può alterare. Se il peso segnato non torna con quello calcolato, l'app lo evidenzia.</p>
+                    </article>
+                    <article class="card">
+                        <h3>Giacenze e avviso <span class="badge badge--ok">Pronto</span></h3>
+                        <p>Cosa c'è in magazzino, per prodotto e bancale per bancale, con filtri per prodotto e posizione. I bancali fermi da più giorni della soglia (2 di partenza, si cambia nelle impostazioni) sono evidenziati e segnalati anche nella home.</p>
                     </article>
                     <article class="card">
                         <h3>Richieste dei clienti <span class="badge badge--ok">Pronto</span></h3>
@@ -92,6 +97,18 @@
                     (<code>docs/tools/capture-screenshots.ps1</code>) a ogni nuova funzionalità. Clicca per ingrandire.
                 </p>
                 <div class="gallery">
+                    <figure class="screenshot">
+                        <a href="assets/screenshots/home.png"><img src="assets/screenshots/home.png" alt="Home di LogiDock con l'avviso dei bancali fermi in magazzino da più di 2 giorni: i cinque più vecchi con codice, prodotto, giorni e posizione, e il link per vederli tutti" width="1440" height="900" loading="lazy"></a>
+                        <figcaption><strong>Home.</strong> L'avviso dei bancali fermi da troppo, con i più vecchi in evidenza.</figcaption>
+                    </figure>
+                    <figure class="screenshot">
+                        <a href="assets/screenshots/giacenze.png"><img src="assets/screenshots/giacenze.png" alt="Pagina Giacenze: avviso dei bancali fermi e tabella per prodotto con numero di bancali, quantità, arrivo più vecchio e bancali fermi" width="1440" height="900" loading="lazy"></a>
+                        <figcaption><strong>Giacenze.</strong> Per ogni prodotto: bancali, quantità, arrivo più vecchio e quanti sono fermi.</figcaption>
+                    </figure>
+                    <figure class="screenshot">
+                        <a href="assets/screenshots/giacenze-bancali.png"><img src="assets/screenshots/giacenze-bancali.png" alt="Lista dei bancali in magazzino filtrata sui soli fermi: codice, prodotto, tipo, quantità, lotto, scadenza, posizione, documento di arrivo, data di arrivo e giorni in magazzino con l'etichetta Fermo" width="1440" height="900" loading="lazy"></a>
+                        <figcaption><strong>Bancali fermi.</strong> La lista dei bancali, dal più vecchio, filtrabile per prodotto e posizione.</figcaption>
+                    </figure>
                     <figure class="screenshot">
                         <a href="assets/screenshots/arrivo-nuovo.png"><img src="assets/screenshots/arrivo-nuovo.png" alt="Form di un nuovo arrivo: fornitore, numero e date del documento, e una riga per ogni bancale con prodotto, tipo, quantità, prezzo, peso, lotto, scadenza e posizione" width="1440" height="900" loading="lazy"></a>
                         <figcaption><strong>Nuovo arrivo.</strong> Documento del fornitore e una riga per bancale; si salva tutto o niente.</figcaption>
@@ -284,7 +301,7 @@ Nginx ──► public/index.php (front controller)
             <div class="container">
                 <h2>Test</h2>
                 <p class="section__intro">
-                    210 test PHPUnit. Quelli sui service (prodotti, anagrafiche, impostazioni, arrivi, richieste, utenti) usano i veri repository
+                    225 test PHPUnit. Quelli sui service (prodotti, anagrafiche, impostazioni, arrivi, giacenze, richieste, utenti) usano i veri repository
                     su un database di test, dentro una transazione che si annulla a fine test.
                 </p>
                 <div class="table-wrap">
@@ -297,11 +314,13 @@ Nginx ──► public/index.php (front controller)
                             <tr><td><code>RequestTest</code></td><td>unitario</td><td>normalizzazione di percorso e metodo</td></tr>
                             <tr><td><code>MigrationRunnerTest</code></td><td>unitario</td><td>lo spezzatore delle istruzioni SQL</td></tr>
                             <tr><td><code>ValidatorTest</code></td><td>unitario</td><td>ogni controllo del validatore, con valori limite e input ostili</td></tr>
+                            <tr><td><code>AgingRuleTest</code></td><td>unitario</td><td>la regola dei bancali fermi con date fisse: giorni di calendario, soglia, ora legale</td></tr>
                             <tr><td><code>ProductServiceTest</code></td><td>integrazione</td><td>validazione, duplicati, attiva/disattiva, ricerca</td></tr>
                             <tr><td><code>MasterDataServicesTest</code></td><td>integrazione</td><td>regole delle anagrafiche: giri dei clienti, targhe, capacità, EPAL</td></tr>
                             <tr><td><code>InboundServiceTest</code></td><td>integrazione</td><td>arrivo completo, codici consecutivi, capacità, peso, documento duplicato, tutto-o-niente</td></tr>
                             <tr><td><code>UserServiceTest</code></td><td>integrazione</td><td>utenti, ruoli, disattivazione, password e protezioni contro il blocco degli admin</td></tr>
                             <tr><td><code>OrderServiceTest</code></td><td>integrazione</td><td>richiesta completa, codici, prodotto ripetuto, modifica, annullamento, giacenza</td></tr>
+                            <tr><td><code>StockServiceTest</code></td><td>integrazione</td><td>giacenze per prodotto in DECIMAL, filtri, bancali fermi al limite della soglia, soglia dalle impostazioni</td></tr>
                             <tr><td><code>DatabaseTransactionTest</code></td><td>integrazione</td><td>commit, rollback e savepoint nelle transazioni annidate</td></tr>
                             <tr><td><code>SettingServiceTest</code></td><td>integrazione</td><td>valori di partenza, salvataggio tutto-o-niente, limiti</td></tr>
                         </tbody>
@@ -346,7 +365,8 @@ php -S localhost:8000 -t public  # apri http://localhost:8000</code></pre>
                     <li><span class="badge badge--ok">Fatta</span> Fase 9: arrivi giornalieri (documento del fornitore, bancali con prezzo, peso e posizione)</li>
                     <li><span class="badge badge--ok">Fatta</span> Fase 10: richieste dei clienti (prodotti, quantità, prezzi, consegna e giacenza)</li>
                     <li><span class="badge badge--ok">Fatta</span> Fase 11: gestione degli utenti (ruoli, disattivazione, password, protezioni contro il blocco degli admin)</li>
-                    <li><span class="badge badge--off">Prossima</span> Giacenze con avviso, pianificazione dei viaggi, documenti in PDF, storico, ricerca globale su tutti i dati, navigazione "a lisca di pesce"</li>
+                    <li><span class="badge badge--ok">Fatta</span> Fase 12: giacenze per prodotto e per bancale, avviso dei bancali fermi nella home e nella lista</li>
+                    <li><span class="badge badge--off">Prossima</span> Pianificazione dei viaggi, documenti in PDF, storico, ricerca globale su tutti i dati, navigazione "a lisca di pesce"</li>
                 </ul>
                 <p class="section__intro" style="margin-top: 1rem;">
                     <span class="badge badge--warn">Nota onesta</span>
@@ -386,7 +406,7 @@ php -S localhost:8000 -t public  # apri http://localhost:8000</code></pre>
     <footer class="footer">
         <div class="container">
             LogiDock · gestionale di magazzino e logistica · progetto personale per il portfolio ·
-            source available, <a href="#licenza">licenza</a> · versione <span data-version>0.0.11.1</span>
+            source available, <a href="#licenza">licenza</a> · versione <span data-version>0.0.12.0</span>
         </div>
     </footer>
 </body>

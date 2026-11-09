@@ -142,11 +142,21 @@ try {
         throw "La pagina $path non si è caricata."
     }
 
-    function Save-Screenshot([string] $name) {
-        Invoke-Js 'window.scrollTo(0, 0); true' | Out-Null
-        $shot = Invoke-Cdp 'Page.captureScreenshot' @{
-            format = 'png'
-            clip = @{ x = 0; y = 0; width = $Width; height = $Height; scale = 1 }
+    # $scrollTo (facoltativo): selettore CSS di un elemento più in basso da portare in cima prima della foto.
+    function Save-Screenshot([string] $name, [string] $scrollTo = '') {
+        if ($scrollTo -eq '') {
+            Invoke-Js 'window.scrollTo(0, 0); true' | Out-Null
+            $shot = Invoke-Cdp 'Page.captureScreenshot' @{
+                format = 'png'
+                clip = @{ x = 0; y = 0; width = $Width; height = $Height; scale = 1 }
+            }
+        } else {
+            if (-not (Invoke-Js "(() => { const el = document.querySelector('$scrollTo'); if (el) { el.scrollIntoView(); } return !!el; })()")) {
+                throw "Elemento $scrollTo non trovato."
+            }
+            Start-Sleep -Milliseconds 300
+            # Senza "clip" si fotografa la parte visibile della pagina, cioè quella appena scorsa.
+            $shot = Invoke-Cdp 'Page.captureScreenshot' @{ format = 'png' }
         }
         $file = Join-Path $outDir "$name.png"
         [IO.File]::WriteAllBytes($file, [Convert]::FromBase64String($shot.data))
@@ -162,6 +172,11 @@ try {
 
     # --- 4. Le pagine da fotografare ----------------------------------------------------------------
     Write-Host "Screenshot in $outDir"
+
+    # Home con l'avviso dei bancali fermi; giacenze per prodotto; lista dei soli bancali fermi.
+    Open-Page '/';             Save-Screenshot 'home'
+    Open-Page '/stock';        Save-Screenshot 'giacenze'
+    Open-Page '/stock?aging=1'; Save-Screenshot 'giacenze-bancali' '#bancali'
 
     Open-Page '/products';     Save-Screenshot 'prodotti'
     Open-Page '/master-data';  Save-Screenshot 'anagrafiche'

@@ -620,3 +620,43 @@ a.button {
     padding: 0.55rem 0;
     font-weight: 400;
 }
+
+/* Giacenze */
+.section-title {
+    margin: 2rem 0 0.75rem;
+}
+
+.toolbar--wrap {
+    flex-wrap: wrap;
+}
+
+.toolbar__check {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+/* Bancale fermo oltre la soglia: stessi colori degli avvisi (testo scuro su fondo ambra, contrasto AA). */
+.badge--aging {
+    background: var(--color-warning-bg);
+    color: var(--color-warning-text);
+}
+
+a.badge--aging {
+    text-decoration: none;
+}
+
+a.badge--aging:hover {
+    text-decoration: underline;
+}
+
+.badge--reserved {
+    background: var(--color-soft);
+    color: var(--color-text);
+}
+
+/* Avviso nella home */
+.aging-list {
+    margin: 0.5rem 0;
+    padding-left: 1.25rem;
+}

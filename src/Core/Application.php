@@ -18,6 +18,7 @@ use LogiDock\Controller\PalletTypeController;
 use LogiDock\Controller\ProductController;
 use LogiDock\Controller\RoundController;
 use LogiDock\Controller\SettingController;
+use LogiDock\Controller\StockController;
 use LogiDock\Controller\SupplierController;
 use LogiDock\Controller\TrailerTypeController;
 use LogiDock\Controller\UserController;
@@ -36,6 +37,7 @@ use LogiDock\Repository\PalletTypeRepository;
 use LogiDock\Repository\ProductRepository;
 use LogiDock\Repository\RoundRepository;
 use LogiDock\Repository\SettingRepository;
+use LogiDock\Repository\StockRepository;
 use LogiDock\Repository\SupplierDocumentRepository;
 use LogiDock\Repository\SupplierRepository;
 use LogiDock\Repository\TrailerTypeRepository;
@@ -51,6 +53,7 @@ use LogiDock\Service\PalletTypeService;
 use LogiDock\Service\ProductService;
 use LogiDock\Service\RoundService;
 use LogiDock\Service\SettingService;
+use LogiDock\Service\StockService;
 use LogiDock\Service\SupplierService;
 use LogiDock\Service\TrailerTypeService;
 use LogiDock\Service\UserService;
@@ -281,6 +284,15 @@ final class Application
             $c->get(ProductService::class)
         ));
 
+        // Giacenze e avviso dei bancali fermi
+        $c->set(StockRepository::class, fn (Container $c): StockRepository => new StockRepository(
+            $c->get(Database::class)
+        ));
+        $c->set(StockService::class, fn (Container $c): StockService => new StockService(
+            $c->get(StockRepository::class),
+            $c->get(SettingService::class)
+        ));
+
         // Middleware
         $c->set(CsrfMiddleware::class, fn (Container $c): CsrfMiddleware => new CsrfMiddleware($c->get(Csrf::class)));
         $c->set(AuthMiddleware::class, fn (Container $c): AuthMiddleware => new AuthMiddleware($c->get(AuthService::class)));
@@ -303,7 +315,13 @@ final class Application
 
         // Controller: uno per riga, con le dipendenze esplicite.
         $c->set(HomeController::class, fn (Container $c): HomeController => new HomeController(
-            $c->get(View::class)
+            $c->get(View::class),
+            $c->get(StockService::class)
+        ));
+        $c->set(StockController::class, fn (Container $c): StockController => new StockController(
+            $c->get(View::class),
+            $c->get(StockService::class),
+            $c->get(WarehouseLocationService::class)
         ));
         $c->set(ProductController::class, fn (Container $c): ProductController => new ProductController(
             $c->get(View::class),
