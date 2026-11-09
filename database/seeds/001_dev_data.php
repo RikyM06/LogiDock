@@ -18,6 +18,7 @@ use LogiDock\Repository\WarehouseLocationRepository;
 use LogiDock\Service\CustomerService;
 use LogiDock\Service\InboundService;
 use LogiDock\Service\OrderService;
+use LogiDock\Service\PasswordPolicy;
 use LogiDock\Service\PalletTypeService;
 use LogiDock\Service\ProductService;
 use LogiDock\Service\RoundService;
@@ -36,6 +37,14 @@ return static function (Database $database): void {
     $operatorPassword = env('SEED_OPERATOR_PASSWORD');
     if ($adminPassword === '' || $operatorPassword === '') {
         throw new RuntimeException('Imposta SEED_ADMIN_PASSWORD e SEED_OPERATOR_PASSWORD in .env prima di lanciare il seed.');
+    }
+    // Stesse regole della gestione utenti: anche gli utenti di esempio non nascono con password deboli.
+    // Il controllo è prima di qualsiasi scrittura, quindi una password sbagliata non lascia il DB a metà.
+    foreach (['SEED_ADMIN_PASSWORD' => $adminPassword, 'SEED_OPERATOR_PASSWORD' => $operatorPassword] as $key => $password) {
+        $problem = PasswordPolicy::problem($password);
+        if ($problem !== null) {
+            throw new RuntimeException($key . ' in .env non va bene: ' . $problem);
+        }
     }
 
     // Restituisce l'id della prima riga trovata, oppure null.

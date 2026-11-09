@@ -97,7 +97,8 @@ php bin/migrate.php --status   # stato di ogni migrazione (applied / pending / c
 php bin/seed.php               # dati di esempio, solo sviluppo (rifiutato con APP_ENV=production)
 ```
 
-Prima del seed imposta `SEED_ADMIN_PASSWORD` e `SEED_OPERATOR_PASSWORD` in `.env`:
+Prima del seed imposta `SEED_ADMIN_PASSWORD` e `SEED_OPERATOR_PASSWORD` in `.env` (almeno 12 caratteri,
+come ogni password dell'applicazione: il seed controlla con `PasswordPolicy` e si ferma se non vanno bene):
 gli utenti di esempio sono `admin@logidock.test` e `operatore@logidock.test`.
 
 Le migrazioni sono file SQL numerati in `database/migrations`, ripetibili (`IF NOT EXISTS`).
