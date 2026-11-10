@@ -13,8 +13,10 @@ Il codice è **source available** con doppia licenza: gratuito per gli usi non c
 [licenza commerciale separata](COMMERCIAL-LICENSE.md) per gli usi commerciali o professionali.
 Dettagli in [Licenza](#licenza).
 
-> **Stato:** Fasi 1-6 e 8-10 completate (scheletro, database, autenticazione, prodotti, ambiente e deploy,
-> test, anagrafiche e impostazioni, arrivi di merce, richieste dei clienti). Le altre funzionalità arrivano una alla volta, vedi [Roadmap](#roadmap).
+> **Stato:** Fasi 1-6 e 8-12 completate (scheletro, database, autenticazione, prodotti, ambiente e deploy,
+> test, anagrafiche e impostazioni, arrivi di merce, richieste dei clienti, utenti, giacenze). Fase 13 in corso:
+> il piano dei viaggi proposto dal programma, con conferma e annullamento, c'è già; mancano le modifiche a mano.
+> Le altre funzionalità arrivano una alla volta, vedi [Roadmap](#roadmap).
 
 ## Stack
 
@@ -255,7 +257,7 @@ vecchio, filtrabile per prodotto, posizione e "solo fermi". La home mostra lo st
 
 Regole da sapere:
 - **In magazzino** vuol dire stato *in_stock* oppure *reserved* (prenotato per un viaggio ma non ancora partito):
-  i bancali spediti o scartati non contano. I prenotati li creerà la pianificazione e hanno l'etichetta "Prenotato".
+  i bancali spediti o scartati non contano. I prenotati sono quelli di un viaggio confermato e hanno l'etichetta "Prenotato".
 - **Fermo** vuol dire in magazzino da **più** giorni della soglia (`aging_threshold_days`, 2 di partenza, nelle
   impostazioni). I giorni sono giorni di calendario dalla data di arrivo, anche se il bancale è stato spostato:
   con soglia 2 un bancale arrivato lunedì è segnalato da giovedì.
@@ -282,14 +284,65 @@ una riga per prodotto: quantità (nell'unità di misura del prodotto) e **prezzo
 
 Regole da sapere:
 - **Codice** `ORD-AAAA-NNNNNN`, progressivo per anno, con lo stesso numeratore dei bancali (tipo `order`).
-- **Stati:** *aperta* (si modifica e si annulla), *pianificata* e *spedita* (li useranno pianificazione e consegne),
-  *annullata*. Una richiesta **non si cancella mai**: fa parte dello storico.
+- **Stati:** *aperta* (si modifica e si annulla), *pianificata* (ha bancali su un viaggio confermato: per
+  modificarla o annullarla bisogna prima annullare il viaggio), *spedita* (la useranno le consegne), *annullata*.
+  Una richiesta **non si cancella mai**: fa parte dello storico.
 - **Un prodotto una sola volta per richiesta:** se compare su due righe il form chiede di sommare le quantità.
 - **Date:** la richiesta non può essere nel futuro, la consegna non può essere prima della richiesta.
 - **Giacenza:** nel dettaglio, per ogni prodotto, si vede quanto ce n'è adesso in magazzino (bancali *in_stock*);
-  se non basta la riga è evidenziata. È un'indicazione: cosa va davvero a ogni cliente lo deciderà la pianificazione.
+  se non basta la riga è evidenziata. È un'indicazione: cosa va davvero a ogni cliente lo decide la pianificazione.
 - Un cliente o un prodotto disattivato dopo la richiesta resta su quella richiesta e non sparisce dal form di
   modifica, ma non si può usare in una richiesta nuova.
+
+### Pianificazione dei viaggi
+
+Da `/trips`, per **qualunque utente collegato**. Si sceglie un **giorno di consegna** e il programma propone i
+viaggi di quel giorno: quali bancali vanno su quale mezzo, cosa resta in magazzino e cosa manca. Il piano è solo
+una proposta finché non si preme **Conferma**: allora i viaggi diventano veri (codice `VIA-AAAA-NNNNNN`), i
+bancali passano a *prenotato* e le richieste a *pianificata*. Un viaggio confermato e non ancora partito si può
+**annullare**: bancali e richieste tornano liberi. Le modifiche a mano (spostare un bancale, bloccarlo) arrivano
+nel prossimo passo della fase.
+
+| Pezzo | Dove | Cosa fa |
+|---|---|---|
+| Calcolo del carico | `src/Service/LoadCalculator.php` | dice se un gruppo di bancali sta su un mezzo e quanto lo riempie (solo calcoli) |
+| Calcolo del piano | `src/Service/TripPlanner.php` | dalle richieste, dai bancali e dai mezzi costruisce il piano (solo calcoli, niente database) |
+| Service | `src/Service/TripService.php` | legge i dati, fa calcolare il piano, lo conferma in una transazione, annulla un viaggio |
+| Repository | `src/Repository/PlanningRepository.php`, `TripRepository.php` | solo SQL: righe da pianificare, bancali e mezzi liberi; viaggi e loro bancali |
+| Modelli del piano | `src/Model/TripPlan.php`, `PlannedTrip.php`, `PlanAssignment.php`, ... | il piano in memoria: viaggi proposti, bancali rimasti a terra, riepilogo riga per riga |
+| Millesimi | `src/Core/Thousandths.php` | quantità e pesi come interi (millesimi) per fare i conti senza float |
+| Controller e template | `TripController`, `templates/trips/` | lista, piano del giorno, conferma, dettaglio, annullamento |
+
+Come ragiona il programma (le tre regole di `TripPlanner`):
+1. **Bancali alle richieste.** La richiesta registrata per prima passa per prima. Ogni riga prende i bancali
+   **più vecchi** del suo prodotto finché è coperta. Un bancale parte **intero** e va a un solo cliente, quindi
+   l'ultimo può portare più del richiesto ("In più"). Se i bancali finiscono, la parte scoperta "Manca".
+2. **Richieste ai giri.** I bancali dei clienti dello stesso giro viaggiano insieme. Un cliente senza giro non
+   entra nel piano (basta assegnargli un giro nell'anagrafica).
+3. **Giri ai mezzi.** Per ogni giro si prende il mezzo **più piccolo che porta via tutto**; se nessuno basta si
+   riempie il più grande e con il resto si ricomincia. Un mezzo fa un solo viaggio al giorno. Quello che non
+   trova posto "Resta in magazzino".
+
+Regole da sapere:
+- **Il mezzo** deve avere un tipo di rimorchio (da lì arrivano le misure): senza, non viene usato e la pagina lo
+  segnala. Il rimorchio è trattato come un rettangolo caricato a file. I limiti sono tre: **lunghezza del
+  pianale**, **portata** (la più bassa tra veicolo e rimorchio) e **numero massimo di bancali** del veicolo.
+- **Impilamento:** solo bancali dello stesso tipo, fino ai livelli delle impostazioni (2 di partenza) e mai oltre
+  l'altezza interna del rimorchio. È una **stima prudente**: un carico incastrato a mano può starci anche meglio.
+- **Peso di un bancale:** quello segnato dal fornitore; se manca, quantità × peso unitario del prodotto.
+- **Niente piano salvato:** il piano si ricalcola a ogni apertura dai dati del momento. Chi conferma manda
+  l'"impronta" del piano che ha visto: se nel frattempo è cambiato qualcosa (un bancale, una richiesta, un mezzo)
+  l'impronta non torna più e l'app chiede di riguardare il piano, invece di confermare una cosa mai vista.
+- **Più utenti insieme:** conferma e annullamento bloccano per prima cosa le righe delle richieste coinvolte, e
+  lo stesso fa la modifica di una richiesta. Tutti prendono i blocchi nello stesso ordine, quindi si mettono in
+  fila invece di bloccarsi a vicenda.
+- **Compenso del trasportatore:** sul viaggio si salva una "fotografia" del compenso di quel momento; lo vedono
+  solo gli admin, il nome del trasportatore lo vedono tutti.
+- **La partenza non c'è ancora:** il movimento di uscita dei bancali e lo stato *spedita* arrivano con i documenti.
+- L'ordine delle tappe di un giro, quanti livelli si impilano davvero e la forma dei rimorchi sono domande
+  ancora aperte con l'azienda: le scelte di oggi sono un punto di partenza e si cambiano dalle impostazioni
+  dove possibile.
+
 ### Utenti
 
 Gli admin gestiscono gli utenti da `/users`; ogni utente cambia la propria password da «La mia password»,
@@ -328,6 +381,7 @@ Pagina `/settings`, solo admin. I valori di business non sono scritti nel codice
 | Giorni dopo i quali un bancale fermo viene segnalato | 2 |
 | Capacità predefinita di una posizione | 300 bancali |
 | Tolleranza sul peso dei bancali (segnato dal fornitore contro calcolato) | 5 % |
+| Livelli massimi di bancali impilati sul mezzo | 2 (1 = nessun bancale sopra un altro) |
 | Ragione sociale, indirizzo, partita IVA e piè di pagina dei documenti | vuoti |
 
 Le definizioni (limiti e valore di partenza) stanno in un solo elenco in `SettingService::definitions()`: nel
@@ -383,6 +437,10 @@ I test usano PHPUnit e stanno in `tests/`:
 | `tests/Service/OrderServiceTest.php` | integrazione | richiesta completa, codici consecutivi, date, prodotto ripetuto, modifica che sostituisce le righe, annullamento, stati bloccati, giacenza |
 | `tests/Service/AgingRuleTest.php` | unitario | la regola dei bancali fermi con date fisse: giorni di calendario, soglia, ora legale, stessa risposta in PHP e in SQL |
 | `tests/Service/StockServiceTest.php` | integrazione | riepilogo per prodotto (solo bancali in magazzino, somme DECIMAL), filtri, ordine, bancali al limite della soglia, soglia dalle impostazioni |
+| `tests/Core/ThousandthsTest.php` | unitario | decimali convertiti in millesimi interi e ritorno, valori non validi rifiutati |
+| `tests/Service/LoadCalculatorTest.php` | unitario | file sul pianale, rotazione del bancale, impilamento per tipo, altezza del rimorchio, portata, numero di bancali |
+| `tests/Service/TripPlannerTest.php` | unitario | bancali più vecchi per primi, precedenza delle richieste, giri, scelta del mezzo, cosa resta in magazzino, cosa manca, stesso piano con gli stessi dati |
+| `tests/Service/TripServiceTest.php` | integrazione | piano dai dati veri, conferma tutto-o-niente (viaggio, bancali prenotati, richieste pianificate), piano cambiato nel frattempo, annullamento, richiesta pianificata non modificabile |
 | `tests/Core/DatabaseTransactionTest.php` | integrazione | commit, rollback e savepoint quando una transazione è già aperta |
 | `tests/Core/ApplicationConfigTest.php` | unitario | le variabili d'ambiente vere vincono su `.env` |
 
@@ -430,7 +488,8 @@ camionisti). Serve anche lo storico di viaggi, forniture e pagamenti.
 - [x] **Fase 11:** gestione degli utenti dall'applicazione (solo admin): elenco, nuovo utente, ruolo, disattivazione,
   reimpostazione della password, e "la mia password" per tutti
 - [x] **Fase 12:** giacenze per prodotto e per bancale, avviso per i bancali fermi da troppo tempo (nella home e nella lista)
-- [ ] **Fase 13:** pianificazione dei viaggi (assegnazione automatica ai rimorchi, modifica manuale e ricalcolo)
+- [ ] **Fase 13:** pianificazione dei viaggi. *Fatti* il piano proposto dal programma (bancali ai mezzi, giro per
+  giro), la conferma e l'annullamento; *mancano* la modifica manuale e il ricalcolo intorno alle scelte fatte a mano
 - [ ] **Fase 14:** documenti in PDF (carico per camion, consegna per cliente con prezzi, compenso camionisti)
 - [ ] **Fase 15:** storico viaggi, forniture per fornitore, pagamenti dei clienti, report
 - [ ] **Fase 16:** ricerca globale per descrizione: un testo cercato in tutti i campi di tutti i dati (clienti,

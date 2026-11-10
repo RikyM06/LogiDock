@@ -9,11 +9,13 @@ use LogiDock\Repository\OrderRepository;
 use LogiDock\Repository\PalletMovementRepository;
 use LogiDock\Repository\PalletRepository;
 use LogiDock\Repository\PalletTypeRepository;
+use LogiDock\Repository\PlanningRepository;
 use LogiDock\Repository\ProductRepository;
 use LogiDock\Repository\RoundRepository;
 use LogiDock\Repository\SettingRepository;
 use LogiDock\Repository\SupplierDocumentRepository;
 use LogiDock\Repository\SupplierRepository;
+use LogiDock\Repository\TripRepository;
 use LogiDock\Repository\WarehouseLocationRepository;
 use LogiDock\Service\CustomerService;
 use LogiDock\Service\InboundService;
@@ -24,6 +26,7 @@ use LogiDock\Service\ProductService;
 use LogiDock\Service\RoundService;
 use LogiDock\Service\SettingService;
 use LogiDock\Service\SupplierService;
+use LogiDock\Service\TripService;
 use LogiDock\Service\WarehouseLocationService;
 
 // Dati di esempio per lo sviluppo. Ripetibile: cerca ogni record per chiave naturale
@@ -183,56 +186,85 @@ return static function (Database $database): void {
             ['Autotrasporti Verdi', '0350000000', '180.00']
         );
 
-    $trailerTypeId = $firstId('SELECT id FROM trailer_types WHERE name = ?', ['Rimorchio 7,2 m'])
-        ?? $insert(
-            'INSERT INTO trailer_types (name, length_mm, width_mm, inner_height_mm, max_weight_kg) VALUES (?, ?, ?, ?, ?)',
-            ['Rimorchio 7,2 m', 7200, 2450, 2600, '6500.00']
-        );
-    if ($firstId('SELECT id FROM trailer_types WHERE name = ?', ['Semirimorchio 13,6 m']) === null) {
-        $insert(
-            'INSERT INTO trailer_types (name, length_mm, width_mm, inner_height_mm, max_weight_kg) VALUES (?, ?, ?, ?, ?)',
-            ['Semirimorchio 13,6 m', 13600, 2450, 2700, '24000.00']
-        );
+    // [nome, lunghezza, larghezza e altezza interna in mm, portata in kg]
+    $trailerTypes = [
+        ['Rimorchio 7,2 m', 7200, 2450, 2600, '6500.00'],
+        ['Semirimorchio 13,6 m', 13600, 2450, 2700, '24000.00'],
+    ];
+    foreach ($trailerTypes as $trailerType) {
+        if ($firstId('SELECT id FROM trailer_types WHERE name = ?', [$trailerType[0]]) === null) {
+            $insert(
+                'INSERT INTO trailer_types (name, length_mm, width_mm, inner_height_mm, max_weight_kg) VALUES (?, ?, ?, ?, ?)',
+                $trailerType
+            );
+        }
     }
 
-    // --- Mezzo ----------------------------------------------------------------------------------
-    if ($firstId('SELECT id FROM vehicles WHERE plate = ?', ['FG456HJ']) === null) {
-        $insert(
-            'INSERT INTO vehicles (plate, description, max_weight_kg, max_pallets, trailer_type_id, carrier_id) VALUES (?, ?, ?, ?, ?, ?)',
-            ['FG456HJ', 'Camion 12 bancali', '6500.00', 12, $trailerTypeId, $carrierId]
-        );
+    // --- Mezzi -----------------------------------------------------------------------------------
+    // Il programma dei viaggi usa solo i mezzi con un tipo di rimorchio (gli servono le misure del
+    // pianale). Il camion è di un trasportatore, il bilico è dell'azienda (nessun trasportatore).
+    // [targa, descrizione, portata in kg, bancali al massimo, tipo di rimorchio, trasportatore]
+    $vehicles = [
+        ['FG456HJ', 'Camion 12 bancali', '6500.00', 12, 'Rimorchio 7,2 m', $carrierId],
+        ['KL789MN', 'Bilico 33 bancali', '24000.00', 33, 'Semirimorchio 13,6 m', null],
+    ];
+    foreach ($vehicles as [$plate, $description, $maxWeight, $maxPallets, $trailerType, $vehicleCarrierId]) {
+        $vehicleTrailerTypeId = $firstId('SELECT id FROM trailer_types WHERE name = ?', [$trailerType]);
+        $existing = $firstId('SELECT id FROM vehicles WHERE plate = ?', [$plate]);
+
+        if ($existing === null) {
+            $insert(
+                'INSERT INTO vehicles (plate, description, max_weight_kg, max_pallets, trailer_type_id, carrier_id) VALUES (?, ?, ?, ?, ?, ?)',
+                [$plate, $description, $maxWeight, $maxPallets, $vehicleTrailerTypeId, $vehicleCarrierId]
+            );
+            continue;
+        }
+
+        // Mezzo già presente (seed di prima): si completano solo i campi vuoti, senza sovrascrivere nulla.
+        $pdo->prepare(
+            'UPDATE vehicles SET trailer_type_id = COALESCE(trailer_type_id, ?), carrier_id = COALESCE(carrier_id, ?)
+             WHERE id = ?'
+        )->execute([$vehicleTrailerTypeId, $vehicleCarrierId, $existing]);
     }
 
     // --- Bancali e movimenti --------------------------------------------------------------------
-    // [prodotto, fornitore, posizione attuale, quantità, lotto, scadenza (giorni da oggi), arrivato (giorni fa), arrivo in IN-01 poi spostato?]
+    // [prodotto, fornitore, posizione attuale, quantità, lotto, scadenza (giorni da oggi), arrivato (giorni fa),
+    //  arrivo in IN-01 poi spostato?, tipo di bancale]
     $pallets = [
-        ['ACQ-050', 'Sorgenti Alpine S.r.l.', 'A-01-01', '120.000', 'L2610A', 300, 20, false],
-        ['ACQ-050', 'Sorgenti Alpine S.r.l.', 'A-01-02', '120.000', 'L2610A', 300, 20, true],
-        ['PAS-500', 'Dispensa Italia S.r.l.', 'A-02-01', '96.000', 'P2609C', 180, 14, false],
-        ['OLI-1L', 'Dispensa Italia S.r.l.', 'B-01-01', '80.000', 'O2608B', 400, 9, false],
-        ['SCA-PIA', 'Cartotecnica Lombarda S.r.l.', 'B-01-02', '500.000', null, null, 5, false],
-        ['DET-LIQ', 'Igiene Casa Distribuzione S.r.l.', 'A-01-03', '60.000', 'D2610F', 700, 3, false],
-        ['PAN-ECO', 'Igiene Casa Distribuzione S.r.l.', 'IN-01', '150.000', 'N2611A', null, 1, false],
+        ['ACQ-050', 'Sorgenti Alpine S.r.l.', 'A-01-01', '120.000', 'L2610A', 300, 20, false, 'EPAL1'],
+        ['ACQ-050', 'Sorgenti Alpine S.r.l.', 'A-01-02', '120.000', 'L2610A', 300, 20, true, 'EPAL1'],
+        ['PAS-500', 'Dispensa Italia S.r.l.', 'A-02-01', '96.000', 'P2609C', 180, 14, false, 'EPAL1'],
+        ['OLI-1L', 'Dispensa Italia S.r.l.', 'B-01-01', '80.000', 'O2608B', 400, 9, false, 'EPAL3'],
+        ['SCA-PIA', 'Cartotecnica Lombarda S.r.l.', 'B-01-02', '500.000', null, null, 5, false, 'EPAL3'],
+        ['DET-LIQ', 'Igiene Casa Distribuzione S.r.l.', 'A-01-03', '60.000', 'D2610F', 700, 3, false, 'EPAL1'],
+        ['PAN-ECO', 'Igiene Casa Distribuzione S.r.l.', 'IN-01', '150.000', 'N2611A', null, 1, false, 'EPAL3'],
     ];
 
     $operatorId = $userIds['operatore'];
-    foreach ($pallets as $index => [$productCode, $supplier, $location, $quantity, $lot, $expiry, $received, $movedAfter]) {
+    foreach ($pallets as $index => [$productCode, $supplier, $location, $quantity, $lot, $expiry, $received, $movedAfter, $palletType]) {
         $code = sprintf('PAL-%d-%06d', $year, $index + 1);
+        $demoPalletTypeId = $firstId('SELECT id FROM pallet_types WHERE code = ?', [$palletType]);
+
         if ($firstId('SELECT id FROM pallets WHERE code = ?', [$code]) !== null) {
+            // Bancale già presente (seed di prima, senza tipo): si completa solo il tipo se manca.
+            // Il controllo sul prodotto evita di toccare un bancale vero che avesse lo stesso codice.
+            $pdo->prepare('UPDATE pallets SET pallet_type_id = COALESCE(pallet_type_id, ?) WHERE code = ? AND product_id = ?')
+                ->execute([$demoPalletTypeId, $code, $productIds[$productCode]]);
             continue;
         }
 
         $arrivalLocation = $movedAfter ? 'IN-01' : $location;
 
         $palletId = $insert(
-            'INSERT INTO pallets (code, product_id, supplier_id, location_id, quantity, initial_quantity,
+            'INSERT INTO pallets (code, product_id, supplier_id, location_id, pallet_type_id, quantity, initial_quantity,
                                   lot_number, expiry_date, received_at, created_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [
                 $code,
                 $productIds[$productCode],
                 $supplierIds[$supplier],
                 $locationIds[$location],
+                $demoPalletTypeId,
                 $quantity,
                 $quantity,
                 $lot,
@@ -353,6 +385,32 @@ return static function (Database $database): void {
 
             if ($cancelled) {
                 $orderService->cancel($orderId);
+            }
+        }
+    }
+
+    // --- Viaggi (solo se non ce n'è ancora nessuno) ---------------------------------------------
+    // Si conferma il piano del primo giorno da pianificare (il Giro Nord) con lo stesso TripService
+    // dell'applicazione: nella demo c'è così un viaggio confermato, con i bancali prenotati e le
+    // richieste pianificate, e resta un giorno ancora da pianificare (il Giro Sud, con merce che manca).
+    if ($firstId('SELECT id FROM trips LIMIT 1', []) === null) {
+        $tripService = new TripService(
+            $database,
+            new PlanningRepository($database),
+            new TripRepository($database),
+            new PalletRepository($database),
+            new OrderRepository($database),
+            new NumberSequenceRepository($database),
+            new PalletTypeService(new PalletTypeRepository($database)),
+            new SettingService(new SettingRepository($database), $database)
+        );
+
+        $days = $tripService->planningDays();
+        if ($days !== []) {
+            $plan = $tripService->plan($days[0]->date);
+
+            if ($plan->hasTrips()) {
+                $tripService->confirm($plan->date, $plan->fingerprint(), $operatorId);
             }
         }
     }

@@ -107,9 +107,8 @@ final class OrderService
         [$header, $lines] = $this->validate($input, $current, $now->format('Y-m-d'));
 
         $this->database->transaction(function () use ($id, $header, $lines): void {
-            // Si ricontrolla subito prima di scrivere: riduce (senza chiuderla del tutto, non c'è un lock
-            // sulla riga) la finestra in cui qualcuno la pianifica mentre un altro la modifica.
-            $this->editableOrFail($id);
+            // Si ricontrolla con la riga bloccata: se nel frattempo qualcuno l'ha pianificata non si scrive.
+            $this->lockOpenOrFail($id);
 
             $this->orders->updateHeader(
                 $id,
@@ -127,8 +126,10 @@ final class OrderService
      */
     public function cancel(int $id): void
     {
-        $this->editableOrFail($id);
-        $this->orders->setStatus($id, Order::STATUS_CANCELLED);
+        $this->database->transaction(function () use ($id): void {
+            $this->lockOpenOrFail($id);
+            $this->orders->setStatus($id, Order::STATUS_CANCELLED);
+        });
     }
 
     /**
@@ -245,12 +246,37 @@ final class OrderService
         $order = $this->orders->findById($id);
 
         if ($order === null || !$order->isEditable()) {
-            throw new OrderNotEditableException(
-                'Si possono modificare o annullare solo le richieste aperte'
-                . ($order !== null ? ' (questa è «' . $order->statusLabel() . '»).' : '.')
-            );
+            throw $this->notEditable($order?->status);
         }
 
         return $order;
+    }
+
+    /**
+     * Come editableOrFail(), ma blocca la riga della richiesta fino alla fine della transazione.
+     * Va chiamata come PRIMA istruzione della transazione: così la conferma di un piano e la
+     * modifica della stessa richiesta passano una alla volta, e chi arriva dopo vede lo stato
+     * aggiornato (una lettura normale vedrebbe ancora la "fotografia" di inizio transazione).
+     *
+     * @throws OrderNotEditableException
+     */
+    private function lockOpenOrFail(int $id): void
+    {
+        $status = $this->orders->lockStatus($id);
+
+        if ($status !== Order::STATUS_OPEN) {
+            throw $this->notEditable($status);
+        }
+    }
+
+    /**
+     * @param string|null $status lo stato attuale, o null se la richiesta non esiste
+     */
+    private function notEditable(?string $status): OrderNotEditableException
+    {
+        return new OrderNotEditableException(
+            'Si possono modificare o annullare solo le richieste aperte'
+            . ($status !== null ? ' (questa è «' . (Order::STATUS_LABELS[$status] ?? $status) . '»).' : '.')
+        );
     }
 }

@@ -138,6 +138,58 @@ final class OrderRepository
         $this->database->pdo()->prepare('UPDATE orders SET status = ? WHERE id = ?')->execute([$status, $id]);
     }
 
+    /**
+     * Legge lo stato di una richiesta e blocca la sua riga fino alla fine della transazione
+     * (FOR UPDATE): chi vuole modificarla o pianificarla nello stesso momento aspetta il suo turno.
+     * Una lettura con blocco vede sempre l'ultimo dato salvato. Va chiamata dentro una transazione.
+     *
+     * @return string|null lo stato, o null se la richiesta non esiste
+     */
+    public function lockStatus(int $id): ?string
+    {
+        $statement = $this->database->pdo()->prepare('SELECT status FROM orders WHERE id = ? FOR UPDATE');
+        $statement->execute([$id]);
+        $status = $statement->fetchColumn();
+
+        return $status === false ? null : (string) $status;
+    }
+
+    /**
+     * Blocca, fino alla fine della transazione, le richieste ancora da servire con consegna in quel
+     * giorno: mentre si conferma il piano nessuno può modificarle o annullarle.
+     */
+    public function lockByDeliveryDate(string $date): void
+    {
+        $statement = $this->database->pdo()->prepare(
+            "SELECT id FROM orders WHERE delivery_date = ? AND status IN ('open', 'planned') ORDER BY id FOR UPDATE"
+        );
+        $statement->execute([$date]);
+        $statement->fetchAll();
+    }
+
+    /**
+     * Blocca le richieste servite da un viaggio e restituisce il loro stato.
+     *
+     * @return array<int, string> id della richiesta => stato
+     */
+    public function lockByTrip(int $tripId): array
+    {
+        $statement = $this->database->pdo()->prepare(
+            'SELECT o.id, o.status FROM orders o
+             WHERE o.id IN (SELECT ti.order_id FROM trip_items ti WHERE ti.trip_id = ?)
+             ORDER BY o.id
+             FOR UPDATE'
+        );
+        $statement->execute([$tripId]);
+
+        $statuses = [];
+        foreach ($statement->fetchAll() as $row) {
+            $statuses[(int) $row['id']] = (string) $row['status'];
+        }
+
+        return $statuses;
+    }
+
     private function baseSelect(): string
     {
         return 'SELECT o.*, c.name AS customer_name, r.name AS round_name,

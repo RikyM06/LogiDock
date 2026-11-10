@@ -255,6 +255,26 @@ try {
 '@ | Out-Null
     Save-Screenshot 'richiesta-nuova'
 
+    # Viaggi: lista, piano del primo giorno ancora da pianificare (solo calcolo: non conferma niente)
+    # e dettaglio del viaggio confermato dal seed.
+    Open-Page '/trips';        Save-Screenshot 'viaggi'
+    $plan = Invoke-Js @'
+(() => {
+    const link = document.querySelector('tbody a[href^="/trips/plan?date="]');
+    return link ? link.getAttribute('href') : '';
+})()
+'@
+    $trip = Invoke-Js @'
+(() => {
+    const link = document.querySelector('tbody a[href^="/trips/"]:not([href^="/trips/plan"])');
+    return link ? link.getAttribute('href') : '';
+})()
+'@
+    if ($plan -eq '' -or $trip -eq '') { throw 'Giorno da pianificare o viaggio demo non trovato: hai eseguito php bin/seed.php?' }
+    Open-Page $plan;           Save-Screenshot 'viaggio-piano'
+    Save-Screenshot 'viaggio-piano-richieste' '#richieste'
+    Open-Page $trip;           Save-Screenshot 'viaggio-dettaglio'
+
     # Scheda fornitore inviata vuota: mostra che tutti i campi sono obbligatori (non salva niente).
     Open-Page '/suppliers/create'
     Invoke-Js 'document.querySelector("form.form").submit(); true' | Out-Null

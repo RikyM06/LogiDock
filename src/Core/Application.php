@@ -21,6 +21,7 @@ use LogiDock\Controller\SettingController;
 use LogiDock\Controller\StockController;
 use LogiDock\Controller\SupplierController;
 use LogiDock\Controller\TrailerTypeController;
+use LogiDock\Controller\TripController;
 use LogiDock\Controller\UserController;
 use LogiDock\Controller\VehicleController;
 use LogiDock\Controller\WarehouseLocationController;
@@ -34,6 +35,7 @@ use LogiDock\Repository\OrderRepository;
 use LogiDock\Repository\PalletMovementRepository;
 use LogiDock\Repository\PalletRepository;
 use LogiDock\Repository\PalletTypeRepository;
+use LogiDock\Repository\PlanningRepository;
 use LogiDock\Repository\ProductRepository;
 use LogiDock\Repository\RoundRepository;
 use LogiDock\Repository\SettingRepository;
@@ -41,6 +43,7 @@ use LogiDock\Repository\StockRepository;
 use LogiDock\Repository\SupplierDocumentRepository;
 use LogiDock\Repository\SupplierRepository;
 use LogiDock\Repository\TrailerTypeRepository;
+use LogiDock\Repository\TripRepository;
 use LogiDock\Repository\UserRepository;
 use LogiDock\Repository\VehicleRepository;
 use LogiDock\Repository\WarehouseLocationRepository;
@@ -56,6 +59,7 @@ use LogiDock\Service\SettingService;
 use LogiDock\Service\StockService;
 use LogiDock\Service\SupplierService;
 use LogiDock\Service\TrailerTypeService;
+use LogiDock\Service\TripService;
 use LogiDock\Service\UserService;
 use LogiDock\Service\VehicleService;
 use LogiDock\Service\WarehouseLocationService;
@@ -293,6 +297,24 @@ final class Application
             $c->get(SettingService::class)
         ));
 
+        // Pianificazione dei viaggi
+        $c->set(PlanningRepository::class, fn (Container $c): PlanningRepository => new PlanningRepository(
+            $c->get(Database::class)
+        ));
+        $c->set(TripRepository::class, fn (Container $c): TripRepository => new TripRepository(
+            $c->get(Database::class)
+        ));
+        $c->set(TripService::class, fn (Container $c): TripService => new TripService(
+            $c->get(Database::class),
+            $c->get(PlanningRepository::class),
+            $c->get(TripRepository::class),
+            $c->get(PalletRepository::class),
+            $c->get(OrderRepository::class),
+            $c->get(NumberSequenceRepository::class),
+            $c->get(PalletTypeService::class),
+            $c->get(SettingService::class)
+        ));
+
         // Middleware
         $c->set(CsrfMiddleware::class, fn (Container $c): CsrfMiddleware => new CsrfMiddleware($c->get(Csrf::class)));
         $c->set(AuthMiddleware::class, fn (Container $c): AuthMiddleware => new AuthMiddleware($c->get(AuthService::class)));
@@ -405,6 +427,12 @@ final class Application
             $c->get(OrderService::class),
             $c->get(CustomerService::class),
             $c->get(ProductService::class)
+        ));
+        $c->set(TripController::class, fn (Container $c): TripController => new TripController(
+            $c->get(View::class),
+            $c->get(Session::class),
+            $c->get(AuthService::class),
+            $c->get(TripService::class)
         ));
         $c->set(UserController::class, fn (Container $c): UserController => new UserController(
             $c->get(View::class),

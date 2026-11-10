@@ -16,6 +16,7 @@ use LogiDock\Controller\SettingController;
 use LogiDock\Controller\StockController;
 use LogiDock\Controller\SupplierController;
 use LogiDock\Controller\TrailerTypeController;
+use LogiDock\Controller\TripController;
 use LogiDock\Controller\UserController;
 use LogiDock\Controller\VehicleController;
 use LogiDock\Controller\WarehouseLocationController;
@@ -85,7 +86,8 @@ return static function (Router $router): void {
             $router->post('/inbound', [InboundController::class, 'store']);
             $router->get('/inbound/{id}', [InboundController::class, 'show']);
 
-        $router->get('/stock', [StockController::class, 'index']);
+            // Giacenze: cosa c'è in magazzino adesso.
+            $router->get('/stock', [StockController::class, 'index']);
 
             // Richieste dei clienti: anche queste fanno parte del lavoro di ogni giorno.
             // "/orders/create" va prima di "/orders/{id}" per lo stesso motivo degli arrivi.
@@ -96,6 +98,14 @@ return static function (Router $router): void {
             $router->get('/orders/{id}/edit', [OrderController::class, 'edit']);
             $router->post('/orders/{id}', [OrderController::class, 'update']);
             $router->post('/orders/{id}/cancel', [OrderController::class, 'cancel']);
+
+            // Viaggi: il piano di un giorno (GET lo calcola, POST lo conferma) e i viaggi confermati.
+            // "/trips/plan" va prima di "/trips/{id}", altrimenti "plan" sarebbe preso per un id.
+            $router->get('/trips', [TripController::class, 'index']);
+            $router->get('/trips/plan', [TripController::class, 'plan']);
+            $router->post('/trips/plan', [TripController::class, 'confirm']);
+            $router->get('/trips/{id}', [TripController::class, 'show']);
+            $router->post('/trips/{id}/cancel', [TripController::class, 'cancel']);
 
             // Prodotti: tutti possono consultare l'anagrafica...
             $router->get('/products', [ProductController::class, 'index']);

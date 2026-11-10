@@ -24,6 +24,7 @@ final class SettingService
     public const AGING_THRESHOLD_DAYS = 'aging_threshold_days';
     public const LOCATION_DEFAULT_CAPACITY = 'location_default_capacity';
     public const WEIGHT_TOLERANCE_PERCENT = 'weight_tolerance_percent';
+    public const MAX_STACK_LEVELS = 'max_stack_levels';
     public const COMPANY_NAME = 'company_name';
     public const COMPANY_ADDRESS = 'company_address';
     public const COMPANY_VAT = 'company_vat';
@@ -82,6 +83,16 @@ final class SettingService
                 0,
                 100,
                 'Se il peso segnato dal fornitore differisce da quello calcolato di più di questa percentuale, il bancale viene evidenziato.'
+            ),
+            new SettingDefinition(
+                self::MAX_STACK_LEVELS,
+                $warehouse,
+                'Livelli massimi di bancali impilati sul mezzo',
+                SettingDefinition::TYPE_INT,
+                '2',
+                1,
+                5,
+                '1 = nessun bancale sopra un altro. La pianificazione dei viaggi impila solo bancali dello stesso tipo e non supera mai l\'altezza interna del rimorchio.'
             ),
             new SettingDefinition(self::COMPANY_NAME, $company, 'Ragione sociale', SettingDefinition::TYPE_TEXT, '', 0, 150),
             new SettingDefinition(self::COMPANY_ADDRESS, $company, 'Indirizzo', SettingDefinition::TYPE_TEXT, '', 0, 255),

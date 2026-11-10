@@ -79,7 +79,7 @@ h2 {
 .topbar__inner {
     display: flex;
     align-items: center;
-    gap: 1.5rem;
+    gap: 1rem;
     min-height: 3.5rem;
 }
 
@@ -125,7 +125,8 @@ h2 {
 }
 
 .nav__link {
-    padding: 0.4rem 0.8rem;
+    /* 0.65rem ai lati: con le nove voci di un admin la barra resta su una riga sola. */
+    padding: 0.4rem 0.65rem;
     white-space: nowrap;
     border-radius: var(--radius);
     color: var(--color-nav-text);
@@ -659,4 +660,99 @@ a.badge--aging:hover {
 .aging-list {
     margin: 0.5rem 0;
     padding-left: 1.25rem;
+}
+
+/* Viaggi */
+.toolbar input[type="date"] {
+    padding: 0.5rem 0.7rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    font: inherit;
+}
+
+.toolbar--below,
+.card--spaced {
+    margin-top: var(--space);
+}
+
+/* Un riquadro per ogni viaggio proposto: titolo, tappe, tre misuratori e la tabella dei bancali. */
+.trip-card {
+    margin-bottom: var(--space);
+}
+
+.trip-card__title {
+    margin: 0 0 0.25rem;
+    font-size: 1.15rem;
+}
+
+.trip-card__title .muted {
+    font-size: 0.9rem;
+    font-weight: 400;
+}
+
+.trip-card__stops {
+    margin: 0 0 1rem;
+}
+
+/* Quanto è pieno il mezzo: bancali, pianale e peso. <progress> è l'elemento HTML fatto apposta. */
+.meters {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.meter {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.meter progress {
+    width: 100%;
+    height: 0.7rem;
+    accent-color: var(--color-primary);
+}
+
+.meter__label {
+    font-size: 0.85rem;
+    color: var(--color-muted);
+}
+
+.meter__value {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.trip-confirm {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.trip-confirm p {
+    flex: 1 1 28rem;
+    margin: 0;
+}
+
+/* Riga che separa le tappe nella tabella del carico. */
+.table__group th {
+    background: var(--color-soft);
+    color: var(--color-text);
+    font-size: 0.9rem;
+}
+
+/* Stati di un viaggio (planned e cancelled usano già i colori delle richieste). */
+.badge--draft,
+.badge--completed {
+    background: var(--color-soft);
+    color: var(--color-muted);
+}
+
+.badge--in_transit {
+    background: var(--color-success-bg);
+    color: var(--color-success-text);
 }

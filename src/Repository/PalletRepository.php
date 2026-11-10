@@ -9,8 +9,8 @@ use LogiDock\Model\InboundPallet;
 use LogiDock\Model\NewPallet;
 
 /**
- * Solo SQL sui bancali. Per ora: inserimento all'arrivo e letture legate agli arrivi.
- * (Lo stato dei bancali e la loro storia si aggiornano insieme nella transazione del service.)
+ * Solo SQL sui bancali: inserimento all'arrivo, letture legate agli arrivi e prenotazione per un
+ * viaggio. (Lo stato dei bancali e la loro storia si aggiornano insieme nella transazione del service.)
  */
 final class PalletRepository
 {
@@ -59,6 +59,37 @@ final class PalletRepository
         $statement->execute([$locationId]);
 
         return (int) $statement->fetchColumn();
+    }
+
+    /**
+     * Prenota un bancale per un viaggio, ma solo se è ancora libero: la condizione sta dentro
+     * l'UPDATE, quindi se due persone confermano insieme lo stesso bancale lo prende una sola.
+     *
+     * @return bool false se il bancale non era più libero (non è stato toccato)
+     */
+    public function reserve(int $id): bool
+    {
+        $statement = $this->database->pdo()->prepare(
+            "UPDATE pallets SET status = 'reserved' WHERE id = ? AND status = 'in_stock'"
+        );
+        $statement->execute([$id]);
+
+        return $statement->rowCount() === 1;
+    }
+
+    /**
+     * Libera i bancali prenotati da un viaggio (quando il viaggio viene annullato).
+     */
+    public function releaseOfTrip(int $tripId): void
+    {
+        $this->database->pdo()
+            ->prepare(
+                "UPDATE pallets p
+                 JOIN trip_items ti ON ti.pallet_id = p.id
+                 SET p.status = 'in_stock'
+                 WHERE ti.trip_id = ? AND p.status = 'reserved'"
+            )
+            ->execute([$tripId]);
     }
 
     /**
