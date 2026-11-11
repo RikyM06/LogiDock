@@ -157,13 +157,41 @@ final class OrderRepository
     /**
      * Blocca, fino alla fine della transazione, le richieste ancora da servire con consegna in quel
      * giorno: mentre si conferma il piano nessuno può modificarle o annullarle.
+     *
+     * @return array<int, string> id della richiesta => stato (come l'ultimo dato salvato)
      */
-    public function lockByDeliveryDate(string $date): void
+    public function lockByDeliveryDate(string $date): array
     {
         $statement = $this->database->pdo()->prepare(
-            "SELECT id FROM orders WHERE delivery_date = ? AND status IN ('open', 'planned') ORDER BY id FOR UPDATE"
+            "SELECT id, status FROM orders WHERE delivery_date = ? AND status IN ('open', 'planned') ORDER BY id FOR UPDATE"
         );
         $statement->execute([$date]);
+
+        $statuses = [];
+        foreach ($statement->fetchAll() as $row) {
+            $statuses[(int) $row['id']] = (string) $row['status'];
+        }
+
+        return $statuses;
+    }
+
+    /**
+     * Blocca le richieste servite da due o più viaggi con UN solo comando, in ordine di id: due
+     * persone che spostano bancali in direzioni opposte (A verso B e B verso A) prendono i blocchi
+     * nello stesso ordine e si mettono in fila invece di bloccarsi a vicenda.
+     *
+     * @param list<int> $tripIds
+     */
+    public function lockByTrips(array $tripIds): void
+    {
+        $placeholders = implode(', ', array_fill(0, count($tripIds), '?'));
+        $statement = $this->database->pdo()->prepare(
+            "SELECT o.id FROM orders o
+             WHERE o.id IN (SELECT ti.order_id FROM trip_items ti WHERE ti.trip_id IN ($placeholders))
+             ORDER BY o.id
+             FOR UPDATE"
+        );
+        $statement->execute($tripIds);
         $statement->fetchAll();
     }
 

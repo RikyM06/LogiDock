@@ -393,6 +393,7 @@ return static function (Database $database): void {
     // Si conferma il piano del primo giorno da pianificare (il Giro Nord) con lo stesso TripService
     // dell'applicazione: nella demo c'è così un viaggio confermato, con i bancali prenotati e le
     // richieste pianificate, e resta un giorno ancora da pianificare (il Giro Sud, con merce che manca).
+    // Un bancale del viaggio viene poi bloccato "a mano", così la demo mostra anche le scelte manuali.
     if ($firstId('SELECT id FROM trips LIMIT 1', []) === null) {
         $tripService = new TripService(
             $database,
@@ -410,7 +411,12 @@ return static function (Database $database): void {
             $plan = $tripService->plan($days[0]->date);
 
             if ($plan->hasTrips()) {
-                $tripService->confirm($plan->date, $plan->fingerprint(), $operatorId);
+                $tripIds = $tripService->confirm($plan->date, $plan->fingerprint(), $operatorId);
+
+                $items = $tripService->itemsOf($tripIds[0]);
+                if ($items !== []) {
+                    $tripService->setPalletLock($tripIds[0], $items[0]->palletId, true, $operatorId);
+                }
             }
         }
     }

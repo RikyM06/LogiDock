@@ -11,6 +11,7 @@ use LogiDock\Model\PlanDemand;
 use LogiDock\Model\PlanLeftover;
 use LogiDock\Model\PlannedTrip;
 use LogiDock\Model\PlanPallet;
+use LogiDock\Model\PlanSeedTrip;
 use LogiDock\Model\PlanVehicle;
 use LogiDock\Model\TripPlan;
 
@@ -30,6 +31,13 @@ use LogiDock\Model\TripPlan;
  * 3. Giri ai mezzi, un giro alla volta in ordine alfabetico. Si prende il mezzo più piccolo che
  *    porta via tutto; se nessuno basta, si riempie il più grande e con quello che resta si ricomincia.
  *    Un mezzo fa un solo viaggio al giorno. Quello che non trova posto resta in magazzino.
+ *
+ * Viaggi già confermati ("seed"): il piano costruisce attorno a loro. Il mezzo di un viaggio
+ * confermato non cambia mai da solo; i bancali nuovi dello stesso giro salgono prima su quel mezzo,
+ * finché ci stanno, e solo il resto prende un altro mezzo.
+ * - Piano normale: tutti i bancali già sui viaggi confermati restano dove sono.
+ * - Piano di ricalcolo ($replan): restano solo i bancali BLOCCATI a mano; gli altri tornano nel
+ *   mucchio e vengono riassegnati da capo, anche tra i viaggi dello stesso giro.
  */
 final class TripPlanner
 {
@@ -38,16 +46,36 @@ final class TripPlanner
     }
 
     /**
-     * @param list<PlanDemand>  $demands  righe da pianificare, in ordine di precedenza
-     * @param list<PlanPallet>  $pallets  bancali liberi, dal più vecchio al più recente
-     * @param list<PlanVehicle> $vehicles mezzi liberi quel giorno
+     * @param list<PlanDemand>   $demands  righe da pianificare, in ordine di precedenza
+     * @param list<PlanPallet>   $pallets  bancali liberi, dal più vecchio al più recente
+     * @param list<PlanVehicle>  $vehicles mezzi liberi quel giorno
+     * @param list<PlanSeedTrip> $seeds    viaggi già confermati quel giorno (ancora pianificati)
      */
-    public function plan(string $date, array $demands, array $pallets, array $vehicles): TripPlan
-    {
+    public function plan(
+        string $date,
+        array $demands,
+        array $pallets,
+        array $vehicles,
+        array $seeds = [],
+        bool $replan = false
+    ): TripPlan {
         $assignments = $this->assignPallets($demands, $pallets);
-        [$trips, $leftovers] = $this->loadVehicles($demands, $assignments, $vehicles);
+        [$trips, $leftovers] = $this->loadVehicles($demands, $assignments, $vehicles, $seeds, $replan);
+        $coverage = $this->coverage($demands, $assignments, $trips);
 
-        return new TripPlan($date, $trips, $leftovers, $this->coverage($demands, $assignments, $trips));
+        // Un viaggio già confermato che il piano non cambia non si mostra e non si riscrive.
+        $changed = array_values(array_filter(
+            $trips,
+            static fn (array $entry): bool => $entry['changed']
+        ));
+
+        return new TripPlan(
+            $date,
+            array_map(static fn (array $entry): PlannedTrip => $entry['trip'], $changed),
+            $leftovers,
+            $coverage,
+            $replan
+        );
     }
 
     /**
@@ -92,9 +120,12 @@ final class TripPlanner
      * @param list<PlanDemand>                 $demands
      * @param array<int, list<PlanAssignment>> $assignments
      * @param list<PlanVehicle>                $vehicles
-     * @return array{list<PlannedTrip>, list<PlanLeftover>}
+     * @param list<PlanSeedTrip>               $seeds
+     * @return array{list<array{trip: PlannedTrip, changed: bool}>, list<PlanLeftover>}
+     *         tutti i viaggi del piano (anche quelli già confermati e invariati), ognuno con
+     *         l'indicazione "cambia rispetto a oggi"
      */
-    private function loadVehicles(array $demands, array $assignments, array $vehicles): array
+    private function loadVehicles(array $demands, array $assignments, array $vehicles, array $seeds, bool $replan): array
     {
         $byRound = [];
         $roundNames = [];
@@ -106,7 +137,15 @@ final class TripPlanner
             }
         }
 
-        $roundIds = array_keys($byRound);
+        $seedsByRound = [];
+        foreach ($seeds as $seed) {
+            $seedsByRound[$seed->roundId][] = $seed;
+            $roundNames[$seed->roundId] = $seed->roundName;
+        }
+
+        // Anche un giro che ha solo viaggi già confermati (niente di nuovo da caricare) entra nel conto:
+        // nel ricalcolo i suoi bancali non bloccati vanno riassegnati.
+        $roundIds = array_values(array_unique([...array_keys($byRound), ...array_keys($seedsByRound)]));
         usort(
             $roundIds,
             static fn (int $a, int $b): int => strcasecmp($roundNames[$a], $roundNames[$b]) ?: $a <=> $b
@@ -122,7 +161,18 @@ final class TripPlanner
         $leftovers = [];
 
         foreach ($roundIds as $roundId) {
-            $toLoad = $byRound[$roundId];
+            $toLoad = $byRound[$roundId] ?? [];
+
+            // Prima i viaggi già confermati di questo giro: il mezzo è già lì, si riempie finché ci sta.
+            foreach ($seedsByRound[$roundId] ?? [] as $seed) {
+                [$final, $toLoad] = $this->fillSeed($seed, $toLoad, $replan);
+                $planned = $this->trip($roundId, $roundNames[$roundId], $seed->vehicle, $final, $seed);
+                $trips[] = [
+                    'trip' => $planned,
+                    // Cambia se i bancali finali non sono quelli di oggi (ne arrivano, o nel ricalcolo ne partono).
+                    'changed' => PlanSeedTrip::signatureOf($final) !== $seed->signature(),
+                ];
+            }
 
             while ($toLoad !== []) {
                 $choice = $this->chooseVehicle($vehicles, $toLoad);
@@ -140,11 +190,40 @@ final class TripPlanner
                 // Il mezzo è preso: non è più disponibile per gli altri giri.
                 array_splice($vehicles, $position, 1);
 
-                $trips[] = $this->trip($roundId, $roundNames[$roundId], $vehicle, $loaded);
+                $trips[] = ['trip' => $this->trip($roundId, $roundNames[$roundId], $vehicle, $loaded), 'changed' => true];
             }
         }
 
         return [$trips, $leftovers];
+    }
+
+    /**
+     * Riempie il mezzo di un viaggio già confermato con i bancali nuovi del suo giro, uno alla volta,
+     * finché ci stanno. Quelli che non entrano restano da caricare altrove.
+     *
+     * @param list<PlanAssignment> $toLoad
+     * @return array{list<PlanAssignment>, list<PlanAssignment>} [bancali finali del viaggio, bancali ancora da caricare]
+     */
+    private function fillSeed(PlanSeedTrip $seed, array $toLoad, bool $replan): array
+    {
+        // Nel ricalcolo restano solo i bloccati; nel piano normale tutti i bancali già sul viaggio.
+        $final = [];
+        foreach ($seed->assignments as $assignment) {
+            if (!$replan || $assignment->locked) {
+                $final[] = $assignment->asFixed();
+            }
+        }
+
+        $rest = [];
+        foreach ($toLoad as $assignment) {
+            if ($this->calculator->usage($seed->vehicle, $this->palletsOf([...$final, $assignment]))->fits()) {
+                $final[] = $assignment;
+            } else {
+                $rest[] = $assignment;
+            }
+        }
+
+        return [$final, $rest];
     }
 
     /**
@@ -190,7 +269,7 @@ final class TripPlanner
     /**
      * @param list<PlanAssignment> $loaded
      */
-    private function trip(int $roundId, string $roundName, PlanVehicle $vehicle, array $loaded): PlannedTrip
+    private function trip(int $roundId, string $roundName, PlanVehicle $vehicle, array $loaded, ?PlanSeedTrip $seed = null): PlannedTrip
     {
         // I bancali dello stesso cliente stanno vicini: per cliente (alfabetico, perché l'ordine vero
         // delle tappe non è ancora deciso), poi per richiesta. L'ordinamento di PHP è
@@ -207,7 +286,9 @@ final class TripPlanner
             $roundName,
             $vehicle,
             $loaded,
-            $this->calculator->usage($vehicle, $this->palletsOf($loaded))
+            $this->calculator->usage($vehicle, $this->palletsOf($loaded)),
+            $seed?->tripId,
+            $seed?->code
         );
     }
 
@@ -216,14 +297,14 @@ final class TripPlanner
      *
      * @param list<PlanDemand>                 $demands
      * @param array<int, list<PlanAssignment>> $assignments
-     * @param list<PlannedTrip>                $trips
+     * @param list<array{trip: PlannedTrip, changed: bool}> $trips tutti i viaggi, anche quelli invariati
      * @return list<DemandCoverage>
      */
     private function coverage(array $demands, array $assignments, array $trips): array
     {
         $loadedPalletIds = [];
-        foreach ($trips as $trip) {
-            foreach ($trip->assignments as $assignment) {
+        foreach ($trips as $entry) {
+            foreach ($entry['trip']->assignments as $assignment) {
                 $loadedPalletIds[$assignment->pallet->id] = true;
             }
         }

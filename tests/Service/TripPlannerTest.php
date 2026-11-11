@@ -5,8 +5,12 @@ declare(strict_types=1);
 namespace LogiDock\Tests\Service;
 
 use LogiDock\Model\PlanAssignment;
+use LogiDock\Model\PlanDemand;
 use LogiDock\Model\PlanLeftover;
 use LogiDock\Model\PlannedTrip;
+use LogiDock\Model\PlanPallet;
+use LogiDock\Model\PlanSeedTrip;
+use LogiDock\Model\PlanVehicle;
 use LogiDock\Model\TripPlan;
 use LogiDock\Service\LoadCalculator;
 use LogiDock\Service\TripPlanner;
@@ -326,5 +330,158 @@ final class TripPlannerTest extends TestCase
         $nothing = $this->planner()->plan(self::DATE, [$demand], [], [$this->smallTruck(1)])->fingerprint();
 
         self::assertCount(6, array_unique([$base, $otherPallet, $otherVehicle, $otherDay, $otherLine, $nothing]));
+    }
+
+    public function testTheFingerprintTellsANewTripFromAnExistingOneAndANormalPlanFromAReplan(): void
+    {
+        $demand = $this->demand(2, '100.000');
+        $pallet = $this->pallet(id: 5);
+        $seed = $this->seedTrip(40, 1, [$this->assignment($this->pallet(id: 1), $this->demand(1, '100.000'))]);
+
+        $onNewTrip = $this->planner()->plan(self::DATE, [$demand], [$pallet], [$this->smallTruck(1)]);
+        $onExistingTrip = $this->planner()->plan(self::DATE, [$demand], [$pallet], [], [$seed]);
+        $replan = $this->planner()->plan(self::DATE, [$demand], [$pallet], [], [$seed], true);
+
+        self::assertCount(3, array_unique([
+            $onNewTrip->fingerprint(), $onExistingTrip->fingerprint(), $replan->fingerprint(),
+        ]));
+    }
+
+    // --- Viaggi già confermati e scelte a mano ---
+
+    public function testNewPalletsFillAConfirmedTripBeforeTakingAnotherVehicle(): void
+    {
+        $seed = $this->seedTrip(40, 1, [$this->assignment($this->pallet(id: 1), $this->demand(1, '100.000'))]);
+
+        // Il bilico (id 2) è libero e più grande, ma il mezzo del viaggio già confermato ha posto.
+        $plan = $this->planner()->plan(
+            self::DATE,
+            [$this->demand(2, '100.000')],
+            [$this->pallet(id: 2)],
+            [$this->bigTruck(2)],
+            [$seed]
+        );
+
+        self::assertCount(1, $plan->trips);
+        $trip = $plan->trips[0];
+        self::assertTrue($trip->isExisting());
+        self::assertSame(40, $trip->tripId);
+        self::assertSame('VIA-TEST-40', $trip->tripCode);
+        self::assertSame(1, $trip->vehicle->id, 'il mezzo del viaggio confermato non cambia');
+        self::assertSame([1, 2], $this->palletIds($trip));
+        self::assertSame([true, false], array_map(static fn (PlanAssignment $a): bool => $a->fixed, $trip->assignments));
+        self::assertSame([2], array_map(static fn (PlanAssignment $a): int => $a->pallet->id, $trip->newAssignments()));
+        self::assertSame(1, $plan->coverage[0]->loadedPallets, 'il bancale su un viaggio confermato conta come caricato');
+        self::assertSame([], $plan->leftovers);
+    }
+
+    public function testAConfirmedTripThePlanDoesNotChangeIsLeftOut(): void
+    {
+        $seed = $this->seedTrip(40, 1, [$this->assignment($this->pallet(id: 1), $this->demand(1, '100.000'))]);
+
+        $plan = $this->planner()->plan(self::DATE, [], [], [$this->bigTruck(2)], [$seed]);
+
+        self::assertFalse($plan->hasTrips());
+    }
+
+    public function testAFullConfirmedTripTakesNothingAndTheRestGoesToAnotherVehicle(): void
+    {
+        $seed = $this->seedTrip(
+            40,
+            1,
+            [$this->assignment($this->pallet(id: 1), $this->demand(1, '100.000'))],
+            $this->smallTruck(1, maxPallets: 1)
+        );
+
+        $plan = $this->planner()->plan(
+            self::DATE,
+            [$this->demand(2, '100.000')],
+            [$this->pallet(id: 2)],
+            [$this->bigTruck(2)],
+            [$seed]
+        );
+
+        self::assertCount(1, $plan->trips, 'il viaggio pieno non cambia e non compare');
+        self::assertFalse($plan->trips[0]->isExisting());
+        self::assertSame(2, $plan->trips[0]->vehicle->id);
+        self::assertSame([2], $this->palletIds($plan->trips[0]));
+    }
+
+    public function testReplanKeepsLockedPalletsAndReassignsTheOthers(): void
+    {
+        $locked = $this->assignment($this->pallet(id: 3), $this->demand(1, '100.000'), locked: true);
+        $unlocked = $this->assignment($this->pallet(id: 4), $this->demand(2, '100.000'));
+        $seed = $this->seedTrip(40, 1, [$locked, $unlocked]);
+
+        // Nel mucchio c'è un bancale più vecchio (id 2, arriva prima) e quello sbloccato (id 4).
+        $plan = $this->planner()->plan(
+            self::DATE,
+            [$this->demand(2, '100.000')],
+            [$this->pallet(id: 2), $this->pallet(id: 4)],
+            [],
+            [$seed],
+            true
+        );
+
+        self::assertTrue($plan->replan);
+        self::assertCount(1, $plan->trips);
+        $trip = $plan->trips[0];
+        self::assertSame(40, $trip->tripId);
+        self::assertSame([3, 2], $this->palletIds($trip), 'il bloccato resta, al posto dello sbloccato va il più vecchio');
+        self::assertSame([true, false], array_map(static fn (PlanAssignment $a): bool => $a->fixed, $trip->assignments));
+        self::assertTrue($trip->assignments[0]->locked);
+    }
+
+    public function testReplanWithNothingToChangeLeavesTheTripOut(): void
+    {
+        $locked = $this->assignment($this->pallet(id: 3), $this->demand(1, '100.000'), locked: true);
+        $unlocked = $this->assignment($this->pallet(id: 4), $this->demand(2, '100.000'));
+        $seed = $this->seedTrip(40, 1, [$locked, $unlocked]);
+
+        $plan = $this->planner()->plan(self::DATE, [$this->demand(2, '100.000')], [$this->pallet(id: 4)], [], [$seed], true);
+
+        self::assertFalse($plan->hasTrips(), 'lo stesso bancale va alla stessa riga: niente da cambiare');
+    }
+
+    public function testReplanCanEmptyATripWhenItsPalletsAreBetterUsedElsewhere(): void
+    {
+        $first = $this->seedTrip(40, 1, [$this->assignment($this->pallet(id: 1), $this->demand(1, '100.000'))]);
+        $second = $this->seedTrip(41, 2, [$this->assignment($this->pallet(id: 2), $this->demand(2, '100.000'))], $this->smallTruck(2));
+
+        // Le due righe stanno sullo stesso giro: il primo viaggio prende tutto e il secondo resta vuoto.
+        $plan = $this->planner()->plan(
+            self::DATE,
+            [$this->demand(1, '100.000'), $this->demand(2, '100.000')],
+            [$this->pallet(id: 1), $this->pallet(id: 2)],
+            [],
+            [$first, $second],
+            true
+        );
+
+        self::assertCount(2, $plan->trips);
+        self::assertSame(40, $plan->trips[0]->tripId);
+        self::assertSame([1, 2], $this->palletIds($plan->trips[0]), 'il primo viaggio prende anche il bancale dell\'altro');
+        self::assertSame(41, $plan->trips[1]->tripId);
+        self::assertSame([], $plan->trips[1]->assignments, 'il secondo viaggio resterebbe senza bancali');
+    }
+
+    /**
+     * @param list<PlanAssignment> $assignments
+     */
+    private function seedTrip(int $tripId, int $vehicleId, array $assignments, ?PlanVehicle $vehicle = null): PlanSeedTrip
+    {
+        return new PlanSeedTrip(
+            $tripId,
+            'VIA-TEST-' . $tripId,
+            10,
+            'Giro Nord',
+            $vehicle ?? $this->smallTruck($vehicleId),
+            $assignments
+        );
+    }
+
+    private function assignment(PlanPallet $pallet, PlanDemand $demand, bool $locked = false): PlanAssignment
+    {
+        return new PlanAssignment($pallet, $demand, false, $locked);
     }
 }

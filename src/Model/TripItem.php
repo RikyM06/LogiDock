@@ -22,7 +22,10 @@ final readonly class TripItem
         public int $orderId,
         public string $orderCode,
         public int $customerId,
-        public string $customerName
+        public string $customerName,
+        public bool $isLocked = false,
+        public ?string $lockedByName = null,
+        public ?string $lockedAt = null
     ) {
     }
 
@@ -43,7 +46,10 @@ final readonly class TripItem
             (int) $row['order_id'],
             (string) $row['order_code'],
             (int) $row['customer_id'],
-            (string) $row['customer_name']
+            (string) $row['customer_name'],
+            (bool) $row['is_locked'],
+            $row['locked_by_name'] === null ? null : (string) $row['locked_by_name'],
+            $row['locked_at'] === null ? null : (string) $row['locked_at']
         );
     }
 }

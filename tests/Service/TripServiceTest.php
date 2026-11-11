@@ -34,6 +34,7 @@ use LogiDock\Service\ProductService;
 use LogiDock\Service\RoundService;
 use LogiDock\Service\SettingService;
 use LogiDock\Service\TrailerTypeService;
+use LogiDock\Service\TripChangeNotAllowedException;
 use LogiDock\Service\TripNotCancellableException;
 use LogiDock\Service\TripService;
 use LogiDock\Service\VehicleService;
@@ -386,7 +387,9 @@ final class TripServiceTest extends IntegrationTestCase
         self::assertSame(Order::STATUS_PLANNED, $this->orders->find($orderId)?->status);
         self::assertContains(self::DAY, $this->daysToPlan(), 'mancano ancora 40 ct');
 
-        // Arriva altra merce, ma l'unico mezzo ha già il suo viaggio per quel giorno.
+        // Arriva altra merce, ma l'unico mezzo ha già il suo viaggio per quel giorno e ora è pieno
+        // (se ci fosse posto, il bancale salirebbe su quel viaggio: lo prova testNewPalletsFillTheConfirmedTripFirst).
+        $this->database->pdo()->prepare('UPDATE vehicles SET max_pallets = 2 WHERE id = ?')->execute([$this->vehicleId]);
         $late = $this->pallet($this->waterId, '50', '2026-11-09 08:00:00');
         $plan = $this->trips->plan(self::DAY);
         self::assertFalse($plan->hasTrips());
@@ -452,7 +455,357 @@ final class TripServiceTest extends IntegrationTestCase
         $this->trips->cancel(0);
     }
 
+    // --- viaggi già confermati: completarli, spostare i bancali, cambiare mezzo, ricalcolare ---
+
+    public function testNewPalletsFillTheConfirmedTripFirst(): void
+    {
+        $this->vehicle('ZZ002TR'); // libero, ma non serve: il viaggio confermato ha ancora posto
+        $this->order($this->alfaId, [[$this->waterId, '30']]);
+        $this->pallet($this->waterId, '30', '2026-11-01 08:00:00');
+        [$tripId] = $this->confirmPlan();
+
+        $betaOrder = $this->order($this->betaId, [[$this->waterId, '30']]);
+        $second = $this->pallet($this->waterId, '30', '2026-11-02 08:00:00');
+
+        $plan = $this->trips->plan(self::DAY);
+        self::assertCount(1, $plan->trips);
+        self::assertSame($tripId, $plan->trips[0]->tripId);
+        self::assertSame('ZZ001TR', $plan->trips[0]->vehicle->plate);
+        self::assertSame([$second], array_map(static fn ($a): int => $a->pallet->id, $plan->trips[0]->newAssignments()));
+
+        self::assertSame([$tripId], $this->confirmPlan());
+
+        self::assertCount(1, $this->trips->tripsOn(self::DAY), 'nessun secondo viaggio');
+        self::assertSame(2, $this->trips->find($tripId)?->palletCount);
+        self::assertSame('reserved', $this->palletStatus($second));
+        self::assertSame(Order::STATUS_PLANNED, $this->orders->find($betaOrder)?->status);
+        self::assertFalse($this->trips->plan(self::DAY)->hasTrips());
+    }
+
+    public function testAPalletMovedToANewTripIsLockedAndStaysReserved(): void
+    {
+        [$tripId, [, , $p3]] = $this->tripWithThreePallets();
+        $carrier = $this->carrier('Zz Altri Trasporti', '200');
+        $second = $this->vehicle('ZZ002TR', carrierId: $carrier);
+
+        $newTripId = $this->trips->movePalletToNewTrip($tripId, $p3, $second, $this->userId, $this->now);
+
+        $new = $this->trips->find($newTripId);
+        self::assertSame('ZZ002TR', $new?->vehiclePlate);
+        self::assertSame($this->roundId, $new?->roundId, 'stesso giro del viaggio di partenza');
+        self::assertSame('200.00', $new?->carrierFee, 'compenso del trasportatore del nuovo mezzo');
+        self::assertSame(Trip::STATUS_PLANNED, $new?->status);
+        self::assertSame(1, $new?->palletCount);
+        self::assertSame(1, $new?->lockedCount);
+        self::assertSame(2, $this->trips->find($tripId)?->palletCount);
+        self::assertSame(0, $this->trips->find($tripId)?->lockedCount);
+
+        $item = $this->trips->itemsOf($newTripId)[0];
+        self::assertSame($p3, $item->palletId);
+        self::assertTrue($item->isLocked);
+        self::assertSame('Utente di prova', $item->lockedByName);
+        self::assertSame('2026-11-10 10:00:00', $item->lockedAt);
+        self::assertSame('reserved', $this->palletStatus($p3));
+        self::assertNotContains('ZZ002TR', $this->freePlates(), 'il mezzo ora ha un viaggio');
+    }
+
+    public function testAPalletMovedToAnotherTripOfTheSameRoundIsLocked(): void
+    {
+        [$tripId, [, $p2, $p3]] = $this->tripWithThreePallets();
+        $second = $this->vehicle('ZZ002TR');
+        $newTripId = $this->trips->movePalletToNewTrip($tripId, $p3, $second, $this->userId, $this->now);
+
+        $this->trips->movePalletToTrip($tripId, $p2, $newTripId, $this->userId, $this->now);
+
+        self::assertSame(1, $this->trips->find($tripId)?->palletCount);
+        self::assertEqualsCanonicalizing([$p2, $p3], $this->palletIdsOfTrip($newTripId));
+        self::assertSame(2, $this->trips->find($newTripId)?->lockedCount);
+        self::assertSame(
+            [$newTripId],
+            array_map(static fn ($trip): int => $trip->id, $this->trips->moveTargets($this->trips->find($tripId) ?? throw new \LogicException())),
+            'l\'altro viaggio dello stesso giro è una destinazione possibile'
+        );
+    }
+
+    public function testTheLastPalletOfATripCannotLeaveIt(): void
+    {
+        $this->order($this->alfaId, [[$this->waterId, '10']]);
+        $pallet = $this->pallet($this->waterId, '30', '2026-11-01 08:00:00');
+        [$tripId] = $this->confirmPlan();
+        $second = $this->vehicle('ZZ002TR');
+
+        $this->expectException(TripChangeNotAllowedException::class);
+        $this->expectExceptionMessage('ultimo bancale');
+        $this->trips->movePalletToNewTrip($tripId, $pallet, $second, $this->userId, $this->now);
+    }
+
+    public function testAPalletCannotMoveToATripOfAnotherRound(): void
+    {
+        $otherRound = (new RoundService(new RoundRepository($this->database)))->create(['name' => 'Zz Giro Viaggi 3']);
+        $gamma = $this->customers->create(['name' => 'Zz Gamma 3', 'round_id' => (string) $otherRound]);
+        $this->vehicle('ZZ002TR');
+        $this->order($this->alfaId, [[$this->waterId, '60']]);
+        $this->order($gamma, [[$this->waterId, '30']]);
+        $this->pallet($this->waterId, '30', '2026-11-01 08:00:00');
+        $this->pallet($this->waterId, '30', '2026-11-02 08:00:00');
+        $this->pallet($this->waterId, '30', '2026-11-03 08:00:00');
+        [$alfaTrip, $gammaTrip] = $this->confirmPlan();
+        $palletId = $this->palletIdsOfTrip($alfaTrip)[0];
+
+        try {
+            $this->trips->movePalletToTrip($alfaTrip, $palletId, $gammaTrip, $this->userId, $this->now);
+            self::fail('Attesa una TripChangeNotAllowedException.');
+        } catch (TripChangeNotAllowedException $e) {
+            self::assertStringContainsString('stesso giro', $e->getMessage());
+        }
+
+        self::assertCount(2, $this->palletIdsOfTrip($alfaTrip), 'niente è cambiato');
+    }
+
+    public function testAPalletThatDoesNotFitTheOtherVehicleIsRefusedAndNothingChanges(): void
+    {
+        [$tripId, [, $p2, $p3]] = $this->tripWithThreePallets();
+        $small = $this->vehicle('ZZ003TR', maxPallets: 1);
+        $smallTrip = $this->trips->movePalletToNewTrip($tripId, $p3, $small, $this->userId, $this->now);
+
+        try {
+            $this->trips->movePalletToTrip($tripId, $p2, $smallTrip, $this->userId, $this->now);
+            self::fail('Attesa una TripChangeNotAllowedException.');
+        } catch (TripChangeNotAllowedException $e) {
+            self::assertStringContainsString('ZZ003TR', $e->getMessage());
+            self::assertStringContainsString('più bancali di quanti ne porta il mezzo', $e->getMessage());
+        }
+
+        self::assertSame(2, $this->trips->find($tripId)?->palletCount);
+        self::assertSame(1, $this->trips->find($smallTrip)?->palletCount);
+    }
+
+    public function testABusyVehicleCannotBeChosenForANewTrip(): void
+    {
+        [$tripId, [, , $p3]] = $this->tripWithThreePallets();
+
+        $this->expectException(TripChangeNotAllowedException::class);
+        $this->expectExceptionMessage('non è libero');
+        $this->trips->movePalletToNewTrip($tripId, $p3, $this->vehicleId, $this->userId, $this->now);
+    }
+
+    public function testChangeVehicleUpdatesTheCarrierAndFreesTheOldVehicle(): void
+    {
+        [$tripId] = $this->tripWithThreePallets();
+        $carrier = $this->carrier('Zz Altri Trasporti', '200');
+        $second = $this->vehicle('ZZ002TR', carrierId: $carrier);
+
+        $this->trips->changeVehicle($tripId, $second);
+
+        $trip = $this->trips->find($tripId);
+        self::assertSame('ZZ002TR', $trip?->vehiclePlate);
+        self::assertSame('Zz Altri Trasporti', $trip?->carrierName);
+        self::assertSame('200.00', $trip?->carrierFee);
+        self::assertContains('ZZ001TR', $this->freePlates());
+        self::assertNotContains('ZZ002TR', $this->freePlates());
+    }
+
+    public function testChangeVehicleRefusesTheSameBusyOrTooSmallVehicle(): void
+    {
+        [$tripId, [, , $p3]] = $this->tripWithThreePallets();
+        $second = $this->vehicle('ZZ002TR');
+        $small = $this->vehicle('ZZ003TR', maxPallets: 1);
+        $otherTrip = $this->trips->movePalletToNewTrip($tripId, $p3, $second, $this->userId, $this->now);
+
+        $messages = [];
+        foreach ([[$tripId, $this->vehicleId], [$tripId, $second], [$tripId, $small]] as [$id, $vehicleId]) {
+            try {
+                $this->trips->changeVehicle($id, $vehicleId);
+                self::fail('Attesa una TripChangeNotAllowedException.');
+            } catch (TripChangeNotAllowedException $e) {
+                $messages[] = $e->getMessage();
+            }
+        }
+
+        self::assertStringContainsString('già questo mezzo', $messages[0]);
+        self::assertStringContainsString('non è libero', $messages[1]);
+        self::assertStringContainsString('Il carico non entra su ZZ003TR', $messages[2]);
+        self::assertSame('ZZ001TR', $this->trips->find($tripId)?->vehiclePlate, 'niente è cambiato');
+        self::assertSame('ZZ002TR', $this->trips->find($otherTrip)?->vehiclePlate);
+    }
+
+    public function testPalletsCanBeLockedAndUnlockedByHand(): void
+    {
+        [$tripId, [$p1]] = $this->tripWithThreePallets();
+
+        $this->trips->setPalletLock($tripId, $p1, true, $this->userId, $this->now);
+        $item = $this->itemOf($tripId, $p1);
+        self::assertTrue($item->isLocked);
+        self::assertSame('Utente di prova', $item->lockedByName);
+        self::assertSame('2026-11-10 10:00:00', $item->lockedAt);
+        self::assertSame(1, $this->trips->find($tripId)?->lockedCount);
+
+        $this->trips->setPalletLock($tripId, $p1, false, $this->userId, $this->now);
+        $item = $this->itemOf($tripId, $p1);
+        self::assertFalse($item->isLocked);
+        self::assertNull($item->lockedByName);
+        self::assertNull($item->lockedAt);
+
+        $this->expectException(TripChangeNotAllowedException::class);
+        $this->trips->setPalletLock($tripId, 0, true, $this->userId, $this->now);
+    }
+
+    public function testOnlyPlannedTripsCanBeChangedByHand(): void
+    {
+        [$tripId, [$p1, , $p3]] = $this->tripWithThreePallets();
+        $second = $this->vehicle('ZZ002TR');
+        $this->trips->cancel($tripId);
+
+        $attempts = [
+            fn () => $this->trips->setPalletLock($tripId, $p1, true, $this->userId, $this->now),
+            fn () => $this->trips->movePalletToNewTrip($tripId, $p3, $second, $this->userId, $this->now),
+            fn () => $this->trips->changeVehicle($tripId, $second),
+        ];
+
+        foreach ($attempts as $attempt) {
+            try {
+                $attempt();
+                self::fail('Attesa una TripChangeNotAllowedException.');
+            } catch (TripChangeNotAllowedException $e) {
+                self::assertStringContainsString('solo i viaggi pianificati', $e->getMessage());
+            }
+        }
+    }
+
+    public function testReplanKeepsLockedPalletsAndReassignsTheOthers(): void
+    {
+        [$tripId, [$p1, $p2, $p3]] = $this->tripWithThreePallets();
+        $second = $this->vehicle('ZZ002TR');
+        $secondTrip = $this->trips->movePalletToNewTrip($tripId, $p3, $second, $this->userId, $this->now);
+
+        self::assertFalse($this->trips->plan(self::DAY)->hasTrips(), 'senza ricalcolo è tutto coperto');
+
+        // Arriva un bancale più vecchio degli altri: il ricalcolo lo preferisce, ma non tocca quello bloccato.
+        $older = $this->pallet($this->waterId, '30', '2026-10-20 08:00:00');
+        $plan = $this->trips->plan(self::DAY, true);
+
+        self::assertTrue($plan->replan);
+        self::assertCount(1, $plan->trips);
+        self::assertSame($tripId, $plan->trips[0]->tripId);
+        self::assertSame(
+            [$older, $p1],
+            array_map(static fn ($a): int => $a->pallet->id, $plan->trips[0]->assignments)
+        );
+
+        self::assertSame([$tripId], $this->confirmReplan());
+
+        self::assertEqualsCanonicalizing([$older, $p1], $this->palletIdsOfTrip($tripId));
+        self::assertSame([$p3], $this->palletIdsOfTrip($secondTrip), 'il bloccato non si è mosso');
+        self::assertTrue($this->itemOf($secondTrip, $p3)->isLocked);
+        self::assertSame('reserved', $this->palletStatus($older));
+        self::assertSame('reserved', $this->palletStatus($p1));
+        self::assertSame('in_stock', $this->palletStatus($p2), 'il bancale non più necessario torna libero');
+        self::assertSame('reserved', $this->palletStatus($p3));
+        self::assertFalse($this->trips->plan(self::DAY, true)->hasTrips(), 'ricalcolando di nuovo non cambia più niente');
+    }
+
+    public function testReplanCancelsATripThatEndsUpEmpty(): void
+    {
+        [$tripId, [$p1, $p2, $p3]] = $this->tripWithThreePallets();
+        $second = $this->vehicle('ZZ002TR');
+        $secondTrip = $this->trips->movePalletToNewTrip($tripId, $p3, $second, $this->userId, $this->now);
+        $this->trips->movePalletToTrip($tripId, $p2, $secondTrip, $this->userId, $this->now);
+        $this->trips->setPalletLock($secondTrip, $p2, false, $this->userId, $this->now);
+        $this->trips->setPalletLock($secondTrip, $p3, false, $this->userId, $this->now);
+
+        // Tutto sbloccato: il primo viaggio ha posto per tutti e il secondo resterebbe vuoto.
+        self::assertCount(2, $this->trips->plan(self::DAY, true)->trips);
+
+        $this->confirmReplan();
+
+        self::assertSame(Trip::STATUS_CANCELLED, $this->trips->find($secondTrip)?->status);
+        self::assertEqualsCanonicalizing([$p2, $p3], $this->palletIdsOfTrip($secondTrip), 'il viaggio annullato resta come storico, con le sue righe');
+        self::assertEqualsCanonicalizing([$p1, $p2, $p3], $this->palletIdsOfTrip($tripId));
+        self::assertContains('ZZ002TR', $this->freePlates(), 'il mezzo del viaggio vuoto è di nuovo libero');
+        foreach ([$p1, $p2, $p3] as $palletId) {
+            self::assertSame('reserved', $this->palletStatus($palletId));
+        }
+    }
+
+    public function testAReplanPlanCannotBeConfirmedAsANormalOne(): void
+    {
+        [$tripId, [, , $p3]] = $this->tripWithThreePallets();
+        $second = $this->vehicle('ZZ002TR');
+        $this->trips->movePalletToNewTrip($tripId, $p3, $second, $this->userId, $this->now);
+        $this->pallet($this->waterId, '30', '2026-10-20 08:00:00');
+        $replanFingerprint = $this->trips->plan(self::DAY, true)->fingerprint();
+
+        $this->expectException(PlanChangedException::class);
+        $this->trips->confirm(self::DAY, $replanFingerprint, $this->userId, $this->now, false);
+    }
+
     // --- aiuti ---
+
+    /**
+     * Un viaggio confermato con tre bancali di acqua (30 ct l'uno) per Alfa.
+     *
+     * @return array{int, list<int>} l'id del viaggio e gli id dei tre bancali, dal più vecchio
+     */
+    private function tripWithThreePallets(): array
+    {
+        $this->order($this->alfaId, [[$this->waterId, '90']]);
+        $pallets = [
+            $this->pallet($this->waterId, '30', '2026-11-01 08:00:00'),
+            $this->pallet($this->waterId, '30', '2026-11-02 08:00:00'),
+            $this->pallet($this->waterId, '30', '2026-11-03 08:00:00'),
+        ];
+        [$tripId] = $this->confirmPlan();
+
+        return [$tripId, $pallets];
+    }
+
+    /**
+     * Conferma il piano di ricalcolo così come lo vedrebbe l'utente in quel momento.
+     *
+     * @return list<int>
+     */
+    private function confirmReplan(): array
+    {
+        return $this->trips->confirm(
+            self::DAY,
+            $this->trips->plan(self::DAY, true)->fingerprint(),
+            $this->userId,
+            $this->now,
+            true
+        );
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function palletIdsOfTrip(int $tripId): array
+    {
+        return array_map(static fn ($item): int => $item->palletId, $this->trips->itemsOf($tripId));
+    }
+
+    private function itemOf(int $tripId, int $palletId): \LogiDock\Model\TripItem
+    {
+        foreach ($this->trips->itemsOf($tripId) as $item) {
+            if ($item->palletId === $palletId) {
+                return $item;
+            }
+        }
+
+        throw new \LogicException('Bancale ' . $palletId . ' non trovato sul viaggio ' . $tripId);
+    }
+
+    /**
+     * @return list<string> le targhe dei mezzi liberi nel giorno dei test
+     */
+    private function freePlates(): array
+    {
+        return array_map(static fn ($vehicle): string => $vehicle->plate, $this->trips->freeVehiclesOn(self::DAY));
+    }
+
+    private function carrier(string $name, string $fee): int
+    {
+        return (new CarrierService(new CarrierRepository($this->database)))->create(['name' => $name, 'trip_fee' => $fee]);
+    }
 
     /**
      * Conferma il piano del giorno così come lo vedrebbe l'utente in quel momento.
@@ -524,12 +877,13 @@ final class TripServiceTest extends IntegrationTestCase
         return (int) $this->database->pdo()->lastInsertId();
     }
 
-    private function vehicle(string $plate, bool $withTrailerType = true): int
+    private function vehicle(string $plate, bool $withTrailerType = true, int $maxPallets = 12, ?int $carrierId = null): int
     {
         return $this->vehicles->create([
-            'plate' => $plate, 'description' => 'Camion di prova', 'max_weight_kg' => '6500', 'max_pallets' => '12',
+            'plate' => $plate, 'description' => 'Camion di prova', 'max_weight_kg' => '6500',
+            'max_pallets' => (string) $maxPallets,
             'trailer_type_id' => $withTrailerType ? (string) $this->trailerTypeId : '',
-            'carrier_id' => (string) $this->carrierId,
+            'carrier_id' => (string) ($carrierId ?? $this->carrierId),
         ]);
     }
 

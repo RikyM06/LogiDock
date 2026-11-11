@@ -14,15 +14,22 @@ final readonly class TripPlan
      * @param list<PlannedTrip>    $trips     i viaggi proposti
      * @param list<PlanLeftover>   $leftovers bancali che servirebbero ma restano in magazzino
      * @param list<DemandCoverage> $coverage  una voce per ogni riga di richiesta del giorno
+     * @param bool                 $replan    true = piano di "ricalcolo": i bancali non bloccati dei viaggi
+     *                                        già confermati vengono riassegnati da capo
+     *
+     * "trips" contiene solo i viaggi che la conferma cambierebbe: quelli nuovi e quelli già
+     * confermati a cui si aggiunge o si toglie qualcosa.
      */
     public function __construct(
         public string $date,
         public array $trips,
         public array $leftovers,
-        public array $coverage
+        public array $coverage,
+        public bool $replan = false
     ) {
     }
 
+    /** C'è qualcosa da confermare? */
     public function hasTrips(): bool
     {
         return $this->trips !== [];
@@ -48,9 +55,10 @@ final readonly class TripPlan
             // Ordinati: l'impronta non deve dipendere dall'ordine in cui i bancali sono elencati.
             sort($pairs);
 
-            $parts[] = $trip->roundId . ':' . $trip->vehicle->id . ':' . implode(',', $pairs);
+            // Un viaggio già confermato e uno nuovo con gli stessi bancali sono cose diverse: conta anche l'id.
+            $parts[] = $trip->roundId . ':' . ($trip->tripId ?? 'nuovo') . ':' . $trip->vehicle->id . ':' . implode(',', $pairs);
         }
 
-        return hash('sha256', $this->date . '|' . implode('|', $parts));
+        return hash('sha256', ($this->replan ? 'ricalcolo' : 'normale') . '|' . $this->date . '|' . implode('|', $parts));
     }
 }

@@ -13,6 +13,7 @@ use LogiDock\Core\View;
 use LogiDock\Model\Trip;
 use LogiDock\Service\AuthService;
 use LogiDock\Service\PlanChangedException;
+use LogiDock\Service\TripChangeNotAllowedException;
 use LogiDock\Service\TripNotCancellableException;
 use LogiDock\Service\TripService;
 
@@ -54,6 +55,8 @@ final class TripController
     {
         $date = $request->query('date', '');
         $date = is_string($date) ? trim($date) : '';
+        // ?ricalcola=1 = il piano di ricalcolo: i bancali non bloccati dei viaggi già confermati si riassegnano.
+        $replan = $request->query('ricalcola', '') === '1';
 
         if ($date === '') {
             // Senza un giorno scelto si parte dal primo che ha qualcosa da pianificare, altrimenti da oggi.
@@ -62,7 +65,7 @@ final class TripController
         }
 
         try {
-            $plan = $this->trips->plan($date);
+            $plan = $this->trips->plan($date, $replan);
             $confirmedTrips = $this->trips->tripsOn($date);
         } catch (ValidationException $e) {
             return $this->refuse('/trips', $e->errors()['date'] ?? 'Il giorno indicato non è valido.');
@@ -90,21 +93,24 @@ final class TripController
         $date = is_string($date) ? trim($date) : '';
         $fingerprint = $request->input('fingerprint', '');
         $fingerprint = is_string($fingerprint) ? $fingerprint : '';
+        $replan = $request->input('mode', '') === 'replan';
 
         try {
-            $tripIds = $this->trips->confirm($date, $fingerprint, $user->id);
+            $tripIds = $this->trips->confirm($date, $fingerprint, $user->id, null, $replan);
         } catch (ValidationException $e) {
             return $this->refuse('/trips', $e->errors()['date'] ?? 'Il giorno indicato non è valido.');
         } catch (PlanChangedException $e) {
             // Si torna sul piano di quel giorno: la pagina lo ricalcola e mostra quello aggiornato.
-            return $this->refuse($this->planUrl($date), $e->getMessage());
+            return $this->refuse($this->planUrl($date, $replan), $e->getMessage());
         }
 
         $this->session->flash(
             'success',
-            count($tripIds) === 1
-                ? 'Viaggio confermato: i bancali sono prenotati e le richieste pianificate.'
-                : count($tripIds) . ' viaggi confermati: i bancali sono prenotati e le richieste pianificate.'
+            match (true) {
+                $replan => 'Piano ricalcolato e confermato: i bancali bloccati a mano sono rimasti dove li avevi messi.',
+                count($tripIds) === 1 => 'Viaggio confermato: i bancali sono prenotati e le richieste pianificate.',
+                default => count($tripIds) . ' viaggi confermati: i bancali sono prenotati e le richieste pianificate.',
+            }
         );
 
         return Response::redirect($this->planUrl($date));
@@ -121,7 +127,97 @@ final class TripController
             'title' => 'Viaggio ' . $trip->code,
             'trip' => $trip,
             'items' => $this->trips->itemsOf($trip->id),
+            // Le scelte a mano si offrono solo finché il viaggio è pianificato.
+            'moveTargets' => $trip->isEditable() ? $this->trips->moveTargets($trip) : [],
+            'freeVehicles' => $trip->isEditable() ? $this->trips->freeVehiclesOn($trip->plannedDate) : [],
         ]));
+    }
+
+    /**
+     * Sposta a mano un bancale: su un altro viaggio dello stesso giro ("trip:12") o su un nuovo
+     * viaggio con un mezzo libero ("vehicle:3"). Il bancale si blocca.
+     *
+     * @param array<string, string> $params
+     */
+    public function moveItem(Request $request, array $params): Response
+    {
+        $user = $this->auth->user() ?? throw new HttpException(403, 'Utente non collegato');
+        $trip = $this->findOrFail($params);
+        $palletId = $this->palletIdOrFail($params);
+
+        $target = $request->input('target', '');
+        $target = is_string($target) ? $target : '';
+
+        try {
+            if (preg_match('/^trip:(\d+)$/', $target, $match) === 1) {
+                $this->trips->movePalletToTrip($trip->id, $palletId, (int) $match[1], $user->id);
+                $message = 'Bancale spostato sull\'altro viaggio e bloccato: il ricalcolo del giorno non lo sposterà più.';
+            } elseif (preg_match('/^vehicle:(\d+)$/', $target, $match) === 1) {
+                $this->trips->movePalletToNewTrip($trip->id, $palletId, (int) $match[1], $user->id);
+                $message = 'Bancale spostato su un nuovo viaggio e bloccato: il ricalcolo del giorno non lo sposterà più.';
+            } else {
+                return $this->refuse('/trips/' . $trip->id, 'Scegli dove spostare il bancale.');
+            }
+        } catch (TripChangeNotAllowedException $e) {
+            return $this->refuse('/trips/' . $trip->id, $e->getMessage());
+        }
+
+        $this->session->flash('success', $message);
+
+        return Response::redirect('/trips/' . $trip->id);
+    }
+
+    /**
+     * Blocca o sblocca un bancale (campo "locked": 1 blocca, 0 sblocca).
+     *
+     * @param array<string, string> $params
+     */
+    public function lockItem(Request $request, array $params): Response
+    {
+        $user = $this->auth->user() ?? throw new HttpException(403, 'Utente non collegato');
+        $trip = $this->findOrFail($params);
+        $palletId = $this->palletIdOrFail($params);
+        $locked = $request->input('locked', '') === '1';
+
+        try {
+            $this->trips->setPalletLock($trip->id, $palletId, $locked, $user->id);
+        } catch (TripChangeNotAllowedException $e) {
+            return $this->refuse('/trips/' . $trip->id, $e->getMessage());
+        }
+
+        $this->session->flash(
+            'success',
+            $locked
+                ? 'Bancale bloccato: il ricalcolo del giorno non lo sposterà.'
+                : 'Bancale sbloccato: il ricalcolo del giorno può spostarlo.'
+        );
+
+        return Response::redirect('/trips/' . $trip->id);
+    }
+
+    /**
+     * Cambia il mezzo del viaggio con un altro mezzo libero quel giorno.
+     *
+     * @param array<string, string> $params
+     */
+    public function changeVehicle(Request $request, array $params): Response
+    {
+        $trip = $this->findOrFail($params);
+
+        $vehicleId = $request->input('vehicle_id', '');
+        if (!is_string($vehicleId) || !ctype_digit($vehicleId)) {
+            return $this->refuse('/trips/' . $trip->id, 'Scegli il nuovo mezzo.');
+        }
+
+        try {
+            $this->trips->changeVehicle($trip->id, (int) $vehicleId);
+        } catch (TripChangeNotAllowedException $e) {
+            return $this->refuse('/trips/' . $trip->id, $e->getMessage());
+        }
+
+        $this->session->flash('success', 'Mezzo cambiato: trasportatore e compenso sono quelli del nuovo mezzo.');
+
+        return Response::redirect('/trips/' . $trip->id);
     }
 
     /**
@@ -155,9 +251,22 @@ final class TripController
     /**
      * La data è già stata controllata dal service; rawurlencode è una sicurezza in più sull'URL.
      */
-    private function planUrl(string $date): string
+    private function planUrl(string $date, bool $replan = false): string
     {
-        return '/trips/plan?date=' . rawurlencode($date);
+        return '/trips/plan?date=' . rawurlencode($date) . ($replan ? '&ricalcola=1' : '');
+    }
+
+    /**
+     * @param array<string, string> $params
+     */
+    private function palletIdOrFail(array $params): int
+    {
+        $id = $params['palletId'] ?? '';
+        if (!ctype_digit($id)) {
+            throw new HttpException(404, 'Bancale non trovato: ' . $id);
+        }
+
+        return (int) $id;
     }
 
     /**

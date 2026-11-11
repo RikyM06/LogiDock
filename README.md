@@ -13,10 +13,9 @@ Il codice è **source available** con doppia licenza: gratuito per gli usi non c
 [licenza commerciale separata](COMMERCIAL-LICENSE.md) per gli usi commerciali o professionali.
 Dettagli in [Licenza](#licenza).
 
-> **Stato:** Fasi 1-6 e 8-12 completate (scheletro, database, autenticazione, prodotti, ambiente e deploy,
-> test, anagrafiche e impostazioni, arrivi di merce, richieste dei clienti, utenti, giacenze). Fase 13 in corso:
-> il piano dei viaggi proposto dal programma, con conferma e annullamento, c'è già; mancano le modifiche a mano.
-> Le altre funzionalità arrivano una alla volta, vedi [Roadmap](#roadmap).
+> **Stato:** Fasi 1-6 e 8-13 completate (scheletro, database, autenticazione, prodotti, ambiente e deploy,
+> test, anagrafiche e impostazioni, arrivi di merce, richieste dei clienti, utenti, giacenze, pianificazione dei
+> viaggi con modifiche a mano e ricalcolo). Le altre funzionalità arrivano una alla volta, vedi [Roadmap](#roadmap).
 
 ## Stack
 
@@ -300,8 +299,8 @@ Da `/trips`, per **qualunque utente collegato**. Si sceglie un **giorno di conse
 viaggi di quel giorno: quali bancali vanno su quale mezzo, cosa resta in magazzino e cosa manca. Il piano è solo
 una proposta finché non si preme **Conferma**: allora i viaggi diventano veri (codice `VIA-AAAA-NNNNNN`), i
 bancali passano a *prenotato* e le richieste a *pianificata*. Un viaggio confermato e non ancora partito si può
-**annullare**: bancali e richieste tornano liberi. Le modifiche a mano (spostare un bancale, bloccarlo) arrivano
-nel prossimo passo della fase.
+**annullare**: bancali e richieste tornano liberi. Finché non è partito lo si può anche **modificare a mano**
+(vedi [Scelte a mano](#scelte-a-mano-e-ricalcolo-del-giorno)).
 
 | Pezzo | Dove | Cosa fa |
 |---|---|---|
@@ -342,6 +341,40 @@ Regole da sapere:
 - L'ordine delle tappe di un giro, quanti livelli si impilano davvero e la forma dei rimorchi sono domande
   ancora aperte con l'azienda: le scelte di oggi sono un punto di partenza e si cambiano dalle impostazioni
   dove possibile.
+
+#### Scelte a mano e ricalcolo del giorno
+
+Il programma decide, ma una persona può correggerlo. Tutto questo vale solo per i viaggi **pianificati** (non
+partiti) e lo possono fare tutti gli utenti collegati, dal dettaglio del viaggio (`/trips/{id}`):
+
+- **Spostare un bancale** su un altro viaggio **dello stesso giro e dello stesso giorno**, oppure su un **nuovo
+  viaggio** con un mezzo libero. Il programma controlla che il carico entri nel mezzo di arrivo (stessi limiti
+  del piano) e non lascia un viaggio vuoto: l'ultimo bancale non si sposta, si annulla il viaggio.
+- **Bloccare / sbloccare** un bancale. Uno spostato a mano si **blocca da solo** (si vede chi e quando, nel
+  fumetto del badge *Bloccato a mano*).
+- **Cambiare il mezzo** di un viaggio con un altro mezzo libero quel giorno, se il carico ci sta. Trasportatore e
+  compenso diventano quelli del nuovo mezzo.
+
+Cosa cambia nel piano:
+- **Viaggi già confermati come punto di partenza.** Il piano di un giorno parte da loro: il mezzo di un viaggio
+  confermato non cambia mai da solo e i bancali nuovi dello stesso giro salgono **prima** su quel mezzo, finché ci
+  stanno; solo il resto prende un altro mezzo. Quello che è già sul viaggio resta dov'è.
+- **Ricalcola il giorno** (`/trips/plan?date=...&ricalcola=1`): i bancali **non bloccati** dei viaggi confermati
+  tornano nel mucchio e vengono riassegnati da capo (anche tra i viaggi dello stesso giro, ad esempio perché è
+  arrivato un bancale più vecchio); quelli **bloccati a mano non si spostano mai**. Anche il ricalcolo è solo una
+  proposta: la pagina dice cosa cambierebbe e si applica con **Conferma il ricalcolo**. Un viaggio che resterebbe
+  senza bancali viene annullato (resta nello storico).
+
+Dettagli tecnici:
+- Migrazione `0026`: `trip_items.is_locked`, `locked_by`, `locked_at` (un `CHECK` li tiene coerenti tra loro).
+- `TripPlanner` riceve i viaggi già confermati (`PlanSeedTrip`) e, nel ricalcolo, tiene fissi solo i bloccati.
+  I viaggi che il piano non cambia non compaiono e non si riscrivono.
+- L'impronta del piano comprende anche l'id dei viaggi già confermati e la modalità (normale o ricalcolo): un
+  piano normale non si può confermare come ricalcolo.
+- Più utenti insieme: spostamenti, blocchi e cambio mezzo prendono i blocchi nello stesso ordine di conferma e
+  annullamento (prima le richieste, poi il mezzo); lo spostamento tra due viaggi blocca le richieste dei due con un
+  solo comando ordinato per id, così due spostamenti in direzioni opposte non si bloccano a vicenda. Il mezzo
+  scelto si blocca e si ricontrolla con una lettura aggiornata: due persone non possono prendere lo stesso mezzo.
 
 ### Utenti
 
@@ -439,8 +472,8 @@ I test usano PHPUnit e stanno in `tests/`:
 | `tests/Service/StockServiceTest.php` | integrazione | riepilogo per prodotto (solo bancali in magazzino, somme DECIMAL), filtri, ordine, bancali al limite della soglia, soglia dalle impostazioni |
 | `tests/Core/ThousandthsTest.php` | unitario | decimali convertiti in millesimi interi e ritorno, valori non validi rifiutati |
 | `tests/Service/LoadCalculatorTest.php` | unitario | file sul pianale, rotazione del bancale, impilamento per tipo, altezza del rimorchio, portata, numero di bancali |
-| `tests/Service/TripPlannerTest.php` | unitario | bancali più vecchi per primi, precedenza delle richieste, giri, scelta del mezzo, cosa resta in magazzino, cosa manca, stesso piano con gli stessi dati |
-| `tests/Service/TripServiceTest.php` | integrazione | piano dai dati veri, conferma tutto-o-niente (viaggio, bancali prenotati, richieste pianificate), piano cambiato nel frattempo, annullamento, richiesta pianificata non modificabile |
+| `tests/Service/TripPlannerTest.php` | unitario | bancali più vecchi per primi, precedenza delle richieste, giri, scelta del mezzo, cosa resta in magazzino, cosa manca, stesso piano con gli stessi dati; viaggi già confermati, bancali bloccati, ricalcolo |
+| `tests/Service/TripServiceTest.php` | integrazione | piano dai dati veri, conferma tutto-o-niente (viaggio, bancali prenotati, richieste pianificate), piano cambiato nel frattempo, annullamento, richiesta pianificata non modificabile; spostamenti e blocchi a mano, cambio mezzo, ricalcolo |
 | `tests/Core/DatabaseTransactionTest.php` | integrazione | commit, rollback e savepoint quando una transazione è già aperta |
 | `tests/Core/ApplicationConfigTest.php` | unitario | le variabili d'ambiente vere vincono su `.env` |
 
@@ -488,8 +521,8 @@ camionisti). Serve anche lo storico di viaggi, forniture e pagamenti.
 - [x] **Fase 11:** gestione degli utenti dall'applicazione (solo admin): elenco, nuovo utente, ruolo, disattivazione,
   reimpostazione della password, e "la mia password" per tutti
 - [x] **Fase 12:** giacenze per prodotto e per bancale, avviso per i bancali fermi da troppo tempo (nella home e nella lista)
-- [ ] **Fase 13:** pianificazione dei viaggi. *Fatti* il piano proposto dal programma (bancali ai mezzi, giro per
-  giro), la conferma e l'annullamento; *mancano* la modifica manuale e il ricalcolo intorno alle scelte fatte a mano
+- [x] **Fase 13:** pianificazione dei viaggi: piano proposto dal programma (bancali ai mezzi, giro per giro),
+  conferma e annullamento, modifica manuale (sposta, blocca, cambia mezzo) e ricalcolo intorno alle scelte a mano
 - [ ] **Fase 14:** documenti in PDF (carico per camion, consegna per cliente con prezzi, compenso camionisti)
 - [ ] **Fase 15:** storico viaggi, forniture per fornitore, pagamenti dei clienti, report
 - [ ] **Fase 16:** ricerca globale per descrizione: un testo cercato in tutti i campi di tutti i dati (clienti,

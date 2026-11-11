@@ -19,6 +19,18 @@ $pallets = static fn (int $count): string => $count === 1 ? '1 bancale' : $count
 $day = $date($plan->date);
 $tripCount = count($plan->trips);
 
+// Ci sono viaggi su cui si può ancora lavorare (pianificati, non partiti)? Allora ha senso il ricalcolo.
+$hasEditableTrips = false;
+foreach ($confirmedTrips as $confirmed) {
+    $hasEditableTrips = $hasEditableTrips || $confirmed->isEditable();
+}
+// Quanti viaggi del piano sono nuovi e quanti sono viaggi già confermati che si completano.
+$newTrips = 0;
+foreach ($plan->trips as $planned) {
+    $newTrips += $planned->isExisting() ? 0 : 1;
+}
+$existingTrips = $tripCount - $newTrips;
+
 // C'è almeno un bancale senza tipo registrato? Serve per la nota sotto le tabelle.
 $anyAssumed = false;
 foreach ($plan->trips as $trip) {
@@ -53,6 +65,7 @@ foreach ($plan->leftovers as $leftover) {
                     <th>Giro</th>
                     <th>Mezzo</th>
                     <th class="table__number">Bancali</th>
+                    <th class="table__number">Bloccati a mano</th>
                     <th class="table__number">Peso (kg)</th>
                     <th>Stato</th>
                 </tr>
@@ -64,6 +77,7 @@ foreach ($plan->leftovers as $leftover) {
                         <td><?= e($confirmed->roundName) ?></td>
                         <td><strong><?= e($confirmed->vehiclePlate) ?></strong> <span class="muted"><?= e($confirmed->vehicleDescription) ?></span></td>
                         <td class="table__number"><?= e($confirmed->palletCount) ?></td>
+                        <td class="table__number"><?= $confirmed->lockedCount > 0 ? e($confirmed->lockedCount) : '<span class="muted">0</span>' ?></td>
                         <td class="table__number"><?= e($it($confirmed->totalWeightKg)) ?></td>
                         <td><span class="badge badge--<?= e($confirmed->status) ?>"><?= e($confirmed->statusLabel()) ?></span></td>
                     </tr>
@@ -71,6 +85,22 @@ foreach ($plan->leftovers as $leftover) {
             </tbody>
         </table>
     </div>
+
+    <?php if ($hasEditableTrips) : ?>
+        <?php if ($plan->replan) : ?>
+            <p class="alert alert--warning" role="status">
+                Stai guardando il <strong>ricalcolo</strong> del giorno: i bancali bloccati a mano restano dove sono,
+                tutti gli altri vengono riassegnati da capo (mezzi e giri dei viaggi confermati non cambiano).
+                <a href="/trips/plan?date=<?= e($plan->date) ?>">Torna al piano normale</a>
+            </p>
+        <?php else : ?>
+            <p class="muted">
+                Dopo aver spostato o bloccato dei bancali a mano puoi far <strong>ricalcolare il giorno</strong>:
+                il programma riorganizza il resto attorno alle tue scelte, senza mai spostare i bancali bloccati.
+                <a class="button button--secondary button--small" href="/trips/plan?date=<?= e($plan->date) ?>&amp;ricalcola=1">Ricalcola il giorno</a>
+            </p>
+        <?php endif; ?>
+    <?php endif; ?>
 <?php endif; ?>
 
 <?php if ($plan->coverage === []) : ?>
@@ -100,7 +130,9 @@ foreach ($plan->leftovers as $leftover) {
 
     <?php if (!$plan->hasTrips()) : ?>
         <p class="alert alert--warning" role="status">
-            Con i dati di adesso non c'è nessun viaggio da proporre. Qui sotto vedi, richiesta per richiesta, il motivo.
+            <?= $plan->replan
+                ? 'Il ricalcolo non cambia niente: con i dati di adesso i viaggi confermati vanno già bene così.'
+                : 'Con i dati di adesso non c\'è nessun viaggio da proporre. Qui sotto vedi, richiesta per richiesta, il motivo.' ?>
         </p>
     <?php endif; ?>
 
@@ -110,6 +142,9 @@ foreach ($plan->leftovers as $leftover) {
             <h3 class="trip-card__title">
                 <?= e($trip->roundName) ?> · <?= e($trip->vehicle->plate) ?>
                 <span class="muted"><?= e($trip->vehicle->description) ?> · <?= e($trip->vehicle->trailerTypeName) ?></span>
+                <?php if ($trip->isExisting()) : ?>
+                    <a class="badge badge--planned" href="/trips/<?= e($trip->tripId) ?>">Viaggio <?= e($trip->tripCode) ?> già confermato</a>
+                <?php endif; ?>
             </h3>
             <p class="trip-card__stops">
                 <strong>Tappe:</strong> <?= e(implode(', ', $trip->stops())) ?>
@@ -149,6 +184,9 @@ foreach ($plan->leftovers as $leftover) {
                             <th class="table__number">Peso (kg)</th>
                             <th>Arrivato il</th>
                             <th>Posizione</th>
+                            <?php if ($trip->isExisting()) : ?>
+                                <th>Stato</th>
+                            <?php endif; ?>
                         </tr>
                     </thead>
                     <tbody>
@@ -164,6 +202,18 @@ foreach ($plan->leftovers as $leftover) {
                                 <td class="table__number"><?= e($it($pallet->weightKg)) ?></td>
                                 <td class="nowrap"><?= e($date($pallet->receivedAt)) ?></td>
                                 <td class="nowrap"><?= e($pallet->locationCode ?? '') ?></td>
+                                <?php if ($trip->isExisting()) : ?>
+                                    <td class="nowrap">
+                                        <?php if ($assignment->fixed) : ?>
+                                            <span class="badge badge--off">Già sul viaggio</span>
+                                        <?php else : ?>
+                                            <span class="badge badge--ok">Da caricare</span>
+                                        <?php endif; ?>
+                                        <?php if ($assignment->locked) : ?>
+                                            <span class="badge badge--locked">Bloccato a mano</span>
+                                        <?php endif; ?>
+                                    </td>
+                                <?php endif; ?>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
@@ -173,19 +223,33 @@ foreach ($plan->leftovers as $leftover) {
     <?php endforeach; ?>
 
     <?php if ($plan->hasTrips()) : ?>
+        <?php
+        $confirmLabel = match (true) {
+            $plan->replan => 'Conferma il ricalcolo',
+            $existingTrips > 0 => 'Conferma il piano',
+            $tripCount === 1 => 'Conferma il viaggio',
+            default => 'Conferma i ' . $tripCount . ' viaggi',
+        };
+        ?>
         <form method="post" action="/trips/plan" class="card trip-confirm"
-              data-confirm="Confermare <?= $tripCount === 1 ? 'il viaggio' : 'i ' . e($tripCount) . ' viaggi' ?> del <?= e($day) ?>? I bancali verranno prenotati.">
+              data-confirm="<?= $plan->replan ? 'Confermare il ricalcolo' : 'Confermare il piano' ?> del <?= e($day) ?>? I bancali verranno prenotati.">
             <input type="hidden" name="_csrf" value="<?= e($csrfToken) ?>">
             <input type="hidden" name="date" value="<?= e($plan->date) ?>">
             <input type="hidden" name="fingerprint" value="<?= e($plan->fingerprint()) ?>">
+            <?php if ($plan->replan) : ?>
+                <input type="hidden" name="mode" value="replan">
+            <?php endif; ?>
             <p>
-                Se il piano va bene, confermalo: <?= $tripCount === 1 ? 'il viaggio diventa vero' : 'i viaggi diventano veri' ?>,
-                i bancali vengono <strong>prenotati</strong> e le richieste passano a <strong>pianificate</strong>.
+                <?php if ($plan->replan) : ?>
+                    Se il ricalcolo va bene, confermalo: i bancali <strong>non bloccati</strong> cambiano posto come sopra,
+                    quelli <strong>bloccati a mano</strong> restano dove li avevi messi.
+                <?php else : ?>
+                    Se il piano va bene, confermalo: <?= $newTrips > 0 ? 'i viaggi nuovi diventano veri' : 'i bancali nuovi salgono sui viaggi già confermati' ?>,
+                    i bancali vengono <strong>prenotati</strong> e le richieste passano a <strong>pianificate</strong>.
+                <?php endif; ?>
                 Un viaggio confermato si può ancora annullare finché non è partito.
             </p>
-            <button type="submit" class="button">
-                <?= $tripCount === 1 ? 'Conferma il viaggio' : 'Conferma i ' . e($tripCount) . ' viaggi' ?>
-            </button>
+            <button type="submit" class="button"><?= e($confirmLabel) ?></button>
         </form>
     <?php endif; ?>
 

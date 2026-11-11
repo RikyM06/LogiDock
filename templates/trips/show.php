@@ -1,14 +1,24 @@
 <?php
 /**
  * Dettaglio di un viaggio confermato: il mezzo, il giro e i bancali, tappa per tappa.
+ * Finché il viaggio è pianificato si possono fare scelte a mano: spostare o bloccare un bancale,
+ * cambiare il mezzo.
  *
- * @var \LogiDock\Model\Trip           $trip
- * @var list<\LogiDock\Model\TripItem> $items  i bancali, cliente per cliente
- * @var string                         $csrfToken
- * @var \LogiDock\Model\User|null      $currentUser
+ * @var \LogiDock\Model\Trip                 $trip
+ * @var list<\LogiDock\Model\TripItem>       $items        i bancali, cliente per cliente
+ * @var list<\LogiDock\Model\Trip>           $moveTargets  altri viaggi dello stesso giro e giorno (vuota se non modificabile)
+ * @var list<\LogiDock\Model\PlanVehicle>    $freeVehicles mezzi liberi quel giorno (vuota se non modificabile)
+ * @var string                               $csrfToken
+ * @var \LogiDock\Model\User|null            $currentUser
  */
 $it = static fn (string $decimal): string => str_replace('.', ',', $decimal);
 $day = date('d/m/Y', strtotime($trip->plannedDate));
+$editable = $trip->isEditable();
+$columns = $editable ? 7 : 6;
+// Si può togliere un bancale solo se ne resta almeno un altro sul viaggio.
+$canMove = $editable && $trip->palletCount > 1 && ($moveTargets !== [] || $freeVehicles !== []);
+// Per cambiare mezzo serve un mezzo libero diverso da quello attuale (quelli liberi non lo includono).
+$canChangeVehicle = $editable && $freeVehicles !== [];
 
 // I bancali raggruppati per tappa (cliente). Le tappe non sono numerate: in che ordine si fanno
 // non lo decide ancora il programma, per ora sono in ordine alfabetico.
@@ -51,10 +61,11 @@ foreach ($items as $item) {
         <?php endif; ?>
         <div><dt>Stato</dt><dd><span class="badge badge--<?= e($trip->status) ?>"><?= e($trip->statusLabel()) ?></span></dd></div>
         <div><dt>Tappe</dt><dd><?= e(count($stops)) ?></dd></div>
+        <div><dt>Bloccati a mano</dt><dd><?= e($trip->lockedCount) ?> su <?= e($trip->palletCount) ?></dd></div>
     </dl>
 </div>
 
-<h2 class="section-title">Carico</h2>
+<h2 class="section-title" id="carico">Carico</h2>
 <div class="table-wrap">
     <table class="table">
         <thead>
@@ -65,23 +76,70 @@ foreach ($items as $item) {
                 <th>Richiesta</th>
                 <th class="table__number">Quantità</th>
                 <th class="table__number">Peso (kg)</th>
+                <?php if ($editable) : ?>
+                    <th>Scelte a mano</th>
+                <?php endif; ?>
             </tr>
         </thead>
         <tbody>
             <?php foreach ($stops as $stop) : ?>
                 <tr class="table__group">
-                    <th colspan="6" scope="colgroup">
+                    <th colspan="<?= e($columns) ?>" scope="colgroup">
                         <?= e($stop['name']) ?> · <?= count($stop['items']) === 1 ? '1 bancale' : e(count($stop['items'])) . ' bancali' ?>
                     </th>
                 </tr>
                 <?php foreach ($stop['items'] as $item) : ?>
                     <tr>
-                        <td class="nowrap"><strong><?= e($item->palletCode) ?></strong></td>
+                        <td class="nowrap">
+                            <strong><?= e($item->palletCode) ?></strong>
+                            <?php if ($item->isLocked) : ?>
+                                <br><span class="badge badge--locked"
+                                          title="Bloccato da <?= e($item->lockedByName ?? '') ?> il <?= e(date('d/m/Y H:i', strtotime((string) $item->lockedAt))) ?>">Bloccato a mano</span>
+                            <?php endif; ?>
+                        </td>
                         <td><?= e($item->productCode) ?> <span class="muted"><?= e($item->productDescription) ?></span></td>
                         <td class="nowrap"><?= e($item->palletTypeName ?? '') ?></td>
                         <td class="nowrap"><a href="/orders/<?= e($item->orderId) ?>"><?= e($item->orderCode) ?></a></td>
                         <td class="table__number nowrap"><?= e($it($item->quantity)) ?> <?= e($item->unitOfMeasure) ?></td>
                         <td class="table__number"><?= e($it($item->weightKg)) ?></td>
+                        <?php if ($editable) : ?>
+                            <td>
+                                <div class="table__actions">
+                                    <form method="post" class="inline-form"
+                                          action="/trips/<?= e($trip->id) ?>/items/<?= e($item->palletId) ?>/lock">
+                                        <input type="hidden" name="_csrf" value="<?= e($csrfToken) ?>">
+                                        <input type="hidden" name="locked" value="<?= $item->isLocked ? '0' : '1' ?>">
+                                        <button type="submit" class="button button--secondary button--small">
+                                            <?= $item->isLocked ? 'Sblocca' : 'Blocca' ?>
+                                        </button>
+                                    </form>
+                                    <?php if ($canMove) : ?>
+                                        <form method="post" class="inline-form"
+                                              action="/trips/<?= e($trip->id) ?>/items/<?= e($item->palletId) ?>/move">
+                                            <input type="hidden" name="_csrf" value="<?= e($csrfToken) ?>">
+                                            <select name="target" required aria-label="Dove spostare il bancale <?= e($item->palletCode) ?>">
+                                                <option value="">Sposta su…</option>
+                                                <?php if ($moveTargets !== []) : ?>
+                                                    <optgroup label="Altro viaggio dello stesso giro">
+                                                        <?php foreach ($moveTargets as $target) : ?>
+                                                            <option value="trip:<?= e($target->id) ?>"><?= e($target->code) ?> · <?= e($target->vehiclePlate) ?></option>
+                                                        <?php endforeach; ?>
+                                                    </optgroup>
+                                                <?php endif; ?>
+                                                <?php if ($freeVehicles !== []) : ?>
+                                                    <optgroup label="Nuovo viaggio con un mezzo libero">
+                                                        <?php foreach ($freeVehicles as $vehicle) : ?>
+                                                            <option value="vehicle:<?= e($vehicle->id) ?>"><?= e($vehicle->plate) ?> · <?= e($vehicle->description) ?></option>
+                                                        <?php endforeach; ?>
+                                                    </optgroup>
+                                                <?php endif; ?>
+                                            </select>
+                                            <button type="submit" class="button button--secondary button--small">Sposta</button>
+                                        </form>
+                                    <?php endif; ?>
+                                </div>
+                            </td>
+                        <?php endif; ?>
                     </tr>
                 <?php endforeach; ?>
             <?php endforeach; ?>
@@ -91,8 +149,40 @@ foreach ($items as $item) {
                 <th colspan="4">Totale: <?= $trip->palletCount === 1 ? '1 bancale' : e($trip->palletCount) . ' bancali' ?></th>
                 <th></th>
                 <th class="table__number"><?= e($it($trip->totalWeightKg)) ?></th>
+                <?php if ($editable) : ?>
+                    <th></th>
+                <?php endif; ?>
             </tr>
         </tfoot>
     </table>
 </div>
 <p class="muted">Quantità e peso sono quelli dei bancali nel momento della conferma.</p>
+
+<?php if ($editable) : ?>
+    <p class="muted">
+        <strong>Spostare</strong> un bancale lo <strong>blocca</strong>: il ricalcolo del giorno non lo sposta più e
+        riorganizza tutto il resto attorno a lui. Con <strong>Sblocca</strong> torna a disposizione del programma.
+        Il programma controlla sempre che il carico entri nel mezzo.
+        <?php if ($trip->palletCount < 2) : ?>
+            Questo è l'unico bancale del viaggio, quindi non si può spostare (se non serve più, annulla il viaggio).
+        <?php endif; ?>
+    </p>
+
+    <?php if ($canChangeVehicle) : ?>
+        <h2 class="section-title">Cambia mezzo</h2>
+        <form method="post" action="/trips/<?= e($trip->id) ?>/vehicle" class="card toolbar toolbar--wrap">
+            <input type="hidden" name="_csrf" value="<?= e($csrfToken) ?>">
+            <label for="vehicle-id">Mezzo libero il <?= e($day) ?></label>
+            <select id="vehicle-id" name="vehicle_id" required>
+                <option value="">Scegli il mezzo…</option>
+                <?php foreach ($freeVehicles as $vehicle) : ?>
+                    <option value="<?= e($vehicle->id) ?>">
+                        <?= e($vehicle->plate) ?> · <?= e($vehicle->description) ?> · <?= e($vehicle->trailerTypeName) ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+            <button type="submit" class="button button--secondary">Cambia mezzo</button>
+            <span class="muted">Trasportatore e compenso diventano quelli del nuovo mezzo. Il carico deve starci.</span>
+        </form>
+    <?php endif; ?>
+<?php endif; ?>

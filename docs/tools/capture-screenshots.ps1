@@ -264,16 +264,32 @@ try {
     return link ? link.getAttribute('href') : '';
 })()
 '@
+    # Il viaggio demo e' il primo della lista ancora "Pianificato" (i viaggi annullati restano in lista come storico).
     $trip = Invoke-Js @'
 (() => {
-    const link = document.querySelector('tbody a[href^="/trips/"]:not([href^="/trips/plan"])');
-    return link ? link.getAttribute('href') : '';
+    for (const row of document.querySelectorAll('tbody tr')) {
+        const link = row.querySelector('a[href^="/trips/"]:not([href^="/trips/plan"])');
+        if (link && /Pianificato/.test(row.textContent)) { return link.getAttribute('href'); }
+    }
+    return '';
 })()
 '@
     if ($plan -eq '' -or $trip -eq '') { throw 'Giorno da pianificare o viaggio demo non trovato: hai eseguito php bin/seed.php?' }
     Open-Page $plan;           Save-Screenshot 'viaggio-piano'
     Save-Screenshot 'viaggio-piano-richieste' '#richieste'
     Open-Page $trip;           Save-Screenshot 'viaggio-dettaglio'
+    # Le scelte a mano: il carico con il bancale bloccato (dal seed) e i moduli per spostare e bloccare.
+    Save-Screenshot 'viaggio-scelte-a-mano' '#carico'
+    # Il giorno del viaggio demo: viaggi gia' confermati e pulsante di ricalcolo, poi il ricalcolo stesso.
+    $dayPlan = Invoke-Js @'
+(() => {
+    const link = document.querySelector('a[href^="/trips/plan?date="]');
+    return link ? link.getAttribute('href') : '';
+})()
+'@
+    if ($dayPlan -eq '') { throw 'Il dettaglio del viaggio demo non ha il link al piano del giorno.' }
+    Open-Page $dayPlan;        Save-Screenshot 'viaggio-giorno'
+    Open-Page ($dayPlan + '&ricalcola=1'); Save-Screenshot 'viaggio-ricalcolo'
 
     # Scheda fornitore inviata vuota: mostra che tutti i campi sono obbligatori (non salva niente).
     Open-Page '/suppliers/create'

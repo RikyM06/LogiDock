@@ -78,6 +78,23 @@ final class PalletRepository
     }
 
     /**
+     * Rimette in magazzino i bancali indicati, se sono prenotati (il ricalcolo li riassegna).
+     * Si passano gli id in ordine crescente: gli aggiornamenti seguono sempre lo stesso ordine.
+     *
+     * @param list<int> $ids
+     */
+    public function releaseByIds(array $ids): void
+    {
+        $statement = $this->database->pdo()->prepare(
+            "UPDATE pallets SET status = 'in_stock' WHERE id = ? AND status = 'reserved'"
+        );
+
+        foreach ($ids as $id) {
+            $statement->execute([$id]);
+        }
+    }
+
+    /**
      * Libera i bancali prenotati da un viaggio (quando il viaggio viene annullato).
      */
     public function releaseOfTrip(int $tripId): void

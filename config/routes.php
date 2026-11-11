@@ -106,6 +106,10 @@ return static function (Router $router): void {
             $router->post('/trips/plan', [TripController::class, 'confirm']);
             $router->get('/trips/{id}', [TripController::class, 'show']);
             $router->post('/trips/{id}/cancel', [TripController::class, 'cancel']);
+            // Scelte a mano su un viaggio pianificato: spostare o bloccare un bancale, cambiare il mezzo.
+            $router->post('/trips/{id}/items/{palletId}/move', [TripController::class, 'moveItem']);
+            $router->post('/trips/{id}/items/{palletId}/lock', [TripController::class, 'lockItem']);
+            $router->post('/trips/{id}/vehicle', [TripController::class, 'changeVehicle']);
 
             // Prodotti: tutti possono consultare l'anagrafica...
             $router->get('/products', [ProductController::class, 'index']);

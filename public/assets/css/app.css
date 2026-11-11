@@ -745,6 +745,43 @@ a.badge--aging:hover {
     font-size: 0.9rem;
 }
 
+/* Bancale bloccato a mano: testo chiaro su verde scuro (contrasto oltre 7:1). */
+.badge--locked {
+    background: var(--color-primary);
+    color: var(--color-surface);
+}
+
+/* Un avviso o una nota subito dopo una tabella non deve restarle attaccato. */
+.table-wrap + .alert,
+.table-wrap + .muted {
+    margin-top: var(--space);
+}
+
+/* Moduli piccoli dentro una riga di tabella (sposta / blocca un bancale). */
+.inline-form {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+    margin: 0;
+}
+
+.inline-form select {
+    padding: 0.3rem 0.5rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    font: inherit;
+    max-width: 16rem;
+}
+
+.table__actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.4rem;
+}
+
 /* Stati di un viaggio (planned e cancelled usano già i colori delle richieste). */
 .badge--draft,
 .badge--completed {

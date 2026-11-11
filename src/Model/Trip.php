@@ -37,12 +37,21 @@ final readonly class Trip
         public string $plannedDate,
         public string $status,
         public int $palletCount,
-        public string $totalWeightKg
+        public string $totalWeightKg,
+        public int $roundId,
+        public int $vehicleId,
+        public int $lockedCount
     ) {
     }
 
     /** Si può annullare solo finché non è partito. */
     public function isCancellable(): bool
+    {
+        return $this->status === self::STATUS_PLANNED;
+    }
+
+    /** Le scelte a mano (spostare i bancali, cambiare il mezzo) valgono solo finché non è partito. */
+    public function isEditable(): bool
     {
         return $this->status === self::STATUS_PLANNED;
     }
@@ -69,7 +78,10 @@ final readonly class Trip
             (string) $row['planned_date'],
             (string) $row['status'],
             (int) $row['pallet_count'],
-            (string) $row['total_weight_kg']
+            (string) $row['total_weight_kg'],
+            (int) $row['round_id'],
+            (int) $row['vehicle_id'],
+            (int) $row['locked_count']
         );
     }
 }
