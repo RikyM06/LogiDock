@@ -280,7 +280,9 @@ final class TripServiceTest extends IntegrationTestCase
         self::assertNotContains(self::DAY, $this->daysToPlan());
         self::assertFalse($this->trips->plan(self::DAY)->hasTrips());
         self::assertCount(1, $this->trips->tripsOn(self::DAY));
-        self::assertSame($tripIds[0], $this->trips->recent()[0]->id);
+        // Nella lista dei viaggi recenti (non per forza al primo posto: nel database di test possono
+        // esserci viaggi di prove HTTP con una data più lontana).
+        self::assertContains($tripIds[0], array_map(static fn (Trip $trip): int => $trip->id, $this->trips->recent()));
     }
 
     public function testTripCodesAreConsecutive(): void

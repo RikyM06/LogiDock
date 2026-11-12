@@ -281,7 +281,7 @@ final class TripRepository
         return 'SELECT t.id, t.code, t.planned_date, t.status, t.carrier_fee, t.round_id, t.vehicle_id,
                     COALESCE(SUM(ti.is_locked), 0) AS locked_count,
                     r.name AS round_name, v.plate AS vehicle_plate, v.description AS vehicle_description,
-                    tt.name AS trailer_type_name, c.name AS carrier_name,
+                    tt.name AS trailer_type_name, c.name AS carrier_name, c.tax_code AS carrier_tax_code,
                     COUNT(ti.id) AS pallet_count, COALESCE(SUM(ti.weight_kg), 0) AS total_weight_kg
                 FROM trips t
                 JOIN rounds r ON r.id = t.round_id
@@ -293,6 +293,6 @@ final class TripRepository
 
     private function groupBy(): string
     {
-        return ' GROUP BY t.id, r.name, v.plate, v.description, tt.name, c.name';
+        return ' GROUP BY t.id, r.name, v.plate, v.description, tt.name, c.name, c.tax_code';
     }
 }

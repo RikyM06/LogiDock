@@ -218,6 +218,30 @@ final class OrderRepository
         return $statuses;
     }
 
+    /**
+     * Ogni riga della richiesta è coperta, per intero, da bancali di viaggi già partiti (in viaggio o
+     * conclusi)? Solo allora la richiesta è "spedita": se manca merce o c'è ancora un bancale su un
+     * viaggio da far partire, resta "pianificata". Va chiamata dentro la transazione di chi ha già
+     * bloccato la riga della richiesta.
+     */
+    public function isFullyDeparted(int $orderId): bool
+    {
+        $statement = $this->database->pdo()->prepare(
+            "SELECT l.id
+             FROM order_lines l
+             LEFT JOIN trip_items ti ON ti.order_line_id = l.id
+             LEFT JOIN trips t ON t.id = ti.trip_id AND t.status IN ('in_transit', 'completed')
+             WHERE l.order_id = ?
+             GROUP BY l.id, l.quantity
+             HAVING COALESCE(SUM(CASE WHEN t.id IS NOT NULL THEN ti.quantity END), 0) < l.quantity
+             LIMIT 1"
+        );
+        $statement->execute([$orderId]);
+
+        // Se esiste una riga non coperta, la richiesta non è spedita.
+        return $statement->fetchColumn() === false;
+    }
+
     private function baseSelect(): string
     {
         return 'SELECT o.*, c.name AS customer_name, r.name AS round_name,

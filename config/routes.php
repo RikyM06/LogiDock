@@ -6,6 +6,7 @@ use LogiDock\Controller\AccountController;
 use LogiDock\Controller\AuthController;
 use LogiDock\Controller\CarrierController;
 use LogiDock\Controller\CustomerController;
+use LogiDock\Controller\DocumentController;
 use LogiDock\Controller\HomeController;
 use LogiDock\Controller\InboundController;
 use LogiDock\Controller\OrderController;
@@ -110,6 +111,9 @@ return static function (Router $router): void {
             $router->post('/trips/{id}/items/{palletId}/move', [TripController::class, 'moveItem']);
             $router->post('/trips/{id}/items/{palletId}/lock', [TripController::class, 'lockItem']);
             $router->post('/trips/{id}/vehicle', [TripController::class, 'changeVehicle']);
+            // La partenza chiude le modifiche, fa uscire i bancali ed emette i documenti; i PDF si aprono da qui.
+            $router->post('/trips/{id}/depart', [TripController::class, 'depart']);
+            $router->get('/documents/{id}', [DocumentController::class, 'show']);
 
             // Prodotti: tutti possono consultare l'anagrafica...
             $router->get('/products', [ProductController::class, 'index']);

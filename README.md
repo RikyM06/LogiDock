@@ -13,9 +13,10 @@ Il codice è **source available** con doppia licenza: gratuito per gli usi non c
 [licenza commerciale separata](COMMERCIAL-LICENSE.md) per gli usi commerciali o professionali.
 Dettagli in [Licenza](#licenza).
 
-> **Stato:** Fasi 1-6 e 8-13 completate (scheletro, database, autenticazione, prodotti, ambiente e deploy,
+> **Stato:** Fasi 1-6 e 8-14 completate (scheletro, database, autenticazione, prodotti, ambiente e deploy,
 > test, anagrafiche e impostazioni, arrivi di merce, richieste dei clienti, utenti, giacenze, pianificazione dei
-> viaggi con modifiche a mano e ricalcolo). Le altre funzionalità arrivano una alla volta, vedi [Roadmap](#roadmap).
+> viaggi con modifiche a mano e ricalcolo, partenza dei viaggi e documenti in PDF). Le altre funzionalità arrivano
+> una alla volta, vedi [Roadmap](#roadmap).
 
 ## Stack
 
@@ -27,7 +28,14 @@ Dettagli in [Licenza](#licenza).
 | Web server | Nginx + PHP-FPM su Ubuntu Server 24.04 LTS |
 | Sviluppo | Docker Compose (solo dev) oppure PHP e MySQL installati in locale |
 
-Pacchetti Composer: `vlucas/phpdotenv` (lettura di `.env`) e `phpunit/phpunit` (test, solo sviluppo).
+Pacchetti Composer: `vlucas/phpdotenv` (lettura di `.env`), `setasign/fpdf` (PDF dei documenti) e
+`phpunit/phpunit` (test, solo sviluppo).
+
+**Perché FPDF** (scelta della Fase 14): è una sola classe PHP, senza dipendenze, e la sua licenza è
+permissiva (il pacchetto dichiara MIT: «puoi usarla liberamente, commerciale o no, con o senza modifiche»),
+quindi non crea problemi alla doppia licenza del progetto. Dompdf e TCPDF sono LGPL e mPDF è GPL (copyleft:
+in conflitto con il modello noncommercial + licenza commerciale), perciò sono state scartate. Il prezzo è che
+il foglio si disegna con coordinate in PHP invece che da HTML/CSS: per documenti a tabelle come questi va bene.
 
 ## Architettura
 
@@ -64,6 +72,7 @@ src/Controller controller (sottili)
 src/Service    logica di business
 src/Repository accesso al database
 src/Model      entità e DTO
+src/Pdf        disegno dei PDF con FPDF (nessun database, nessuna regola)
 bin/           script da riga di comando (migrate.php, seed.php, create-user.php)
 config/        app.php (da .env) e routes.php (tutte le rotte)
 templates/     template PHP e layout
@@ -120,7 +129,7 @@ users ─┬──< pallets >── products          pallets: stato corrente di
        ├──< pallet_movements >── pallets, warehouse_locations (da/a), trips
        ├──< trips >── vehicles
        │      ├──< trip_items >── pallets
-       │      └──< transport_documents    (bolla / DDT, numerati con number_sequences)
+       │      └──< transport_documents    (carico, DDT, compenso: numerati con number_sequences, PDF nel database)
 ```
 
 Dalla Fase 10 `orders` e `order_lines` (richieste dei clienti e loro righe). Dalla Fase 9 `supplier_documents` (documenti dei fornitori) e, su `pallets`, tipo di bancale, documento,
@@ -337,7 +346,8 @@ Regole da sapere:
   fila invece di bloccarsi a vicenda.
 - **Compenso del trasportatore:** sul viaggio si salva una "fotografia" del compenso di quel momento; lo vedono
   solo gli admin, il nome del trasportatore lo vedono tutti.
-- **La partenza non c'è ancora:** il movimento di uscita dei bancali e lo stato *spedita* arrivano con i documenti.
+- **La partenza** (movimento di uscita dei bancali, stato *spedita*, documenti) è descritta più sotto, in
+  [Partenza e documenti](#partenza-e-documenti).
 - L'ordine delle tappe di un giro, quanti livelli si impilano davvero e la forma dei rimorchi sono domande
   ancora aperte con l'azienda: le scelte di oggi sono un punto di partenza e si cambiano dalle impostazioni
   dove possibile.
@@ -375,6 +385,50 @@ Dettagli tecnici:
   annullamento (prima le richieste, poi il mezzo); lo spostamento tra due viaggi blocca le richieste dei due con un
   solo comando ordinato per id, così due spostamenti in direzioni opposte non si bloccano a vicenda. Il mezzo
   scelto si blocca e si ricontrolla con una lettura aggiornata: due persone non possono prendere lo stesso mezzo.
+
+### Partenza e documenti
+
+Quando il camion parte, dal dettaglio del viaggio (`/trips/{id}`) qualunque utente collegato preme **Fai partire
+il viaggio**. In **una sola transazione** (o succede tutto o non succede niente):
+
+1. il viaggio passa da *pianificato* a *in viaggio*: da quel momento non si può più modificare né annullare;
+2. ogni bancale diventa *spedito*, esce dal magazzino (quantità e posizione tornano a vuoto) e nello storico
+   `pallet_movements` si scrive **un movimento di uscita** con il viaggio, la posizione di partenza e la quantità
+   con il segno meno (la tabella resta append-only: non si cancella mai);
+3. le richieste servite **per intero** da viaggi partiti diventano *spedite*; una richiesta con merce mancante, o
+   con un bancale ancora su un altro viaggio, resta *pianificata* (e la parte che manca rientra nel piano);
+4. escono i documenti, ognuno con il suo PDF e il suo numero:
+
+| Documento | Quanti | Contenuto | Chi lo vede |
+|---|---|---|---|
+| Documento di carico (`CAR-2026-000001`) | uno per viaggio | tutto il carico tappa per tappa, peso totale, firme del conducente e del magazziniere, **senza prezzi** | tutti |
+| DDT (`DDT-2026-000001`) | uno per cliente del viaggio | destinatario, dati del trasporto, righe con quantità, prezzo e importo, totale, firme | tutti |
+| Compenso (`COM-2026-000001`) | uno per viaggio, solo se il mezzo ha un trasportatore | il compenso fisso fotografato alla conferma | **solo l'admin** (agli altri la pagina risponde 404, come per un documento inesistente) |
+
+Scelte da conoscere:
+- **Il PDF sta nel database** (`transport_documents.pdf_content`, migrazione `0027`), non in un file: la partenza e i
+  suoi documenti nascono nella stessa transazione, il backup del database porta con sé anche i documenti e in
+  produzione non c'è nessuna cartella in più da creare e proteggere. Un documento **emesso non si rigenera mai**:
+  si rilegge sempre lo stesso PDF, con lo stesso numero, anche se in seguito cambiano prezzi, dati del cliente o
+  dell'azienda. Il documento si apre da `/documents/{id}` (con `Cache-Control: no-store`).
+- **Numeri senza buchi**: un contatore per tipo e anno (`number_sequences`, lo stesso dei codici bancale e viaggio),
+  preso dentro la transazione. Se la partenza fallisce, anche i numeri tornano indietro.
+- **I prezzi sono quelli della richiesta** (`order_lines.unit_price`, la fotografia del momento) e l'importo di riga è
+  quantità × prezzo arrotondato a due decimali, calcolato da MySQL in `DECIMAL`; le somme si fanno in PHP con interi
+  (`Core\Thousandths`). Mai float. I prezzi sono **IVA esclusa**: l'IVA e la fatturazione non sono in questa fase.
+- **Si fattura ciò che parte**: i bancali partono interi, quindi la quantità del DDT è quella del bancale, anche se
+  la richiesta ne chiedeva di meno (domanda aperta con l'azienda).
+- **Dati dell'azienda** (ragione sociale, indirizzo, partita IVA, piè di pagina) dalle impostazioni; se mancano,
+  l'intestazione lo dice invece di restare vuota.
+- **Codifica**: FPDF scrive in Windows-1252 (accenti ed euro), l'app lavora in UTF-8. Un carattere che non esiste
+  in Windows-1252 (un ideogramma) diventa «?» invece di rompere il documento.
+- Il carico e il DDT vanno a capo su più pagine ripetendo l'intestazione della tabella; i testi troppo lunghi per la
+  loro colonna finiscono con «...» invece di uscire dalla cella.
+- Codice: `Pdf\Sheet` (foglio A4 con intestazione e piè di pagina), `Pdf\DocumentRenderer` (disegna i tre documenti
+  da dati già pronti), `Service\DocumentService` (emissione e numerazione), `Service\TripDepartureService` (la
+  partenza), `Controller\DocumentController`, `Repository\TransportDocumentRepository`.
+- Non c'è ancora la chiusura del viaggio (*concluso*), né l'elenco generale dei documenti: arrivano con lo storico e i
+  report (Fase 15).
 
 ### Utenti
 
@@ -474,6 +528,8 @@ I test usano PHPUnit e stanno in `tests/`:
 | `tests/Service/LoadCalculatorTest.php` | unitario | file sul pianale, rotazione del bancale, impilamento per tipo, altezza del rimorchio, portata, numero di bancali |
 | `tests/Service/TripPlannerTest.php` | unitario | bancali più vecchi per primi, precedenza delle richieste, giri, scelta del mezzo, cosa resta in magazzino, cosa manca, stesso piano con gli stessi dati; viaggi già confermati, bancali bloccati, ricalcolo |
 | `tests/Service/TripServiceTest.php` | integrazione | piano dai dati veri, conferma tutto-o-niente (viaggio, bancali prenotati, richieste pianificate), piano cambiato nel frattempo, annullamento, richiesta pianificata non modificabile; spostamenti e blocchi a mano, cambio mezzo, ricalcolo |
+| `tests/Pdf/DocumentRendererTest.php` | unitario | numeri all'italiana senza float, accenti ed euro, caratteri fuori da Windows-1252, testi troppo lunghi, carico senza prezzi, più pagine con intestazione ripetuta, ora nel fuso dell'app |
+| `tests/Service/TripDepartureServiceTest.php` | integrazione | partenza tutto-o-niente (bancali spediti, movimenti di uscita), viaggio già partito non modificabile né annullabile, richieste spedite solo se servite per intero, documenti numerati (DDT per cliente, compenso solo con trasportatore, solo admin), PDF che non cambiano più |
 | `tests/Core/DatabaseTransactionTest.php` | integrazione | commit, rollback e savepoint quando una transazione è già aperta |
 | `tests/Core/ApplicationConfigTest.php` | unitario | le variabili d'ambiente vere vincono su `.env` |
 
@@ -523,7 +579,8 @@ camionisti). Serve anche lo storico di viaggi, forniture e pagamenti.
 - [x] **Fase 12:** giacenze per prodotto e per bancale, avviso per i bancali fermi da troppo tempo (nella home e nella lista)
 - [x] **Fase 13:** pianificazione dei viaggi: piano proposto dal programma (bancali ai mezzi, giro per giro),
   conferma e annullamento, modifica manuale (sposta, blocca, cambia mezzo) e ricalcolo intorno alle scelte a mano
-- [ ] **Fase 14:** documenti in PDF (carico per camion, consegna per cliente con prezzi, compenso camionisti)
+- [x] **Fase 14:** partenza del viaggio e documenti in PDF (carico per camion, DDT per cliente con prezzi, compenso
+  camionisti), con i bancali spediti e i movimenti di uscita
 - [ ] **Fase 15:** storico viaggi, forniture per fornitore, pagamenti dei clienti, report
 - [ ] **Fase 16:** ricerca globale per descrizione: un testo cercato in tutti i campi di tutti i dati (clienti,
   fornitori, prodotti, arrivi, richieste...), con risultati di ogni tipo e il collegamento al dettaglio di ciascuno

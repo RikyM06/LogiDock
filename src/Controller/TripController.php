@@ -12,14 +12,17 @@ use LogiDock\Core\ValidationException;
 use LogiDock\Core\View;
 use LogiDock\Model\Trip;
 use LogiDock\Service\AuthService;
+use LogiDock\Service\DocumentService;
 use LogiDock\Service\PlanChangedException;
 use LogiDock\Service\TripChangeNotAllowedException;
+use LogiDock\Service\TripDepartureService;
 use LogiDock\Service\TripNotCancellableException;
 use LogiDock\Service\TripService;
 
 /**
- * Viaggi: il piano di un giorno (proposto dal programma), la sua conferma e i viaggi confermati.
- * Li usa qualunque utente collegato. Controller sottile: le regole stanno in TripService.
+ * Viaggi: il piano di un giorno (proposto dal programma), la sua conferma, i viaggi confermati e la loro
+ * partenza (con i documenti). Li usa qualunque utente collegato. Controller sottile: le regole stanno in
+ * TripService (pianificazione), TripDepartureService (partenza) e DocumentService (documenti).
  */
 final class TripController
 {
@@ -27,7 +30,9 @@ final class TripController
         private readonly View $view,
         private readonly Session $session,
         private readonly AuthService $auth,
-        private readonly TripService $trips
+        private readonly TripService $trips,
+        private readonly TripDepartureService $departures,
+        private readonly DocumentService $documents
     ) {
     }
 
@@ -122,11 +127,14 @@ final class TripController
     public function show(Request $request, array $params): Response
     {
         $trip = $this->findOrFail($params);
+        $user = $this->auth->user();
 
         return Response::html($this->view->render('trips/show', [
             'title' => 'Viaggio ' . $trip->code,
             'trip' => $trip,
             'items' => $this->trips->itemsOf($trip->id),
+            // Il prospetto del compenso lo vede solo l'admin.
+            'documents' => $this->documents->forTrip($trip->id, $user !== null && $user->isAdmin()),
             // Le scelte a mano si offrono solo finché il viaggio è pianificato.
             'moveTargets' => $trip->isEditable() ? $this->trips->moveTargets($trip) : [],
             'freeVehicles' => $trip->isEditable() ? $this->trips->freeVehiclesOn($trip->plannedDate) : [],
@@ -218,6 +226,31 @@ final class TripController
         $this->session->flash('success', 'Mezzo cambiato: trasportatore e compenso sono quelli del nuovo mezzo.');
 
         return Response::redirect('/trips/' . $trip->id);
+    }
+
+    /**
+     * Fa partire il viaggio: i bancali escono dal magazzino e si emettono i documenti.
+     *
+     * @param array<string, string> $params
+     */
+    public function depart(Request $request, array $params): Response
+    {
+        $user = $this->auth->user() ?? throw new HttpException(403, 'Utente non collegato');
+        $trip = $this->findOrFail($params);
+
+        try {
+            $documents = $this->departures->depart($trip->id, $user->id);
+        } catch (TripChangeNotAllowedException $e) {
+            return $this->refuse('/trips/' . $trip->id, $e->getMessage());
+        }
+
+        $this->session->flash(
+            'success',
+            'Viaggio ' . $trip->code . ' partito: i bancali sono usciti dal magazzino e sono stati emessi '
+            . (count($documents) === 1 ? '1 documento.' : count($documents) . ' documenti.')
+        );
+
+        return Response::redirect('/trips/' . $trip->id . '#documenti');
     }
 
     /**

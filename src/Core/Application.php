@@ -11,6 +11,7 @@ use LogiDock\Controller\AccountController;
 use LogiDock\Controller\AuthController;
 use LogiDock\Controller\CarrierController;
 use LogiDock\Controller\CustomerController;
+use LogiDock\Controller\DocumentController;
 use LogiDock\Controller\HomeController;
 use LogiDock\Controller\InboundController;
 use LogiDock\Controller\OrderController;
@@ -28,6 +29,7 @@ use LogiDock\Controller\WarehouseLocationController;
 use LogiDock\Middleware\AdminMiddleware;
 use LogiDock\Middleware\AuthMiddleware;
 use LogiDock\Middleware\CsrfMiddleware;
+use LogiDock\Pdf\DocumentRenderer;
 use LogiDock\Repository\CarrierRepository;
 use LogiDock\Repository\CustomerRepository;
 use LogiDock\Repository\NumberSequenceRepository;
@@ -43,6 +45,7 @@ use LogiDock\Repository\StockRepository;
 use LogiDock\Repository\SupplierDocumentRepository;
 use LogiDock\Repository\SupplierRepository;
 use LogiDock\Repository\TrailerTypeRepository;
+use LogiDock\Repository\TransportDocumentRepository;
 use LogiDock\Repository\TripRepository;
 use LogiDock\Repository\UserRepository;
 use LogiDock\Repository\VehicleRepository;
@@ -50,6 +53,7 @@ use LogiDock\Repository\WarehouseLocationRepository;
 use LogiDock\Service\AuthService;
 use LogiDock\Service\CarrierService;
 use LogiDock\Service\CustomerService;
+use LogiDock\Service\DocumentService;
 use LogiDock\Service\InboundService;
 use LogiDock\Service\OrderService;
 use LogiDock\Service\PalletTypeService;
@@ -59,6 +63,7 @@ use LogiDock\Service\SettingService;
 use LogiDock\Service\StockService;
 use LogiDock\Service\SupplierService;
 use LogiDock\Service\TrailerTypeService;
+use LogiDock\Service\TripDepartureService;
 use LogiDock\Service\TripService;
 use LogiDock\Service\UserService;
 use LogiDock\Service\VehicleService;
@@ -315,6 +320,27 @@ final class Application
             $c->get(SettingService::class)
         ));
 
+        // Documenti di trasporto (PDF con FPDF) e partenza dei viaggi
+        $c->set(DocumentRenderer::class, fn (): DocumentRenderer => new DocumentRenderer());
+        $c->set(TransportDocumentRepository::class, fn (Container $c): TransportDocumentRepository => new TransportDocumentRepository(
+            $c->get(Database::class)
+        ));
+        $c->set(DocumentService::class, fn (Container $c): DocumentService => new DocumentService(
+            $c->get(Database::class),
+            $c->get(TransportDocumentRepository::class),
+            $c->get(NumberSequenceRepository::class),
+            $c->get(SettingService::class),
+            $c->get(DocumentRenderer::class)
+        ));
+        $c->set(TripDepartureService::class, fn (Container $c): TripDepartureService => new TripDepartureService(
+            $c->get(Database::class),
+            $c->get(TripRepository::class),
+            $c->get(PalletRepository::class),
+            $c->get(PalletMovementRepository::class),
+            $c->get(OrderRepository::class),
+            $c->get(DocumentService::class)
+        ));
+
         // Middleware
         $c->set(CsrfMiddleware::class, fn (Container $c): CsrfMiddleware => new CsrfMiddleware($c->get(Csrf::class)));
         $c->set(AuthMiddleware::class, fn (Container $c): AuthMiddleware => new AuthMiddleware($c->get(AuthService::class)));
@@ -432,7 +458,13 @@ final class Application
             $c->get(View::class),
             $c->get(Session::class),
             $c->get(AuthService::class),
-            $c->get(TripService::class)
+            $c->get(TripService::class),
+            $c->get(TripDepartureService::class),
+            $c->get(DocumentService::class)
+        ));
+        $c->set(DocumentController::class, fn (Container $c): DocumentController => new DocumentController(
+            $c->get(AuthService::class),
+            $c->get(DocumentService::class)
         ));
         $c->set(UserController::class, fn (Container $c): UserController => new UserController(
             $c->get(View::class),

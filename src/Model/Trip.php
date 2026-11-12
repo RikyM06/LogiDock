@@ -40,8 +40,15 @@ final readonly class Trip
         public string $totalWeightKg,
         public int $roundId,
         public int $vehicleId,
-        public int $lockedCount
+        public int $lockedCount,
+        public ?string $carrierTaxCode = null
     ) {
+    }
+
+    /** Può partire solo un viaggio pianificato (e con almeno un bancale). */
+    public function canDepart(): bool
+    {
+        return $this->status === self::STATUS_PLANNED && $this->palletCount > 0;
     }
 
     /** Si può annullare solo finché non è partito. */
@@ -81,7 +88,8 @@ final readonly class Trip
             (string) $row['total_weight_kg'],
             (int) $row['round_id'],
             (int) $row['vehicle_id'],
-            (int) $row['locked_count']
+            (int) $row['locked_count'],
+            isset($row['carrier_tax_code']) ? (string) $row['carrier_tax_code'] : null
         );
     }
 }

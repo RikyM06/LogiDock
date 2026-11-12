@@ -110,6 +110,47 @@ final class PalletRepository
     }
 
     /**
+     * Blocca i bancali di un viaggio fino alla fine della transazione, in ordine crescente di id (si
+     * prendono sempre nello stesso ordine) e ne restituisce lo stato corrente: serve alla partenza.
+     *
+     * @return list<array{id: int, status: string, quantity: string, location_id: int|null}>
+     */
+    public function lockOfTrip(int $tripId): array
+    {
+        $statement = $this->database->pdo()->prepare(
+            'SELECT p.id, p.status, p.quantity, p.location_id
+             FROM pallets p
+             WHERE p.id IN (SELECT ti.pallet_id FROM trip_items ti WHERE ti.trip_id = ?)
+             ORDER BY p.id
+             FOR UPDATE'
+        );
+        $statement->execute([$tripId]);
+
+        return array_map(static fn (array $row): array => [
+            'id' => (int) $row['id'],
+            'status' => (string) $row['status'],
+            'quantity' => (string) $row['quantity'],
+            'location_id' => $row['location_id'] === null ? null : (int) $row['location_id'],
+        ], $statement->fetchAll());
+    }
+
+    /**
+     * Segna un bancale come spedito: esce dal magazzino, quindi non ha più quantità né posizione
+     * (la storia di dove era e di quanto è uscito resta nei movimenti). Solo se era prenotato.
+     *
+     * @return bool false se il bancale non era prenotato (non è stato toccato)
+     */
+    public function ship(int $id): bool
+    {
+        $statement = $this->database->pdo()->prepare(
+            "UPDATE pallets SET status = 'shipped', quantity = 0, location_id = NULL WHERE id = ? AND status = 'reserved'"
+        );
+        $statement->execute([$id]);
+
+        return $statement->rowCount() === 1;
+    }
+
+    /**
      * I bancali arrivati con un documento, con i nomi al posto degli id. Il confronto tra peso segnato
      * e peso calcolato lo fa il database in DECIMAL: in PHP non servono calcoli con i float.
      *

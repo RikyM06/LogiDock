@@ -291,6 +291,52 @@ try {
     Open-Page $dayPlan;        Save-Screenshot 'viaggio-giorno'
     Open-Page ($dayPlan + '&ricalcola=1'); Save-Screenshot 'viaggio-ricalcolo'
 
+    # Un viaggio gia' partito (lo crea il seed): stato "In viaggio", bancali non piu' modificabili e
+    # documenti emessi. Si fotografa la tabella dei documenti.
+    Open-Page '/trips'
+    $departed = Invoke-Js @'
+(() => {
+    for (const row of document.querySelectorAll('tbody tr')) {
+        const link = row.querySelector('a[href^="/trips/"]:not([href^="/trips/plan"])');
+        if (link && /In viaggio/.test(row.textContent)) { return link.getAttribute('href'); }
+    }
+    return '';
+})()
+'@
+    if ($departed -eq '') { throw 'Nessun viaggio "In viaggio" in lista: hai eseguito php bin/seed.php?' }
+    Open-Page $departed;       Save-Screenshot 'viaggio-partito' '#documenti'
+
+    # I PDF emessi: si scaricano con la sessione dell'admin e si salvano come esempi nel sito. Poi, se c'e'
+    # pdftoppm (Poppler, installato anche con MiKTeX), la prima pagina del DDT diventa un'immagine.
+    $documentsDir = Join-Path $root 'docs\assets\documenti'
+    New-Item -ItemType Directory -Force $documentsDir | Out-Null
+    $documentLinks = Invoke-Js @'
+(() => [...document.querySelectorAll('a[href^="/documents/"]')]
+    .map((a) => a.getAttribute('href') + '|' + a.closest('tr').children[1].textContent.trim())
+    .join('\n'))()
+'@
+    $pdfFiles = @{ 'CAR-' = 'esempio-carico.pdf'; 'DDT-' = 'esempio-ddt.pdf'; 'COM-' = 'esempio-compenso.pdf' }
+    foreach ($entry in ($documentLinks -split "`n")) {
+        $href, $number = $entry -split '\|'
+        $file = $pdfFiles[$number.Substring(0, 4)]
+        # Un solo DDT come esempio (il primo): gli altri avrebbero lo stesso nome file.
+        if ($null -eq $file -or (Test-Path (Join-Path $documentsDir $file) -NewerThan (Get-Date).AddMinutes(-5))) { continue }
+        $pdf = Invoke-WebRequest "$base$href" -WebSession $web -UseBasicParsing
+        [IO.File]::WriteAllBytes((Join-Path $documentsDir $file), $pdf.RawContentStream.ToArray())
+        Write-Host ("  {0,-22} {1,8:N0} byte" -f $file, (Get-Item (Join-Path $documentsDir $file)).Length)
+    }
+    $pdftoppm = Get-Command pdftoppm -ErrorAction SilentlyContinue
+    if ($null -ne $pdftoppm) {
+        # pdftoppm scrive avvisi sui font mancanti su stderr: con "Stop" PowerShell 5.1 li prenderebbe per errori.
+        $previousPreference = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        & $pdftoppm.Source -png -r 100 -f 1 -l 1 -singlefile (Join-Path $documentsDir 'esempio-ddt.pdf') (Join-Path $outDir 'documento-ddt') 2>$null
+        $ErrorActionPreference = $previousPreference
+        Write-Host ("  {0,-22} {1,8:N0} byte" -f 'documento-ddt.png', (Get-Item (Join-Path $outDir 'documento-ddt.png')).Length)
+    } else {
+        Write-Host '  pdftoppm non trovato: documento-ddt.png non rigenerato.'
+    }
+
     # Scheda fornitore inviata vuota: mostra che tutti i campi sono obbligatori (non salva niente).
     Open-Page '/suppliers/create'
     Invoke-Js 'document.querySelector("form.form").submit(); true' | Out-Null

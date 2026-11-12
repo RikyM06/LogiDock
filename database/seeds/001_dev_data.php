@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use LogiDock\Core\Database;
+use LogiDock\Pdf\DocumentRenderer;
 use LogiDock\Repository\CustomerRepository;
 use LogiDock\Repository\NumberSequenceRepository;
 use LogiDock\Repository\OrderRepository;
@@ -15,9 +16,11 @@ use LogiDock\Repository\RoundRepository;
 use LogiDock\Repository\SettingRepository;
 use LogiDock\Repository\SupplierDocumentRepository;
 use LogiDock\Repository\SupplierRepository;
+use LogiDock\Repository\TransportDocumentRepository;
 use LogiDock\Repository\TripRepository;
 use LogiDock\Repository\WarehouseLocationRepository;
 use LogiDock\Service\CustomerService;
+use LogiDock\Service\DocumentService;
 use LogiDock\Service\InboundService;
 use LogiDock\Service\OrderService;
 use LogiDock\Service\PasswordPolicy;
@@ -26,6 +29,7 @@ use LogiDock\Service\ProductService;
 use LogiDock\Service\RoundService;
 use LogiDock\Service\SettingService;
 use LogiDock\Service\SupplierService;
+use LogiDock\Service\TripDepartureService;
 use LogiDock\Service\TripService;
 use LogiDock\Service\WarehouseLocationService;
 
@@ -416,6 +420,89 @@ return static function (Database $database): void {
                 $items = $tripService->itemsOf($tripIds[0]);
                 if ($items !== []) {
                     $tripService->setPalletLock($tripIds[0], $items[0]->palletId, true, $operatorId);
+                }
+            }
+        }
+    }
+
+    // --- Dati dell'azienda sui documenti (solo se l'admin non li ha ancora scritti) ---------------
+    // Dati finti ma plausibili: compaiono nell'intestazione dei PDF della demo. Il codice non ha
+    // nessun valore predefinito: in produzione li imposta l'admin da /settings.
+    $settingService = new SettingService(new SettingRepository($database), $database);
+    if ($settingService->get(SettingService::COMPANY_NAME) === '') {
+        $settingRepository = new SettingRepository($database);
+        foreach ([
+            SettingService::COMPANY_NAME => 'Ortofrutta Demo S.r.l.',
+            SettingService::COMPANY_ADDRESS => 'Via dei Magazzini 10, 09100 Cagliari (CA)',
+            SettingService::COMPANY_VAT => 'IT00000000000',
+            SettingService::COMPANY_FOOTER => 'Documento di esempio con dati dimostrativi, generato da LogiDock.',
+        ] as $name => $value) {
+            $settingRepository->save($name, $value, $userIds['admin']);
+        }
+    }
+
+    // --- Un viaggio già partito, con i suoi documenti (solo se non ce n'è ancora nessuno) ---------
+    // Una richiesta con consegna oggi: si pianifica, si conferma e si fa partire il viaggio con gli stessi
+    // servizi dell'applicazione. Così la demo ha un viaggio "In viaggio" con bancali spediti, movimenti
+    // di uscita e i tre tipi di documento (carico, DDT, compenso), accanto al viaggio ancora modificabile.
+    if ($firstId("SELECT id FROM trips WHERE status IN ('in_transit', 'completed') LIMIT 1", []) === null) {
+        $orderRepository = new OrderRepository($database);
+        $sequences = new NumberSequenceRepository($database);
+        $bianchiId = $firstId('SELECT id FROM customers WHERE name = ?', ['Alimentari Bianchi']);
+
+        if ($bianchiId !== null) {
+            $orderService = new OrderService(
+                $database,
+                $orderRepository,
+                $sequences,
+                new CustomerService(new CustomerRepository($database), new RoundService(new RoundRepository($database))),
+                new ProductService(new ProductRepository($database))
+            );
+            $today = $inDays(0);
+
+            $orderService->create([
+                'customer_id' => (string) $bianchiId,
+                'requested_date' => $today,
+                'delivery_date' => $today,
+                'notes' => 'Ritiro in giornata.',
+                'lines' => [
+                    ['product_id' => (string) $productIds['PAS-500'], 'quantity' => '50', 'unit_price' => '11.20'],
+                    ['product_id' => (string) $productIds['SCA-PIA'], 'quantity' => '120', 'unit_price' => '0.95'],
+                ],
+            ], $operatorId);
+
+            $tripRepository = new TripRepository($database);
+            $palletRepository = new PalletRepository($database);
+            $settings = new SettingService(new SettingRepository($database), $database);
+            $tripService = new TripService(
+                $database,
+                new PlanningRepository($database),
+                $tripRepository,
+                $palletRepository,
+                $orderRepository,
+                $sequences,
+                new PalletTypeService(new PalletTypeRepository($database)),
+                $settings
+            );
+            $departureService = new TripDepartureService(
+                $database,
+                $tripRepository,
+                $palletRepository,
+                new PalletMovementRepository($database),
+                $orderRepository,
+                new DocumentService(
+                    $database,
+                    new TransportDocumentRepository($database),
+                    $sequences,
+                    $settings,
+                    new DocumentRenderer()
+                )
+            );
+
+            $plan = $tripService->plan($today);
+            if ($plan->hasTrips()) {
+                foreach ($tripService->confirm($today, $plan->fingerprint(), $operatorId) as $tripId) {
+                    $departureService->depart($tripId, $operatorId);
                 }
             }
         }

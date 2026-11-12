@@ -8,6 +8,7 @@
  * @var list<\LogiDock\Model\TripItem>       $items        i bancali, cliente per cliente
  * @var list<\LogiDock\Model\Trip>           $moveTargets  altri viaggi dello stesso giro e giorno (vuota se non modificabile)
  * @var list<\LogiDock\Model\PlanVehicle>    $freeVehicles mezzi liberi quel giorno (vuota se non modificabile)
+ * @var list<\LogiDock\Model\TransportDocument> $documents documenti emessi alla partenza (senza il compenso, se non sei admin)
  * @var string                               $csrfToken
  * @var \LogiDock\Model\User|null            $currentUser
  */
@@ -31,6 +32,13 @@ foreach ($items as $item) {
 <div class="page-header">
     <h1>Viaggio <?= e($trip->code) ?></h1>
     <div class="page-header__actions">
+        <?php if ($trip->canDepart()) : ?>
+            <form method="post" action="/trips/<?= e($trip->id) ?>/depart"
+                  data-confirm="Far partire il viaggio <?= e($trip->code) ?>? I bancali escono dal magazzino e vengono emessi i documenti. Dopo la partenza il viaggio non si può più modificare né annullare.">
+                <input type="hidden" name="_csrf" value="<?= e($csrfToken) ?>">
+                <button type="submit" class="button">Fai partire il viaggio</button>
+            </form>
+        <?php endif; ?>
         <?php if ($trip->isCancellable()) : ?>
             <form method="post" action="/trips/<?= e($trip->id) ?>/cancel"
                   data-confirm="Annullare il viaggio <?= e($trip->code) ?>? I bancali tornano liberi e le richieste tornano da pianificare.">
@@ -46,6 +54,12 @@ foreach ($items as $item) {
 <?php if ($trip->status === \LogiDock\Model\Trip::STATUS_CANCELLED) : ?>
     <p class="alert alert--warning" role="status">
         Questo viaggio è stato annullato: i suoi bancali sono tornati liberi. Resta qui solo come storico.
+    </p>
+<?php endif; ?>
+
+<?php if ($trip->status === \LogiDock\Model\Trip::STATUS_IN_TRANSIT) : ?>
+    <p class="alert alert--success" role="status">
+        Questo viaggio è partito: i bancali sono usciti dal magazzino e non si possono più spostare. I documenti emessi sono qui sotto.
     </p>
 <?php endif; ?>
 
@@ -157,6 +171,49 @@ foreach ($items as $item) {
     </table>
 </div>
 <p class="muted">Quantità e peso sono quelli dei bancali nel momento della conferma.</p>
+
+<?php if ($trip->status !== \LogiDock\Model\Trip::STATUS_CANCELLED) : ?>
+    <h2 class="section-title" id="documenti">Documenti</h2>
+    <?php if ($documents === []) : ?>
+        <p class="muted">
+            I documenti escono quando il viaggio parte: il documento di carico per il camion e un DDT con i prezzi per ogni cliente
+            (e, per l'admin, il prospetto del compenso del trasportatore).
+        </p>
+    <?php else : ?>
+        <div class="table-wrap">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Documento</th>
+                        <th>Numero</th>
+                        <th>Cliente</th>
+                        <th>Emesso il</th>
+                        <th>Da</th>
+                        <th><span class="visually-hidden">PDF</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($documents as $document) : ?>
+                        <tr>
+                            <td><?= e($document->typeLabel()) ?></td>
+                            <td class="nowrap"><strong><?= e($document->code()) ?></strong></td>
+                            <td><?= $document->customerName === null ? '<span class="muted">Tutto il viaggio</span>' : e($document->customerName) ?></td>
+                            <td class="nowrap"><?= e((new \DateTimeImmutable($document->issuedAt, new \DateTimeZone('UTC')))->setTimezone(new \DateTimeZone(date_default_timezone_get()))->format('d/m/Y H:i')) ?></td>
+                            <td><?= e($document->issuedByName) ?></td>
+                            <td>
+                                <div class="table__actions">
+                                    <a class="button button--secondary button--small" href="/documents/<?= e($document->id) ?>"
+                                       target="_blank" rel="noopener">Apri PDF<span class="visually-hidden"> <?= e($document->code()) ?></span></a>
+                                </div>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        <p class="muted">I documenti emessi non cambiano più: anche se in seguito cambiano prezzi o dati, il PDF resta quello consegnato.</p>
+    <?php endif; ?>
+<?php endif; ?>
 
 <?php if ($editable) : ?>
     <p class="muted">
