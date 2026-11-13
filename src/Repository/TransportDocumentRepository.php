@@ -14,6 +14,13 @@ use LogiDock\Model\TransportDocument;
  */
 final class TransportDocumentRepository
 {
+    /**
+     * Importo di una riga di documento (quantità del bancale x prezzo della richiesta, due decimali).
+     * Unica definizione: la usano il DDT e il totale da pagare, così le due cifre non possono divergere.
+     * Alias da usare: ti = trip_items, ol = order_lines.
+     */
+    public const LINE_TOTAL_SQL = 'ROUND(ti.quantity * ol.unit_price, 2)';
+
     public function __construct(private readonly Database $database)
     {
     }
@@ -35,7 +42,7 @@ final class TransportDocumentRepository
                     c.address AS customer_address, o.code AS order_code,
                     p.code AS pallet_code, pr.code AS product_code, pr.description AS product_description,
                     pr.unit_of_measure, p.lot_number, ti.quantity, ti.weight_kg,
-                    ol.unit_price, ROUND(ti.quantity * ol.unit_price, 2) AS line_total
+                    ol.unit_price, ' . self::LINE_TOTAL_SQL . ' AS line_total
              FROM trip_items ti
              JOIN pallets p ON p.id = ti.pallet_id
              JOIN products pr ON pr.id = p.product_id

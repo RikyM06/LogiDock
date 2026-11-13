@@ -7,6 +7,7 @@ use LogiDock\Controller\AuthController;
 use LogiDock\Controller\CarrierController;
 use LogiDock\Controller\CustomerController;
 use LogiDock\Controller\DocumentController;
+use LogiDock\Controller\HistoryController;
 use LogiDock\Controller\HomeController;
 use LogiDock\Controller\InboundController;
 use LogiDock\Controller\OrderController;
@@ -99,6 +100,9 @@ return static function (Router $router): void {
             $router->get('/orders/{id}/edit', [OrderController::class, 'edit']);
             $router->post('/orders/{id}', [OrderController::class, 'update']);
             $router->post('/orders/{id}/cancel', [OrderController::class, 'cancel']);
+            // Pagamento della richiesta. "unpay" è solo admin: il controllo è nel controller (404 agli altri).
+            $router->post('/orders/{id}/pay', [OrderController::class, 'pay']);
+            $router->post('/orders/{id}/unpay', [OrderController::class, 'unpay']);
 
             // Viaggi: il piano di un giorno (GET lo calcola, POST lo conferma) e i viaggi confermati.
             // "/trips/plan" va prima di "/trips/{id}", altrimenti "plan" sarebbe preso per un id.
@@ -113,7 +117,14 @@ return static function (Router $router): void {
             $router->post('/trips/{id}/vehicle', [TripController::class, 'changeVehicle']);
             // La partenza chiude le modifiche, fa uscire i bancali ed emette i documenti; i PDF si aprono da qui.
             $router->post('/trips/{id}/depart', [TripController::class, 'depart']);
+            // Dopo la partenza: concludere il viaggio e pagare il compenso (questo solo admin, 404 agli altri).
+            $router->post('/trips/{id}/conclude', [TripController::class, 'conclude']);
+            $router->post('/trips/{id}/compensation/pay', [TripController::class, 'payCompensation']);
+            $router->post('/trips/{id}/compensation/unpay', [TripController::class, 'unpayCompensation']);
             $router->get('/documents/{id}', [DocumentController::class, 'show']);
+
+            // Storico: viaggi, fornitori, incassi e documenti (schede scelte con ?scheda=).
+            $router->get('/storico', [HistoryController::class, 'index']);
 
             // Prodotti: tutti possono consultare l'anagrafica...
             $router->get('/products', [ProductController::class, 'index']);

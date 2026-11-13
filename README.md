@@ -13,10 +13,10 @@ Il codice è **source available** con doppia licenza: gratuito per gli usi non c
 [licenza commerciale separata](COMMERCIAL-LICENSE.md) per gli usi commerciali o professionali.
 Dettagli in [Licenza](#licenza).
 
-> **Stato:** Fasi 1-6 e 8-14 completate (scheletro, database, autenticazione, prodotti, ambiente e deploy,
+> **Stato:** Fasi 1-6 e 8-15 completate (scheletro, database, autenticazione, prodotti, ambiente e deploy,
 > test, anagrafiche e impostazioni, arrivi di merce, richieste dei clienti, utenti, giacenze, pianificazione dei
-> viaggi con modifiche a mano e ricalcolo, partenza dei viaggi e documenti in PDF). Le altre funzionalità arrivano
-> una alla volta, vedi [Roadmap](#roadmap).
+> viaggi con modifiche a mano e ricalcolo, partenza dei viaggi e documenti in PDF, storico e pagamenti). Le altre
+> funzionalità arrivano una alla volta, vedi [Roadmap](#roadmap).
 
 ## Stack
 
@@ -132,7 +132,8 @@ users ─┬──< pallets >── products          pallets: stato corrente di
        │      └──< transport_documents    (carico, DDT, compenso: numerati con number_sequences, PDF nel database)
 ```
 
-Dalla Fase 10 `orders` e `order_lines` (richieste dei clienti e loro righe). Dalla Fase 9 `supplier_documents` (documenti dei fornitori) e, su `pallets`, tipo di bancale, documento,
+Dalla Fase 15 (migrazione `0028`) `orders` ha i campi del pagamento (`paid_at`, `paid_amount`, `paid_by`) e `trips` quelli di
+conclusione e compenso pagato (`concluded_at/by`, `compensation_paid_at/by`). Dalla Fase 10 `orders` e `order_lines` (richieste dei clienti e loro righe). Dalla Fase 9 `supplier_documents` (documenti dei fornitori) e, su `pallets`, tipo di bancale, documento,
 prezzo d'acquisto e peso segnato. Dalla Fase 8 si aggiungono: `settings` (impostazioni), `pallet_types` e `trailer_types` (misure), `rounds` e
 `customers` (giri e clienti), `carriers` (trasportatori). `vehicles` punta a un tipo di rimorchio e a un
 trasportatore, `warehouse_locations` ha una capacità facoltativa.
@@ -427,8 +428,55 @@ Scelte da conoscere:
 - Codice: `Pdf\Sheet` (foglio A4 con intestazione e piè di pagina), `Pdf\DocumentRenderer` (disegna i tre documenti
   da dati già pronti), `Service\DocumentService` (emissione e numerazione), `Service\TripDepartureService` (la
   partenza), `Controller\DocumentController`, `Repository\TransportDocumentRepository`.
-- Non c'è ancora la chiusura del viaggio (*concluso*), né l'elenco generale dei documenti: arrivano con lo storico e i
-  report (Fase 15).
+- La chiusura del viaggio (*concluso*) e l'elenco generale dei documenti sono nello [Storico](#storico-e-pagamenti).
+
+### Storico e pagamenti
+
+Quattro novità, tutte sullo stesso giro «la merce entra, parte, viene pagata»:
+
+- **Concludere un viaggio**: dal dettaglio (`/trips/{id}`) un viaggio *in viaggio* si segna **concluso** (camion
+  tornato), con data e utente. Si fa a mano e una sola volta; non tocca bancali e richieste. Da quel momento il
+  viaggio è solo in lettura, come già dopo la partenza.
+- **Pagare una richiesta**: una richiesta *spedita* (tutte le righe su viaggi partiti) si segna **pagata** dal suo
+  dettaglio o dalla scheda Incassi. L'importo non si digita: è la **somma dei suoi DDT**, calcolata da MySQL in
+  `DECIMAL` con la stessa espressione dei documenti (una sola definizione, quindi report e DDT non possono
+  divergere), e resta fotografato nella richiesta. **Niente pagamenti parziali** (scelta del titolare). Un importo
+  di 0,00 (prezzo 0, omaggi) è valido.
+- **Pagare il compenso** del trasportatore: solo admin, solo se il viaggio ha un compenso ed è già partito.
+- **Annullare un pagamento sbagliato**: solo admin. Non c'è una tabella dei pagamenti (sono colonne di `orders` e
+  `trips`, migrazione `0028`), quindi l'annullamento cancella la data dal database: per non perdere la traccia scrive una riga
+  nel log (`storage/logs/app.log`) con importo, data precedente e utente.
+
+Un doppio clic su «Segna pagata» (o due schede aperte) registra **un solo pagamento**: la condizione «non ancora
+pagata» sta dentro l'`UPDATE` e la riga è bloccata con `FOR UPDATE`; il secondo riceve un messaggio e la data del primo
+non cambia. Lo stesso vale per la conclusione del viaggio e per il compenso.
+
+La pagina **Storico** (`/storico`, una sola voce di menu, per tutti gli utenti collegati) ha quattro schede, ognuna con
+i suoi filtri nell'indirizzo (funziona senza JavaScript) e al massimo 200 righe:
+
+| Scheda | Cosa mostra | Filtri |
+|---|---|---|
+| Viaggi | codice, giorno, giro, mezzo, trasportatore, stato, bancali, clienti, fatturato (somma dei DDT), compenso e se è pagato (solo admin) | periodo, giro, stato |
+| Fornitori | per fornitore e prodotto: documenti, bancali, quantità ricevuta, valore d'acquisto | periodo (data di ricevimento), fornitore |
+| Incassi | per richiesta: stato (pagata, da pagare, parziale), importo, data; in testa incassato, da incassare e «spedito, non ancora incassabile» | periodo (consegna), cliente, stato del pagamento |
+| Documenti | carico, DDT e compenso emessi, con link al PDF | periodo, tipo, cliente |
+
+Scelte da conoscere:
+- **Fornitori** legge la quantità dai movimenti di ingresso (`inbound`), non da `pallets.quantity`: alla partenza la
+  quantità del bancale va a zero, ma il movimento resta (è lo storico vero), quindi la merce fornita non «sparisce».
+- **Operatore**: per lui il compenso non esiste. Nella scheda Viaggi le colonne non ci sono (non sono celle vuote),
+  il tipo «compenso» non è tra i filtri dei documenti, e un `tipo=compensation` scritto a mano nell'indirizzo viene ignorato
+  senza errore. Le rotte del compenso e «Annulla pagamento» rispondono **404** (non 403), come il PDF del compenso.
+- **Filtri sporchi** (date non valide, `al` prima di `dal`, id non numerici, valori sconosciuti) non danno errore:
+  sono ignorati o corretti.
+- **Ritorno sicuro**: i pulsanti della scheda Incassi riportano alla stessa scheda con i suoi filtri; l'indirizzo di
+  ritorno (`Core\ReturnUrl`) accetta solo `/storico...`, mai indirizzi esterni.
+- **Richieste parziali**: una richiesta con un viaggio partito ma non ancora tutta spedita compare come «parziale» con
+  l'importo già spedito, senza pulsante di pagamento.
+- Codice: `Service\TripClosureService`, `Service\PaymentService` (con `PaymentNotAllowedException`),
+  `Service\HistoryService` e `Repository\HistoryRepository` (solo lettura), `Controller\HistoryController`,
+  `Core\HistoryUrl` e `Core\ReturnUrl`, template in `templates/history/`.
+- Non ci sono esportazione CSV, paginazione (c'è il limite di 200 righe), fatturazione né IVA.
 
 ### Utenti
 
@@ -530,6 +578,11 @@ I test usano PHPUnit e stanno in `tests/`:
 | `tests/Service/TripServiceTest.php` | integrazione | piano dai dati veri, conferma tutto-o-niente (viaggio, bancali prenotati, richieste pianificate), piano cambiato nel frattempo, annullamento, richiesta pianificata non modificabile; spostamenti e blocchi a mano, cambio mezzo, ricalcolo |
 | `tests/Pdf/DocumentRendererTest.php` | unitario | numeri all'italiana senza float, accenti ed euro, caratteri fuori da Windows-1252, testi troppo lunghi, carico senza prezzi, più pagine con intestazione ripetuta, ora nel fuso dell'app |
 | `tests/Service/TripDepartureServiceTest.php` | integrazione | partenza tutto-o-niente (bancali spediti, movimenti di uscita), viaggio già partito non modificabile né annullabile, richieste spedite solo se servite per intero, documenti numerati (DDT per cliente, compenso solo con trasportatore, solo admin), PDF che non cambiano più |
+| `tests/Service/PaymentServiceTest.php` | integrazione | pagamento di richiesta (importo = somma dei DDT, richiesta non spedita o annullata, doppio clic, importo 0,00) e di compenso (senza trasportatore, viaggio non partito), annullamento con riga nel log |
+| `tests/Service/PaymentSchemaTest.php` | integrazione | i vincoli CHECK della migrazione 0028: pagamento solo su richieste spedite, viaggio concluso se e solo se ha la data |
+| `tests/Service/TripClosureServiceTest.php` | integrazione | conclusione di un viaggio partito, una volta sola, mai su un viaggio pianificato o inesistente |
+| `tests/Service/HistoryServiceTest.php` | integrazione | le quattro schede: filtri sporchi, periodi, compenso nascosto all'operatore, quantità dei fornitori letta dai movimenti anche dopo la partenza, totali degli incassi |
+| `tests/Core/ReturnUrlTest.php`, `tests/Core/HistoryUrlTest.php` | unitario | l'indirizzo di ritorno accetta solo `/storico...`; l'indirizzo della scheda con i suoi filtri |
 | `tests/Core/DatabaseTransactionTest.php` | integrazione | commit, rollback e savepoint quando una transazione è già aperta |
 | `tests/Core/ApplicationConfigTest.php` | unitario | le variabili d'ambiente vere vincono su `.env` |
 
@@ -581,7 +634,8 @@ camionisti). Serve anche lo storico di viaggi, forniture e pagamenti.
   conferma e annullamento, modifica manuale (sposta, blocca, cambia mezzo) e ricalcolo intorno alle scelte a mano
 - [x] **Fase 14:** partenza del viaggio e documenti in PDF (carico per camion, DDT per cliente con prezzi, compenso
   camionisti), con i bancali spediti e i movimenti di uscita
-- [ ] **Fase 15:** storico viaggi, forniture per fornitore, pagamenti dei clienti, report
+- [x] **Fase 15:** storico (viaggi, forniture per fornitore, incassi, documenti), conclusione dei viaggi, pagamento
+  delle richieste e dei compensi
 - [ ] **Fase 16:** ricerca globale per descrizione: un testo cercato in tutti i campi di tutti i dati (clienti,
   fornitori, prodotti, arrivi, richieste...), con risultati di ogni tipo e il collegamento al dettaglio di ciascuno
   (i dettagli si definiscono quando si inizia la fase)

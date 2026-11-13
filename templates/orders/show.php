@@ -4,7 +4,9 @@
  *
  * @var \LogiDock\Model\Order            $order
  * @var list<\LogiDock\Model\OrderLine>  $lines
+ * @var string|null                      $amountDue  importo da incassare (solo richiesta spedita non pagata)
  * @var string                           $csrfToken
+ * @var \LogiDock\Model\User|null        $currentUser
  */
 $it = static fn (string $decimal): string => str_replace('.', ',', $decimal);
 $short = count(array_filter($lines, static fn ($line): bool => $line->stockShort));
@@ -32,6 +34,34 @@ $short = count(array_filter($lines, static fn ($line): bool => $line->stockShort
         <div><dt>Consegna desiderata</dt><dd><?= e(date('d/m/Y', strtotime($order->deliveryDate))) ?></dd></div>
         <div><dt>Stato</dt><dd><span class="badge badge--<?= e($order->status) ?>"><?= e($order->statusLabel()) ?></span></dd></div>
         <div><dt>Valore</dt><dd><?= e($it($order->totalValue)) ?> €</dd></div>
+        <?php if ($order->status === \LogiDock\Model\Order::STATUS_SHIPPED) : ?>
+            <div>
+                <dt>Pagamento</dt>
+                <dd>
+                    <?php if ($order->isPaid()) : ?>
+                        Pagata il <?= e((new \DateTimeImmutable((string) $order->paidAt, new \DateTimeZone('UTC')))->setTimezone(new \DateTimeZone(date_default_timezone_get()))->format('d/m/Y')) ?>
+                        (<?= e($it((string) $order->paidAmount)) ?> €)
+                        <?php if ($order->paidByName !== null) : ?>
+                            <span class="muted">registrato da <?= e($order->paidByName) ?></span>
+                        <?php endif; ?>
+                        <?php if ($currentUser?->isAdmin()) : ?>
+                            <form method="post" class="inline-form" action="/orders/<?= e($order->id) ?>/unpay"
+                                  data-confirm="Annullare il pagamento della richiesta <?= e($order->code) ?>?">
+                                <input type="hidden" name="_csrf" value="<?= e($csrfToken) ?>">
+                                <button type="submit" class="button button--secondary button--small">Annulla pagamento</button>
+                            </form>
+                        <?php endif; ?>
+                    <?php else : ?>
+                        Da incassare<?= $amountDue !== null ? ': ' . e($it($amountDue)) . ' €' : '' ?>
+                        <form method="post" class="inline-form" action="/orders/<?= e($order->id) ?>/pay"
+                              data-confirm="Segnare pagata la richiesta <?= e($order->code) ?><?= $amountDue !== null ? ' (' . e($it($amountDue)) . ' €)' : '' ?>?">
+                            <input type="hidden" name="_csrf" value="<?= e($csrfToken) ?>">
+                            <button type="submit" class="button button--secondary button--small">Segna pagata</button>
+                        </form>
+                    <?php endif; ?>
+                </dd>
+            </div>
+        <?php endif; ?>
     </dl>
     <?php if ($order->notes !== null) : ?>
         <p class="muted"><?= e($order->notes) ?></p>

@@ -45,7 +45,7 @@ final class OrderRepository
 
         $sql = $this->baseSelect()
             . ($conditions === [] ? '' : ' WHERE ' . implode(' AND ', $conditions))
-            . ' GROUP BY o.id, c.name, r.name ORDER BY o.delivery_date DESC, o.id DESC LIMIT ' . self::LIST_LIMIT;
+            . ' GROUP BY o.id, c.name, r.name, pu.name ORDER BY o.delivery_date DESC, o.id DESC LIMIT ' . self::LIST_LIMIT;
 
         $statement = $this->database->pdo()->prepare($sql);
         $statement->execute($params);
@@ -55,7 +55,7 @@ final class OrderRepository
 
     public function findById(int $id): ?Order
     {
-        $statement = $this->database->pdo()->prepare($this->baseSelect() . ' WHERE o.id = ? GROUP BY o.id, c.name, r.name');
+        $statement = $this->database->pdo()->prepare($this->baseSelect() . ' WHERE o.id = ? GROUP BY o.id, c.name, r.name, pu.name');
         $statement->execute([$id]);
         $row = $statement->fetch();
 
@@ -242,14 +242,106 @@ final class OrderRepository
         return $statement->fetchColumn() === false;
     }
 
+    /**
+     * Quanto va pagato: la somma degli importi di riga dei DDT dei viaggi partiti (in viaggio o conclusi),
+     * con la stessa formula del documento (LINE_TOTAL_SQL). '0.00' se non c'è nessun bancale partito.
+     */
+    public function billedAmount(int $orderId): string
+    {
+        $statement = $this->database->pdo()->prepare(
+            'SELECT COALESCE(SUM(' . TransportDocumentRepository::LINE_TOTAL_SQL . "), 0)
+             FROM trip_items ti
+             JOIN order_lines ol ON ol.id = ti.order_line_id
+             JOIN trips t ON t.id = ti.trip_id
+             WHERE ti.order_id = ? AND t.status IN ('in_transit', 'completed')"
+        );
+        $statement->execute([$orderId]);
+
+        // SUM di DECIMAL(x,2) resta DECIMAL con due decimali, anche COALESCE(..., 0): "0.00" se vuota.
+        return (string) $statement->fetchColumn();
+    }
+
+    /**
+     * Quanti bancali di questa richiesta sono su viaggi partiti: 0 vuol dire che non c'è nulla da fatturare.
+     */
+    public function departedItemCount(int $orderId): int
+    {
+        $statement = $this->database->pdo()->prepare(
+            "SELECT COUNT(*) FROM trip_items ti
+             JOIN trips t ON t.id = ti.trip_id
+             WHERE ti.order_id = ? AND t.status IN ('in_transit', 'completed')"
+        );
+        $statement->execute([$orderId]);
+
+        return (int) $statement->fetchColumn();
+    }
+
+    /**
+     * Blocca la riga della richiesta (FOR UPDATE) e legge stato e data di pagamento: due click insieme
+     * si mettono in fila. Va chiamata dentro una transazione.
+     *
+     * @return array{status: string, paid_at: ?string}|null null se la richiesta non esiste
+     */
+    public function lockForPayment(int $orderId): ?array
+    {
+        $statement = $this->database->pdo()->prepare('SELECT status, paid_at FROM orders WHERE id = ? FOR UPDATE');
+        $statement->execute([$orderId]);
+        $row = $statement->fetch();
+
+        if ($row === false) {
+            return null;
+        }
+
+        return ['status' => (string) $row['status'], 'paid_at' => $row['paid_at'] === null ? null : (string) $row['paid_at']];
+    }
+
+    /**
+     * Segna la richiesta pagata. Le condizioni (non ancora pagata, spedita) stanno dentro l'UPDATE.
+     *
+     * @return bool false se non è stata toccata
+     */
+    public function markPaid(int $orderId, string $amount, int $userId, string $nowUtc): bool
+    {
+        $statement = $this->database->pdo()->prepare(
+            "UPDATE orders SET paid_at = ?, paid_amount = ?, paid_by = ?
+             WHERE id = ? AND paid_at IS NULL AND status = 'shipped'"
+        );
+        $statement->execute([$nowUtc, $amount, $userId, $orderId]);
+
+        return $statement->rowCount() === 1;
+    }
+
+    /**
+     * Toglie il pagamento. Legge prima i valori (con blocco) per poterli scrivere nel log.
+     *
+     * @return array{paid_at: string, paid_amount: string}|null null se la richiesta non era pagata
+     */
+    public function markUnpaid(int $orderId): ?array
+    {
+        $select = $this->database->pdo()->prepare('SELECT paid_at, paid_amount FROM orders WHERE id = ? FOR UPDATE');
+        $select->execute([$orderId]);
+        $row = $select->fetch();
+
+        if ($row === false || $row['paid_at'] === null) {
+            return null;
+        }
+
+        $this->database->pdo()
+            ->prepare('UPDATE orders SET paid_at = NULL, paid_amount = NULL, paid_by = NULL WHERE id = ?')
+            ->execute([$orderId]);
+
+        return ['paid_at' => (string) $row['paid_at'], 'paid_amount' => (string) $row['paid_amount']];
+    }
+
     private function baseSelect(): string
     {
-        return 'SELECT o.*, c.name AS customer_name, r.name AS round_name,
+        return 'SELECT o.*, c.name AS customer_name, r.name AS round_name, pu.name AS paid_by_name,
                     COUNT(l.id) AS line_count,
                     ROUND(COALESCE(SUM(l.quantity * l.unit_price), 0), 2) AS total_value
                 FROM orders o
                 JOIN customers c ON c.id = o.customer_id
                 LEFT JOIN rounds r ON r.id = c.round_id
+                LEFT JOIN users pu ON pu.id = o.paid_by
                 LEFT JOIN order_lines l ON l.order_id = o.id';
     }
 }

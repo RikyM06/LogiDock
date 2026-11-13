@@ -13,6 +13,13 @@
  * @var \LogiDock\Model\User|null            $currentUser
  */
 $it = static fn (string $decimal): string => str_replace('.', ',', $decimal);
+// Gli orari nel database sono in UTC: si mostrano nel fuso del programma.
+$local = static fn (string $utc, string $format): string => (new \DateTimeImmutable($utc, new \DateTimeZone('UTC')))
+    ->setTimezone(new \DateTimeZone(date_default_timezone_get()))
+    ->format($format);
+// Il compenso (importo e pagamento) lo vede solo l'admin.
+$isAdmin = $currentUser?->isAdmin() ?? false;
+$departed = in_array($trip->status, [\LogiDock\Model\Trip::STATUS_IN_TRANSIT, \LogiDock\Model\Trip::STATUS_COMPLETED], true);
 $day = date('d/m/Y', strtotime($trip->plannedDate));
 $editable = $trip->isEditable();
 $columns = $editable ? 7 : 6;
@@ -37,6 +44,13 @@ foreach ($items as $item) {
                   data-confirm="Far partire il viaggio <?= e($trip->code) ?>? I bancali escono dal magazzino e vengono emessi i documenti. Dopo la partenza il viaggio non si può più modificare né annullare.">
                 <input type="hidden" name="_csrf" value="<?= e($csrfToken) ?>">
                 <button type="submit" class="button">Fai partire il viaggio</button>
+            </form>
+        <?php endif; ?>
+        <?php if ($trip->status === \LogiDock\Model\Trip::STATUS_IN_TRANSIT && !$trip->isConcluded()) : ?>
+            <form method="post" action="/trips/<?= e($trip->id) ?>/conclude"
+                  data-confirm="Segnare concluso il viaggio <?= e($trip->code) ?>? Vuol dire che la merce è stata consegnata.">
+                <input type="hidden" name="_csrf" value="<?= e($csrfToken) ?>">
+                <button type="submit" class="button">Segna concluso</button>
             </form>
         <?php endif; ?>
         <?php if ($trip->isCancellable()) : ?>
@@ -73,7 +87,32 @@ foreach ($items as $item) {
         <?php if ($currentUser?->isAdmin() && $trip->carrierFee !== null) : ?>
             <div><dt>Compenso del viaggio</dt><dd><?= e($it($trip->carrierFee)) ?> €</dd></div>
         <?php endif; ?>
+        <?php if ($isAdmin && $trip->carrierFee !== null && $departed) : ?>
+            <div>
+                <dt>Compenso</dt>
+                <dd>
+                    <?php if ($trip->isCompensationPaid()) : ?>
+                        Pagato il <?= e($local((string) $trip->compensationPaidAt, 'd/m/Y')) ?>
+                        <form method="post" class="inline-form" action="/trips/<?= e($trip->id) ?>/compensation/unpay"
+                              data-confirm="Annullare il pagamento del compenso del viaggio <?= e($trip->code) ?>?">
+                            <input type="hidden" name="_csrf" value="<?= e($csrfToken) ?>">
+                            <button type="submit" class="button button--secondary button--small">Annulla pagamento</button>
+                        </form>
+                    <?php else : ?>
+                        Da pagare
+                        <form method="post" class="inline-form" action="/trips/<?= e($trip->id) ?>/compensation/pay"
+                              data-confirm="Segnare pagato il compenso di <?= e($it($trip->carrierFee)) ?> € del viaggio <?= e($trip->code) ?>?">
+                            <input type="hidden" name="_csrf" value="<?= e($csrfToken) ?>">
+                            <button type="submit" class="button button--secondary button--small">Segna pagato</button>
+                        </form>
+                    <?php endif; ?>
+                </dd>
+            </div>
+        <?php endif; ?>
         <div><dt>Stato</dt><dd><span class="badge badge--<?= e($trip->status) ?>"><?= e($trip->statusLabel()) ?></span></dd></div>
+        <?php if ($trip->isConcluded()) : ?>
+            <div><dt>Concluso il</dt><dd><?= e($local((string) $trip->concludedAt, 'd/m/Y H:i')) ?></dd></div>
+        <?php endif; ?>
         <div><dt>Tappe</dt><dd><?= e(count($stops)) ?></dd></div>
         <div><dt>Bloccati a mano</dt><dd><?= e($trip->lockedCount) ?> su <?= e($trip->palletCount) ?></dd></div>
     </dl>

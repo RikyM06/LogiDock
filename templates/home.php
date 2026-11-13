@@ -40,6 +40,7 @@ $threshold = $days($rule->thresholdDays);
         <li><a href="/master-data">Anagrafiche</a>: fornitori, clienti, giri, veicoli, rimorchi, posizioni, tipi di bancale</li>
         <li><a href="/orders">Richieste</a>: cosa chiede ogni cliente, con quantità, prezzi e data di consegna</li>
         <li><a href="/trips">Viaggi</a>: il programma propone come dividere i bancali sui mezzi, giro per giro</li>
-        <li>Bolle e DDT <span class="muted">(in arrivo)</span></li>
+        <li>Documenti di viaggio: alla partenza escono il carico, un DDT per ogni cliente e il compenso del camionista (solo admin), in PDF dalla pagina del viaggio</li>
+        <li><a href="/storico">Storico</a>: viaggi, fornitori, incassi e documenti, con i pagamenti delle richieste e dei compensi</li>
     </ul>
 </div>

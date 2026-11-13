@@ -20,6 +20,7 @@ $navigation = [
     '/stock' => 'Giacenze',
     '/orders' => 'Richieste',
     '/trips' => 'Viaggi',
+    '/storico' => 'Storico',
     '/products' => 'Prodotti',
     '/master-data' => 'Anagrafiche',
 ];

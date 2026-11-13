@@ -144,6 +144,63 @@ final class TripRepository
     }
 
     /**
+     * Conclude un viaggio partito: stato "completed" con data e utente. Vale solo se è ancora "in viaggio"
+     * (la condizione è nell'UPDATE, così due richieste insieme ne fanno passare una sola).
+     */
+    public function markConcluded(int $id, int $userId, string $nowUtc): bool
+    {
+        $statement = $this->database->pdo()->prepare(
+            "UPDATE trips SET status = 'completed', concluded_at = ?, concluded_by = ? WHERE id = ? AND status = 'in_transit'"
+        );
+        $statement->execute([$nowUtc, $userId, $id]);
+
+        return $statement->rowCount() === 1;
+    }
+
+    /**
+     * Segna il compenso del trasportatore pagato. Le condizioni (non ancora pagato, compenso presente,
+     * viaggio partito) stanno dentro l'UPDATE.
+     *
+     * @return bool false se il viaggio non è stato toccato
+     */
+    public function markCompensationPaid(int $tripId, int $userId, string $nowUtc): bool
+    {
+        $statement = $this->database->pdo()->prepare(
+            "UPDATE trips SET compensation_paid_at = ?, compensation_paid_by = ?
+             WHERE id = ? AND compensation_paid_at IS NULL AND carrier_fee IS NOT NULL
+               AND status IN ('in_transit', 'completed')"
+        );
+        $statement->execute([$nowUtc, $userId, $tripId]);
+
+        return $statement->rowCount() === 1;
+    }
+
+    /**
+     * Toglie il pagamento del compenso e restituisce i vecchi valori per il log (lettura con blocco).
+     * Va chiamata dentro una transazione.
+     *
+     * @return array{compensation_paid_at: string, carrier_fee: string}|null null se non era pagato
+     */
+    public function markCompensationUnpaid(int $tripId): ?array
+    {
+        $select = $this->database->pdo()->prepare(
+            'SELECT compensation_paid_at, carrier_fee FROM trips WHERE id = ? FOR UPDATE'
+        );
+        $select->execute([$tripId]);
+        $row = $select->fetch();
+
+        if ($row === false || $row['compensation_paid_at'] === null) {
+            return null;
+        }
+
+        $this->database->pdo()
+            ->prepare('UPDATE trips SET compensation_paid_at = NULL, compensation_paid_by = NULL WHERE id = ?')
+            ->execute([$tripId]);
+
+        return ['compensation_paid_at' => (string) $row['compensation_paid_at'], 'carrier_fee' => (string) $row['carrier_fee']];
+    }
+
+    /**
      * La richiesta ha ancora bancali su un viaggio non annullato? Lettura con blocco (FOR SHARE):
      * guarda l'ultimo dato salvato.
      */
@@ -279,6 +336,7 @@ final class TripRepository
     private function baseSelect(): string
     {
         return 'SELECT t.id, t.code, t.planned_date, t.status, t.carrier_fee, t.round_id, t.vehicle_id,
+                    t.concluded_at, t.compensation_paid_at,
                     COALESCE(SUM(ti.is_locked), 0) AS locked_count,
                     r.name AS round_name, v.plate AS vehicle_plate, v.description AS vehicle_description,
                     tt.name AS trailer_type_name, c.name AS carrier_name, c.tax_code AS carrier_tax_code,
@@ -293,6 +351,6 @@ final class TripRepository
 
     private function groupBy(): string
     {
-        return ' GROUP BY t.id, r.name, v.plate, v.description, tt.name, c.name, c.tax_code';
+        return ' GROUP BY t.id, t.concluded_at, t.compensation_paid_at, r.name, v.plate, v.description, tt.name, c.name, c.tax_code';
     }
 }

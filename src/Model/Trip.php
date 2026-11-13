@@ -41,8 +41,21 @@ final readonly class Trip
         public int $roundId,
         public int $vehicleId,
         public int $lockedCount,
-        public ?string $carrierTaxCode = null
+        public ?string $carrierTaxCode = null,
+        public ?string $concludedAt = null,
+        public ?string $compensationPaidAt = null
     ) {
+    }
+
+    /** Concluso = consegnato (ha una data di chiusura). */
+    public function isConcluded(): bool
+    {
+        return $this->concludedAt !== null;
+    }
+
+    public function isCompensationPaid(): bool
+    {
+        return $this->compensationPaidAt !== null;
     }
 
     /** Può partire solo un viaggio pianificato (e con almeno un bancale). */
@@ -89,7 +102,9 @@ final readonly class Trip
             (int) $row['round_id'],
             (int) $row['vehicle_id'],
             (int) $row['locked_count'],
-            isset($row['carrier_tax_code']) ? (string) $row['carrier_tax_code'] : null
+            isset($row['carrier_tax_code']) ? (string) $row['carrier_tax_code'] : null,
+            isset($row['concluded_at']) ? (string) $row['concluded_at'] : null,
+            isset($row['compensation_paid_at']) ? (string) $row['compensation_paid_at'] : null
         );
     }
 }

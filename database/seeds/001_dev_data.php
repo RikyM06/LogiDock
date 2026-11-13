@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use LogiDock\Core\Database;
+use LogiDock\Core\Logger;
 use LogiDock\Pdf\DocumentRenderer;
 use LogiDock\Repository\CustomerRepository;
 use LogiDock\Repository\NumberSequenceRepository;
@@ -24,11 +25,13 @@ use LogiDock\Service\DocumentService;
 use LogiDock\Service\InboundService;
 use LogiDock\Service\OrderService;
 use LogiDock\Service\PasswordPolicy;
+use LogiDock\Service\PaymentService;
 use LogiDock\Service\PalletTypeService;
 use LogiDock\Service\ProductService;
 use LogiDock\Service\RoundService;
 use LogiDock\Service\SettingService;
 use LogiDock\Service\SupplierService;
+use LogiDock\Service\TripClosureService;
 use LogiDock\Service\TripDepartureService;
 use LogiDock\Service\TripService;
 use LogiDock\Service\WarehouseLocationService;
@@ -504,6 +507,91 @@ return static function (Database $database): void {
                 foreach ($tripService->confirm($today, $plan->fingerprint(), $operatorId) as $tripId) {
                     $departureService->depart($tripId, $operatorId);
                 }
+            }
+        }
+    }
+
+    // --- Storico e pagamenti (solo se nessun viaggio è ancora concluso) ----------------------------
+    // Sempre con gli stessi servizi dell'applicazione. Il viaggio già partito viene concluso, la sua
+    // richiesta e il compenso del trasportatore vengono segnati pagati; poi una seconda piccola richiesta
+    // (Supermercato Il Girasole) viene pianificata e fa partire il suo viaggio, lasciandola NON pagata.
+    // Risultato: negli incassi c'è una richiesta pagata e una da pagare, nello storico un viaggio concluso
+    // e uno in viaggio.
+    $demoTripId = $firstId("SELECT id FROM trips WHERE status = 'in_transit' ORDER BY id LIMIT 1", []);
+    $girasoleId = $firstId('SELECT id FROM customers WHERE name = ?', ['Supermercato Il Girasole']);
+    if ($demoTripId !== null && $girasoleId !== null && $firstId("SELECT id FROM trips WHERE status = 'completed' LIMIT 1", []) === null) {
+        $orderRepository = new OrderRepository($database);
+        $tripRepository = new TripRepository($database);
+        $palletRepository = new PalletRepository($database);
+        $sequences = new NumberSequenceRepository($database);
+        $settings = new SettingService(new SettingRepository($database), $database);
+        $adminId = $userIds['admin'];
+
+        // 1. Il viaggio demo torna: concluso, richiesta incassata, compenso pagato (se il viaggio ne ha uno).
+        (new TripClosureService($database, $tripRepository))->conclude($demoTripId, $adminId);
+        $payments = new PaymentService(
+            $database,
+            $orderRepository,
+            $tripRepository,
+            new Logger(dirname(__DIR__, 2) . '/storage/logs/app.log')
+        );
+        $paidOrderId = $firstId('SELECT DISTINCT order_id FROM trip_items WHERE trip_id = ?', [$demoTripId]);
+        if ($paidOrderId !== null) {
+            $payments->markOrderPaid($paidOrderId, $adminId);
+        }
+        if ($firstId('SELECT id FROM trips WHERE id = ? AND carrier_fee IS NOT NULL', [$demoTripId]) !== null) {
+            $payments->markCompensationPaid($demoTripId, $adminId);
+        }
+
+        // 2. Una seconda richiesta piccola, che parte oggi e resta da incassare.
+        $orderService = new OrderService(
+            $database,
+            $orderRepository,
+            $sequences,
+            new CustomerService(new CustomerRepository($database), new RoundService(new RoundRepository($database))),
+            new ProductService(new ProductRepository($database))
+        );
+        $today = $inDays(0);
+        $orderService->create([
+            'customer_id' => (string) $girasoleId,
+            'requested_date' => $today,
+            'delivery_date' => $today,
+            'notes' => 'Reintegro scorte in giornata.',
+            'lines' => [
+                ['product_id' => (string) $productIds['ACQ-050'], 'quantity' => '20', 'unit_price' => '4.30'],
+                ['product_id' => (string) $productIds['PAS-500'], 'quantity' => '30', 'unit_price' => '11.40'],
+            ],
+        ], $operatorId);
+
+        $tripService = new TripService(
+            $database,
+            new PlanningRepository($database),
+            $tripRepository,
+            $palletRepository,
+            $orderRepository,
+            $sequences,
+            new PalletTypeService(new PalletTypeRepository($database)),
+            $settings
+        );
+        $departureService = new TripDepartureService(
+            $database,
+            $tripRepository,
+            $palletRepository,
+            new PalletMovementRepository($database),
+            $orderRepository,
+            new DocumentService(
+                $database,
+                new TransportDocumentRepository($database),
+                $sequences,
+                $settings,
+                new DocumentRenderer()
+            )
+        );
+
+        $plan = $tripService->plan($today);
+        if ($plan->hasTrips()) {
+            foreach ($tripService->confirm($today, $plan->fingerprint(), $operatorId) as $tripId) {
+                $departureService->depart($tripId, $operatorId);
             }
         }
     }

@@ -19,6 +19,7 @@ use LogiDock\Controller\PalletTypeController;
 use LogiDock\Controller\ProductController;
 use LogiDock\Controller\RoundController;
 use LogiDock\Controller\SettingController;
+use LogiDock\Controller\HistoryController;
 use LogiDock\Controller\StockController;
 use LogiDock\Controller\SupplierController;
 use LogiDock\Controller\TrailerTypeController;
@@ -32,6 +33,7 @@ use LogiDock\Middleware\CsrfMiddleware;
 use LogiDock\Pdf\DocumentRenderer;
 use LogiDock\Repository\CarrierRepository;
 use LogiDock\Repository\CustomerRepository;
+use LogiDock\Repository\HistoryRepository;
 use LogiDock\Repository\NumberSequenceRepository;
 use LogiDock\Repository\OrderRepository;
 use LogiDock\Repository\PalletMovementRepository;
@@ -54,15 +56,18 @@ use LogiDock\Service\AuthService;
 use LogiDock\Service\CarrierService;
 use LogiDock\Service\CustomerService;
 use LogiDock\Service\DocumentService;
+use LogiDock\Service\HistoryService;
 use LogiDock\Service\InboundService;
 use LogiDock\Service\OrderService;
 use LogiDock\Service\PalletTypeService;
+use LogiDock\Service\PaymentService;
 use LogiDock\Service\ProductService;
 use LogiDock\Service\RoundService;
 use LogiDock\Service\SettingService;
 use LogiDock\Service\StockService;
 use LogiDock\Service\SupplierService;
 use LogiDock\Service\TrailerTypeService;
+use LogiDock\Service\TripClosureService;
 use LogiDock\Service\TripDepartureService;
 use LogiDock\Service\TripService;
 use LogiDock\Service\UserService;
@@ -340,6 +345,24 @@ final class Application
             $c->get(OrderRepository::class),
             $c->get(DocumentService::class)
         ));
+        $c->set(TripClosureService::class, fn (Container $c): TripClosureService => new TripClosureService(
+            $c->get(Database::class),
+            $c->get(TripRepository::class)
+        ));
+        $c->set(PaymentService::class, fn (Container $c): PaymentService => new PaymentService(
+            $c->get(Database::class),
+            $c->get(OrderRepository::class),
+            $c->get(TripRepository::class),
+            $c->get(Logger::class)
+        ));
+
+        // Storico (sola lettura): viaggi, fornitori, incassi, documenti
+        $c->set(HistoryRepository::class, fn (Container $c): HistoryRepository => new HistoryRepository(
+            $c->get(Database::class)
+        ));
+        $c->set(HistoryService::class, fn (Container $c): HistoryService => new HistoryService(
+            $c->get(HistoryRepository::class)
+        ));
 
         // Middleware
         $c->set(CsrfMiddleware::class, fn (Container $c): CsrfMiddleware => new CsrfMiddleware($c->get(Csrf::class)));
@@ -370,6 +393,14 @@ final class Application
             $c->get(View::class),
             $c->get(StockService::class),
             $c->get(WarehouseLocationService::class)
+        ));
+        $c->set(HistoryController::class, fn (Container $c): HistoryController => new HistoryController(
+            $c->get(View::class),
+            $c->get(AuthService::class),
+            $c->get(HistoryService::class),
+            $c->get(RoundService::class),
+            $c->get(SupplierService::class),
+            $c->get(CustomerService::class)
         ));
         $c->set(ProductController::class, fn (Container $c): ProductController => new ProductController(
             $c->get(View::class),
@@ -452,7 +483,8 @@ final class Application
             $c->get(AuthService::class),
             $c->get(OrderService::class),
             $c->get(CustomerService::class),
-            $c->get(ProductService::class)
+            $c->get(ProductService::class),
+            $c->get(PaymentService::class)
         ));
         $c->set(TripController::class, fn (Container $c): TripController => new TripController(
             $c->get(View::class),
@@ -460,7 +492,9 @@ final class Application
             $c->get(AuthService::class),
             $c->get(TripService::class),
             $c->get(TripDepartureService::class),
-            $c->get(DocumentService::class)
+            $c->get(DocumentService::class),
+            $c->get(TripClosureService::class),
+            $c->get(PaymentService::class)
         ));
         $c->set(DocumentController::class, fn (Container $c): DocumentController => new DocumentController(
             $c->get(AuthService::class),

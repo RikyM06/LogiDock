@@ -306,10 +306,45 @@ try {
     if ($departed -eq '') { throw 'Nessun viaggio "In viaggio" in lista: hai eseguito php bin/seed.php?' }
     Open-Page $departed;       Save-Screenshot 'viaggio-partito' '#documenti'
 
+    # Fase 15: il viaggio concluso (dal seed) con "Concluso il" e il compenso pagato, e la richiesta spedita
+    # ancora da incassare (pulsante "Segna pagata").
+    Open-Page '/trips'
+    $concluded = Invoke-Js @'
+(() => {
+    for (const row of document.querySelectorAll('tbody tr')) {
+        const link = row.querySelector('a[href^="/trips/"]:not([href^="/trips/plan"])');
+        if (link && /Concluso/.test(row.textContent)) { return link.getAttribute('href'); }
+    }
+    return '';
+})()
+'@
+    if ($concluded -eq '') { throw 'Nessun viaggio "Concluso" in lista: hai eseguito php bin/seed.php?' }
+    Open-Page $concluded;      Save-Screenshot 'viaggio-concluso'
+
+    Open-Page '/orders'
+    $shipped = Invoke-Js @'
+(() => {
+    for (const row of document.querySelectorAll('tbody tr')) {
+        const link = row.querySelector('a[href^="/orders/"]');
+        if (link && /Spedita/.test(row.textContent) && row.textContent.includes('Il Girasole')) { return link.getAttribute('href'); }
+    }
+    return '';
+})()
+'@
+    if ($shipped -eq '') { throw 'Nessuna richiesta spedita del Girasole: hai eseguito php bin/seed.php?' }
+    Open-Page $shipped;        Save-Screenshot 'richiesta-pagamento'
+
+    # Storico: le quattro schede con i dati demo (nessun filtro: valgono i predefiniti).
+    Open-Page '/storico?scheda=viaggi';    Save-Screenshot 'storico-viaggi'
+    Open-Page '/storico?scheda=fornitori'; Save-Screenshot 'storico-fornitori'
+    Open-Page '/storico?scheda=incassi';   Save-Screenshot 'storico-incassi'
+    Open-Page '/storico?scheda=documenti'; Save-Screenshot 'storico-documenti'
+
     # I PDF emessi: si scaricano con la sessione dell'admin e si salvano come esempi nel sito. Poi, se c'e'
     # pdftoppm (Poppler, installato anche con MiKTeX), la prima pagina del DDT diventa un'immagine.
     $documentsDir = Join-Path $root 'docs\assets\documenti'
     New-Item -ItemType Directory -Force $documentsDir | Out-Null
+    Open-Page $departed
     $documentLinks = Invoke-Js @'
 (() => [...document.querySelectorAll('a[href^="/documents/"]')]
     .map((a) => a.getAttribute('href') + '|' + a.closest('tr').children[1].textContent.trim())

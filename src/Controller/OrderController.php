@@ -7,6 +7,7 @@ namespace LogiDock\Controller;
 use LogiDock\Core\HttpException;
 use LogiDock\Core\Request;
 use LogiDock\Core\Response;
+use LogiDock\Core\ReturnUrl;
 use LogiDock\Core\Session;
 use LogiDock\Core\ValidationException;
 use LogiDock\Core\View;
@@ -17,6 +18,8 @@ use LogiDock\Service\AuthService;
 use LogiDock\Service\CustomerService;
 use LogiDock\Service\OrderNotEditableException;
 use LogiDock\Service\OrderService;
+use LogiDock\Service\PaymentNotAllowedException;
+use LogiDock\Service\PaymentService;
 use LogiDock\Service\ProductService;
 
 /**
@@ -34,7 +37,8 @@ final class OrderController
         private readonly AuthService $auth,
         private readonly OrderService $orders,
         private readonly CustomerService $customers,
-        private readonly ProductService $products
+        private readonly ProductService $products,
+        private readonly PaymentService $payments
     ) {
     }
 
@@ -104,7 +108,61 @@ final class OrderController
             'title' => 'Richiesta ' . $order->code,
             'order' => $order,
             'lines' => $this->orders->linesOf($order->id),
+            // L'importo da incassare serve solo a una richiesta spedita e non ancora pagata.
+            'amountDue' => $order->status === Order::STATUS_SHIPPED && !$order->isPaid()
+                ? $this->payments->amountDue($order->id)
+                : null,
         ]));
+    }
+
+    /**
+     * Segna la richiesta come pagata dal cliente (importo = somma dei DDT). Qualunque utente collegato.
+     *
+     * @param array<string, string> $params
+     */
+    public function pay(Request $request, array $params): Response
+    {
+        $user = $this->auth->user() ?? throw new HttpException(403, 'Utente non collegato');
+        $order = $this->findOrFail($params);
+        $back = ReturnUrl::pick($request->input('return', ''), '/orders/' . $order->id);
+
+        try {
+            $amount = $this->payments->markOrderPaid($order->id, $user->id);
+        } catch (PaymentNotAllowedException $e) {
+            return $this->refuse($order, $e->getMessage(), $back);
+        }
+
+        $this->session->flash(
+            'success',
+            'Richiesta ' . $order->code . ' segnata come pagata: ' . str_replace('.', ',', $amount) . ' €.'
+        );
+
+        return Response::redirect($back);
+    }
+
+    /**
+     * Annulla il pagamento di una richiesta (errore di registrazione). Solo admin (agli altri: 404).
+     *
+     * @param array<string, string> $params
+     */
+    public function unpay(Request $request, array $params): Response
+    {
+        $user = $this->auth->user();
+        if ($user === null || !$user->isAdmin()) {
+            throw new HttpException(404, 'Pagina non trovata');
+        }
+        $order = $this->findOrFail($params);
+        $back = ReturnUrl::pick($request->input('return', ''), '/orders/' . $order->id);
+
+        try {
+            $this->payments->undoOrderPayment($order->id, $user->id);
+        } catch (PaymentNotAllowedException $e) {
+            return $this->refuse($order, $e->getMessage(), $back);
+        }
+
+        $this->session->flash('success', 'Pagamento della richiesta ' . $order->code . ' annullato.');
+
+        return Response::redirect($back);
     }
 
     /**
@@ -182,11 +240,11 @@ final class OrderController
         return Response::redirect('/orders/' . $order->id);
     }
 
-    private function refuse(Order $order, string $message): Response
+    private function refuse(Order $order, string $message, ?string $url = null): Response
     {
         $this->session->flash('error', $message);
 
-        return Response::redirect('/orders/' . $order->id);
+        return Response::redirect($url ?? '/orders/' . $order->id);
     }
 
     /**

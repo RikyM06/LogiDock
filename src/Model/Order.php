@@ -34,8 +34,17 @@ final readonly class Order
         public string $status,
         public ?string $notes,
         public int $lineCount,
-        public string $totalValue
+        public string $totalValue,
+        public ?string $paidAt = null,
+        public ?string $paidAmount = null,
+        public ?string $paidByName = null
     ) {
+    }
+
+    /** Pagata = ha una data di pagamento (importo e utente si salvano insieme, lo garantisce il database). */
+    public function isPaid(): bool
+    {
+        return $this->paidAt !== null;
     }
 
     /** Si può ancora modificare o annullare solo finché nessuno l'ha pianificata. */
@@ -65,7 +74,10 @@ final readonly class Order
             (string) $row['status'],
             $row['notes'] === null ? null : (string) $row['notes'],
             (int) $row['line_count'],
-            (string) $row['total_value']
+            (string) $row['total_value'],
+            isset($row['paid_at']) ? (string) $row['paid_at'] : null,
+            isset($row['paid_amount']) ? (string) $row['paid_amount'] : null,
+            isset($row['paid_by_name']) ? (string) $row['paid_by_name'] : null
         );
     }
 }

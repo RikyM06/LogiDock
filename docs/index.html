@@ -54,7 +54,8 @@
                 <p class="section__intro">
                     Il progetto avanza una fase alla volta. Oggi sono pronti le fondamenta, i prodotti, le anagrafiche,
                     gli arrivi di merce, le giacenze con l'avviso dei bancali fermi, le richieste dei clienti e il piano
-                    dei viaggi proposto dal programma; le altre parti arrivano nelle prossime fasi.
+                    dei viaggi proposto dal programma, la partenza con i documenti PDF, lo storico con i pagamenti; le altre
+                    parti arrivano nelle prossime fasi.
                 </p>
                 <div class="grid">
                     <article class="card">
@@ -93,6 +94,11 @@
                             <a href="assets/documenti/esempio-carico.pdf">carico</a>,
                             <a href="assets/documenti/esempio-ddt.pdf">DDT</a>,
                             <a href="assets/documenti/esempio-compenso.pdf">compenso</a>.</p>
+                    </article>
+                    <article class="card">
+                        <h3>Storico e pagamenti <span class="badge badge--ok">Pronto</span></h3>
+                        <p>La pagina <strong>Storico</strong> ha quattro schede con filtri per periodo: i <strong>viaggi</strong> (con il fatturato di ciascuno), i <strong>fornitori</strong> (quanta merce e quanto valore hanno consegnato), gli <strong>incassi</strong> dei clienti e i <strong>documenti</strong> emessi. Sono report di sola lettura, calcolati dai dati veri.</p>
+                        <p>Un viaggio partito si segna <em>concluso</em> quando il camion è tornato. Una richiesta spedita si segna <em>pagata</em> (tutta, senza pagamenti parziali) e l'importo è la somma dei suoi DDT. L'admin segna anche il compenso del trasportatore come pagato e può annullare un pagamento sbagliato: l'annullamento lascia una riga nel registro. Il compenso e le sue colonne non esistono per l'operatore.</p>
                     </article>
                 </div>
             </div>
@@ -169,6 +175,30 @@
                     <figure class="screenshot">
                         <a href="assets/screenshots/documento-ddt.png"><img src="assets/screenshots/documento-ddt.png" alt="PDF di un DDT: intestazione con i dati dell'azienda, destinatario, dati del trasporto, righe con quantità, prezzo e importo, totale della merce e spazi per le firme" width="827" height="1170" loading="lazy"></a>
                         <figcaption><strong>Il DDT.</strong> Il PDF di un cliente con i prezzi della sua richiesta; i dati dimostrativi sono quelli del seed.</figcaption>
+                    </figure>
+                    <figure class="screenshot">
+                        <a href="assets/screenshots/viaggio-concluso.png"><img src="assets/screenshots/viaggio-concluso.png" alt="Viaggio concluso: stato Concluso con la data di conclusione, il compenso del trasportatore segnato come pagato con il pulsante per annullare il pagamento" width="1440" height="900" loading="lazy"></a>
+                        <figcaption><strong>Viaggio concluso.</strong> Quando il camion è tornato il viaggio si conclude; l'admin segna anche il compenso come pagato.</figcaption>
+                    </figure>
+                    <figure class="screenshot">
+                        <a href="assets/screenshots/richiesta-pagamento.png"><img src="assets/screenshots/richiesta-pagamento.png" alt="Dettaglio di una richiesta spedita: stato Spedita, importo da incassare e pulsante Segna pagata" width="1440" height="900" loading="lazy"></a>
+                        <figcaption><strong>Pagamento della richiesta.</strong> Una richiesta spedita mostra quanto c'è da incassare e si segna pagata con un clic.</figcaption>
+                    </figure>
+                    <figure class="screenshot">
+                        <a href="assets/screenshots/storico-viaggi.png"><img src="assets/screenshots/storico-viaggi.png" alt="Storico, scheda Viaggi: filtri per periodo, giro e stato e tabella con viaggio, mezzo, trasportatore, stato, bancali, clienti, fatturato e compenso" width="1440" height="900" loading="lazy"></a>
+                        <figcaption><strong>Storico, viaggi.</strong> Tutti i viaggi con il fatturato di ognuno; le colonne del compenso le vede solo l'admin.</figcaption>
+                    </figure>
+                    <figure class="screenshot">
+                        <a href="assets/screenshots/storico-fornitori.png"><img src="assets/screenshots/storico-fornitori.png" alt="Storico, scheda Fornitori: per ogni fornitore e prodotto il numero di documenti e bancali, la quantità ricevuta e il valore d'acquisto" width="1440" height="900" loading="lazy"></a>
+                        <figcaption><strong>Storico, fornitori.</strong> I pezzi consegnati da ogni fornitore e quanto valgono, letti dai movimenti di ingresso.</figcaption>
+                    </figure>
+                    <figure class="screenshot">
+                        <a href="assets/screenshots/storico-incassi.png"><img src="assets/screenshots/storico-incassi.png" alt="Storico, scheda Incassi: totali incassato e da incassare e l'elenco delle richieste con lo stato Pagata o Da pagare e i pulsanti per segnare o annullare il pagamento" width="1440" height="900" loading="lazy"></a>
+                        <figcaption><strong>Storico, incassi.</strong> Quanto è stato incassato e quanto no, richiesta per richiesta, con il pulsante per segnare il pagamento.</figcaption>
+                    </figure>
+                    <figure class="screenshot">
+                        <a href="assets/screenshots/storico-documenti.png"><img src="assets/screenshots/storico-documenti.png" alt="Storico, scheda Documenti: l'elenco dei documenti emessi con numero, tipo, viaggio, cliente e data di emissione" width="1440" height="900" loading="lazy"></a>
+                        <figcaption><strong>Storico, documenti.</strong> Carico, DDT e compenso emessi, filtrabili per periodo, tipo e cliente.</figcaption>
                     </figure>
                     <figure class="screenshot">
                         <a href="assets/screenshots/viaggi.png"><img src="assets/screenshots/viaggi.png" alt="Pagina Viaggi: i giorni che hanno ancora richieste da pianificare e la lista dei viaggi confermati con giro, mezzo, trasportatore, bancali, peso e stato" width="1440" height="900" loading="lazy"></a>
@@ -324,7 +354,7 @@ Nginx ──► public/index.php (front controller)
             <div class="container">
                 <h2>Database</h2>
                 <p class="section__intro">
-                    Lo schema cresce per migrazioni SQL numerate (oggi 27).
+                    Lo schema cresce per migrazioni SQL numerate (oggi 28).
                     Una migrazione già applicata non si modifica: il runner se ne accorge dal checksum e si ferma.
                 </p>
 <pre class="diagram"><code>users ─┬──&lt; pallets &gt;── products          pallets: stato corrente di ogni bancale
@@ -351,7 +381,7 @@ Nginx ──► public/index.php (front controller)
             <div class="container">
                 <h2>Test</h2>
                 <p class="section__intro">
-                    344 test PHPUnit. Quelli sui service (prodotti, anagrafiche, impostazioni, arrivi, giacenze, richieste, viaggi, partenze, utenti) usano i veri repository
+                    390 test PHPUnit. Quelli sui service (prodotti, anagrafiche, impostazioni, arrivi, giacenze, richieste, viaggi, partenze, pagamenti, storico, utenti) usano i veri repository
                     su un database di test, dentro una transazione che si annulla a fine test. Il calcolo del piano dei viaggi
                     e il disegno dei PDF sono codice puro (niente database), quindi si provano con test unitari veloci.
                 </p>
@@ -378,6 +408,10 @@ Nginx ──► public/index.php (front controller)
                             <tr><td><code>StockServiceTest</code></td><td>integrazione</td><td>giacenze per prodotto in DECIMAL, filtri, bancali fermi al limite della soglia, soglia dalle impostazioni</td></tr>
                             <tr><td><code>TripServiceTest</code></td><td>integrazione</td><td>conferma tutto-o-niente, piano cambiato nel frattempo, bancali prenotati, richieste pianificate, annullamento, spostamenti e blocchi a mano, cambio mezzo, ricalcolo</td></tr>
                             <tr><td><code>TripDepartureServiceTest</code></td><td>integrazione</td><td>partenza tutto-o-niente, bancali spediti e movimenti di uscita, richieste spedite solo se servite per intero, documenti numerati (DDT per cliente, compenso solo se c'è un trasportatore), PDF che non cambiano più</td></tr>
+                            <tr><td><code>PaymentServiceTest</code></td><td>integrazione</td><td>pagamento di richiesta e compenso: importo dai DDT, doppio clic (un solo pagamento, la data del primo non cambia), richiesta a zero euro, annullamento e riga nel registro</td></tr>
+                            <tr><td><code>TripClosureServiceTest</code></td><td>integrazione</td><td>conclusione di un viaggio partito: una volta sola, mai su un viaggio pianificato o inesistente</td></tr>
+                            <tr><td><code>HistoryServiceTest</code></td><td>integrazione</td><td>le quattro schede dello storico: filtri sporchi ignorati, compensi nascosti all'operatore, quantità dei fornitori dopo la partenza</td></tr>
+                            <tr><td><code>ReturnUrlTest</code>, <code>HistoryUrlTest</code></td><td>unitario</td><td>l'indirizzo di ritorno accetta solo pagine dello storico; la scheda dello storico ricorda i suoi filtri</td></tr>
                             <tr><td><code>DatabaseTransactionTest</code></td><td>integrazione</td><td>commit, rollback e savepoint nelle transazioni annidate</td></tr>
                             <tr><td><code>SettingServiceTest</code></td><td>integrazione</td><td>valori di partenza, salvataggio tutto-o-niente, limiti</td></tr>
                         </tbody>
@@ -425,7 +459,8 @@ php -S localhost:8000 -t public  # apri http://localhost:8000</code></pre>
                     <li><span class="badge badge--ok">Fatta</span> Fase 12: giacenze per prodotto e per bancale, avviso dei bancali fermi nella home e nella lista</li>
                     <li><span class="badge badge--ok">Fatta</span> Fase 13: pianificazione dei viaggi (piano proposto dal programma, conferma, annullamento, modifiche a mano con ricalcolo)</li>
                     <li><span class="badge badge--ok">Fatta</span> Fase 14: partenza del viaggio e documenti in PDF (carico, DDT per cliente, compenso del trasportatore)</li>
-                    <li><span class="badge badge--off">Prossima</span> Storico e report, ricerca globale su tutti i dati, navigazione "a lisca di pesce"</li>
+                    <li><span class="badge badge--ok">Fatta</span> Fase 15: storico (viaggi, fornitori, incassi, documenti), conclusione dei viaggi, pagamento di richieste e compensi</li>
+                    <li><span class="badge badge--off">Prossima</span> Ricerca globale su tutti i dati, navigazione "a lisca di pesce"</li>
                 </ul>
                 <p class="section__intro" style="margin-top: 1rem;">
                     <span class="badge badge--warn">Nota onesta</span>
@@ -465,7 +500,7 @@ php -S localhost:8000 -t public  # apri http://localhost:8000</code></pre>
     <footer class="footer">
         <div class="container">
             LogiDock · gestionale di magazzino e logistica · progetto personale per il portfolio ·
-            source available, <a href="#licenza">licenza</a> · versione <span data-version>0.0.14.1</span>
+            source available, <a href="#licenza">licenza</a> · versione <span data-version>0.0.15.0</span>
         </div>
     </footer>
 </body>

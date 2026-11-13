@@ -11,10 +11,14 @@ use LogiDock\Core\Session;
 use LogiDock\Core\ValidationException;
 use LogiDock\Core\View;
 use LogiDock\Model\Trip;
+use LogiDock\Model\User;
 use LogiDock\Service\AuthService;
 use LogiDock\Service\DocumentService;
+use LogiDock\Service\PaymentNotAllowedException;
+use LogiDock\Service\PaymentService;
 use LogiDock\Service\PlanChangedException;
 use LogiDock\Service\TripChangeNotAllowedException;
+use LogiDock\Service\TripClosureService;
 use LogiDock\Service\TripDepartureService;
 use LogiDock\Service\TripNotCancellableException;
 use LogiDock\Service\TripService;
@@ -32,7 +36,9 @@ final class TripController
         private readonly AuthService $auth,
         private readonly TripService $trips,
         private readonly TripDepartureService $departures,
-        private readonly DocumentService $documents
+        private readonly DocumentService $documents,
+        private readonly TripClosureService $closures,
+        private readonly PaymentService $payments
     ) {
     }
 
@@ -254,6 +260,69 @@ final class TripController
     }
 
     /**
+     * Segna il viaggio come concluso (consegnato). Lo può fare qualunque utente collegato.
+     *
+     * @param array<string, string> $params
+     */
+    public function conclude(Request $request, array $params): Response
+    {
+        $user = $this->auth->user() ?? throw new HttpException(403, 'Utente non collegato');
+        $trip = $this->findOrFail($params);
+
+        try {
+            $this->closures->conclude($trip->id, $user->id);
+        } catch (TripChangeNotAllowedException $e) {
+            return $this->refuse('/trips/' . $trip->id, $e->getMessage());
+        }
+
+        $this->session->flash('success', 'Viaggio ' . $trip->code . ' concluso.');
+
+        return Response::redirect('/trips/' . $trip->id);
+    }
+
+    /**
+     * Segna pagato il compenso del trasportatore. Solo admin (agli altri: 404, come il PDF del compenso).
+     *
+     * @param array<string, string> $params
+     */
+    public function payCompensation(Request $request, array $params): Response
+    {
+        $user = $this->adminOrFail();
+        $trip = $this->findOrFail($params);
+
+        try {
+            $this->payments->markCompensationPaid($trip->id, $user->id);
+        } catch (PaymentNotAllowedException $e) {
+            return $this->refuse('/trips/' . $trip->id, $e->getMessage());
+        }
+
+        $this->session->flash('success', 'Compenso del viaggio ' . $trip->code . ' segnato come pagato.');
+
+        return Response::redirect('/trips/' . $trip->id);
+    }
+
+    /**
+     * Annulla il pagamento del compenso (ripensamento o errore). Solo admin.
+     *
+     * @param array<string, string> $params
+     */
+    public function unpayCompensation(Request $request, array $params): Response
+    {
+        $user = $this->adminOrFail();
+        $trip = $this->findOrFail($params);
+
+        try {
+            $this->payments->undoCompensationPayment($trip->id, $user->id);
+        } catch (PaymentNotAllowedException $e) {
+            return $this->refuse('/trips/' . $trip->id, $e->getMessage());
+        }
+
+        $this->session->flash('success', 'Pagamento del compenso del viaggio ' . $trip->code . ' annullato.');
+
+        return Response::redirect('/trips/' . $trip->id);
+    }
+
+    /**
      * @param array<string, string> $params
      */
     public function cancel(Request $request, array $params): Response
@@ -272,6 +341,19 @@ final class TripController
         );
 
         return Response::redirect('/trips/' . $trip->id);
+    }
+
+    /**
+     * I compensi sono roba da admin: a un operatore la pagina "non esiste" (404, non 403).
+     */
+    private function adminOrFail(): User
+    {
+        $user = $this->auth->user();
+        if ($user === null || !$user->isAdmin()) {
+            throw new HttpException(404, 'Pagina non trovata');
+        }
+
+        return $user;
     }
 
     private function refuse(string $url, string $message): Response
