@@ -57,6 +57,7 @@ $select = static function (string $name, string $label, string $all, array $opti
     return $html . '</select>';
 };
 ?>
+<?= $partial('breadcrumb', ['crumbs' => [['Storico', '/storico'], [$tabs[$tab]]]]) ?>
 <div class="page-header">
     <h1>Storico</h1>
 </div>

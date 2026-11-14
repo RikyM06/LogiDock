@@ -11,6 +11,7 @@
 $it = static fn (string $decimal): string => str_replace('.', ',', $decimal);
 $short = count(array_filter($lines, static fn ($line): bool => $line->stockShort));
 ?>
+<?= $partial('breadcrumb', ['crumbs' => [['Richieste', '/orders'], [$order->code]]]) ?>
 <div class="page-header">
     <h1>Richiesta <?= e($order->code) ?></h1>
     <div class="page-header__actions">

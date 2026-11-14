@@ -7,6 +7,7 @@
  */
 $filtered = $search !== '' || $status !== '';
 ?>
+<?= $partial('breadcrumb', ['crumbs' => [['Richieste']]]) ?>
 <div class="page-header">
     <h1>Richieste</h1>
     <a class="button" href="/orders/create">Nuova richiesta</a>

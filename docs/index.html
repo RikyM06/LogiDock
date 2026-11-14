@@ -100,6 +100,11 @@
                         <p>La pagina <strong>Storico</strong> ha quattro schede con filtri per periodo: i <strong>viaggi</strong> (con il fatturato di ciascuno), i <strong>fornitori</strong> (quanta merce e quanto valore hanno consegnato), gli <strong>incassi</strong> dei clienti e i <strong>documenti</strong> emessi. Sono report di sola lettura, calcolati dai dati veri.</p>
                         <p>Un viaggio partito si segna <em>concluso</em> quando il camion è tornato. Una richiesta spedita si segna <em>pagata</em> (tutta, senza pagamenti parziali) e l'importo è la somma dei suoi DDT. L'admin segna anche il compenso del trasportatore come pagato e può annullare un pagamento sbagliato: l'annullamento lascia una riga nel registro. Il compenso e le sue colonne non esistono per l'operatore.</p>
                     </article>
+                    <article class="card">
+                        <h3>Briciole di pane <span class="badge badge--ok">Pronto</span></h3>
+                        <p>In cima a ogni pagina c'è il suo percorso, per esempio <em>Home › Richieste › ORD-2026-000004</em>: ogni livello è un link, l'ultimo è la pagina in cui sei. Così dal dettaglio di una richiesta, di un viaggio o di un arrivo si risale alla lista con un clic, senza passare dal menu.</p>
+                        <p>Il percorso è accessibile (<code>nav</code> con <code>aria-label</code>, pagina corrente segnalata a chi usa uno screen reader, separatore disegnato dal CSS) e scritto in un solo punto: ogni pagina dichiara solo le sue voci. Un test controlla che nessuna pagina nuova se ne dimentichi.</p>
+                    </article>
                 </div>
             </div>
         </section>
@@ -381,7 +386,7 @@ Nginx ──► public/index.php (front controller)
             <div class="container">
                 <h2>Test</h2>
                 <p class="section__intro">
-                    390 test PHPUnit. Quelli sui service (prodotti, anagrafiche, impostazioni, arrivi, giacenze, richieste, viaggi, partenze, pagamenti, storico, utenti) usano i veri repository
+                    399 test PHPUnit. Quelli sui service (prodotti, anagrafiche, impostazioni, arrivi, giacenze, richieste, viaggi, partenze, pagamenti, storico, utenti) usano i veri repository
                     su un database di test, dentro una transazione che si annulla a fine test. Il calcolo del piano dei viaggi
                     e il disegno dei PDF sono codice puro (niente database), quindi si provano con test unitari veloci.
                 </p>
@@ -400,6 +405,7 @@ Nginx ──► public/index.php (front controller)
                             <tr><td><code>LoadCalculatorTest</code></td><td>unitario</td><td>se un carico sta su un mezzo: file sul pianale, impilamento, altezza, portata, numero di bancali</td></tr>
                             <tr><td><code>TripPlannerTest</code></td><td>unitario</td><td>il piano: bancali più vecchi per primi, giri, scelta del mezzo, cosa resta e cosa manca; viaggi già confermati, bancali bloccati e ricalcolo</td></tr>
                             <tr><td><code>DocumentRendererTest</code></td><td>unitario</td><td>i PDF: numeri all'italiana senza float, accenti ed euro, testi troppo lunghi, più pagine con l'intestazione che si ripete, nessun prezzo nel carico</td></tr>
+                            <tr><td><code>BreadcrumbPartialTest</code>, <code>BreadcrumbCoverageTest</code></td><td>unitario</td><td>le briciole di pane: Home sempre prima, pagina corrente senza link, testi con HTML resi innocui, e ogni pagina ha le sue</td></tr>
                             <tr><td><code>ProductServiceTest</code></td><td>integrazione</td><td>validazione, duplicati, attiva/disattiva, ricerca</td></tr>
                             <tr><td><code>MasterDataServicesTest</code></td><td>integrazione</td><td>regole delle anagrafiche: giri dei clienti, targhe, capacità, EPAL</td></tr>
                             <tr><td><code>InboundServiceTest</code></td><td>integrazione</td><td>arrivo completo, codici consecutivi, capacità, peso, documento duplicato, tutto-o-niente</td></tr>
@@ -460,7 +466,9 @@ php -S localhost:8000 -t public  # apri http://localhost:8000</code></pre>
                     <li><span class="badge badge--ok">Fatta</span> Fase 13: pianificazione dei viaggi (piano proposto dal programma, conferma, annullamento, modifiche a mano con ricalcolo)</li>
                     <li><span class="badge badge--ok">Fatta</span> Fase 14: partenza del viaggio e documenti in PDF (carico, DDT per cliente, compenso del trasportatore)</li>
                     <li><span class="badge badge--ok">Fatta</span> Fase 15: storico (viaggi, fornitori, incassi, documenti), conclusione dei viaggi, pagamento di richieste e compensi</li>
-                    <li><span class="badge badge--off">Prossima</span> Ricerca globale su tutti i dati, navigazione "a lisca di pesce"</li>
+                    <li><span class="badge badge--off">Saltata</span> Fase 16: ricerca globale su tutti i dati (per ora bastano le ricerche delle singole liste)</li>
+                    <li><span class="badge badge--ok">Fatta</span> Fase 17: briciole di pane in cima a ogni pagina</li>
+                    <li><span class="badge badge--off">Prossima</span> Fase 18: qualità finale e deploy</li>
                 </ul>
                 <p class="section__intro" style="margin-top: 1rem;">
                     <span class="badge badge--warn">Nota onesta</span>
@@ -500,7 +508,7 @@ php -S localhost:8000 -t public  # apri http://localhost:8000</code></pre>
     <footer class="footer">
         <div class="container">
             LogiDock · gestionale di magazzino e logistica · progetto personale per il portfolio ·
-            source available, <a href="#licenza">licenza</a> · versione <span data-version>0.0.15.0</span>
+            source available, <a href="#licenza">licenza</a> · versione <span data-version>0.0.17.0</span>
         </div>
     </footer>
 </body>

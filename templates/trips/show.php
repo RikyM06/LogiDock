@@ -36,6 +36,7 @@ foreach ($items as $item) {
     $stops[$item->customerId]['items'][] = $item;
 }
 ?>
+<?= $partial('breadcrumb', ['crumbs' => [['Viaggi', '/trips'], [$trip->code]]]) ?>
 <div class="page-header">
     <h1>Viaggio <?= e($trip->code) ?></h1>
     <div class="page-header__actions">

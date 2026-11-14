@@ -6,6 +6,7 @@
  * @var string                        $csrfToken
  */
 ?>
+<?= $partial('breadcrumb', ['crumbs' => [['Prodotti']]]) ?>
 <div class="page-header">
     <h1>Prodotti</h1>
     <?php if ($canManage) : ?>

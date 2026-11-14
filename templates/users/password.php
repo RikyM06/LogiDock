@@ -8,6 +8,7 @@
  * @var callable              $partial
  */
 ?>
+<?= $partial('breadcrumb', ['crumbs' => [['Utenti', '/users'], [$title]]]) ?>
 <div class="card card--form">
     <h1><?= e($title) ?></h1>
     <p class="muted"><?= e($user->email) ?>. Dopo il salvataggio le sue sessioni aperte si chiudono: dovrà entrare con la nuova password.</p>

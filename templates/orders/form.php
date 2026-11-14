@@ -16,6 +16,7 @@
  */
 $nextIndex = $lines === [] ? 0 : max(array_map('intval', array_keys($lines))) + 1;
 ?>
+<?= $partial('breadcrumb', ['crumbs' => [['Richieste', '/orders'], [$title]]]) ?>
 <div class="page-header">
     <h1><?= e($title) ?></h1>
 </div>

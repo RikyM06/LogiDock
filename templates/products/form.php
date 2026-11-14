@@ -10,6 +10,7 @@
  * @var string                $csrfToken
  */
 ?>
+<?= $partial('breadcrumb', ['crumbs' => [['Prodotti', '/products'], [$title]]]) ?>
 <div class="card card--form">
     <h1><?= e($title) ?></h1>
 

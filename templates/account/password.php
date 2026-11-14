@@ -6,6 +6,7 @@
  * @var callable $partial
  */
 ?>
+<?= $partial('breadcrumb', ['crumbs' => [['La mia password']]]) ?>
 <div class="card card--form">
     <h1>La mia password</h1>
     <p class="muted">Per sicurezza serve la password attuale. Le tue sessioni aperte su altri dispositivi si chiuderanno.</p>

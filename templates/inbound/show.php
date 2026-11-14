@@ -8,6 +8,7 @@
 $it = static fn (string $decimal): string => str_replace('.', ',', $decimal);
 $mismatches = count(array_filter($pallets, static fn ($pallet): bool => $pallet->weightMismatch));
 ?>
+<?= $partial('breadcrumb', ['crumbs' => [['Arrivi', '/inbound'], [$document->number]]]) ?>
 <div class="page-header">
     <h1>Arrivo <?= e($document->number) ?></h1>
     <a class="button button--secondary" href="/inbound">Tutti gli arrivi</a>

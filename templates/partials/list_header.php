@@ -8,7 +8,12 @@
  * @var bool                                                            $canManage
  * @var string                                                          $search
  */
+// Arrivi e utenti hanno la loro voce di menu; tutte le altre liste stanno sotto "Anagrafiche".
+$crumbs = in_array($path, ['/inbound', '/users'], true)
+    ? [[$labels['plural']]]
+    : [['Anagrafiche', '/master-data'], [$labels['plural']]];
 ?>
+<?= $partial('breadcrumb', ['crumbs' => $crumbs]) ?>
 <div class="page-header">
     <h1><?= e($title) ?></h1>
     <?php if ($canManage) : ?>

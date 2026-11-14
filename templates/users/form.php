@@ -14,6 +14,7 @@
  * @var callable              $partial
  */
 ?>
+<?= $partial('breadcrumb', ['crumbs' => [['Utenti', '/users'], [$title]]]) ?>
 <div class="card card--form">
     <h1><?= e($title) ?></h1>
 

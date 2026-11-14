@@ -9,6 +9,7 @@
 $it = static fn (string $decimal): string => str_replace('.', ',', $decimal);
 $date = static fn (string $value): string => date('d/m/Y', strtotime($value));
 ?>
+<?= $partial('breadcrumb', ['crumbs' => [['Viaggi']]]) ?>
 <div class="page-header">
     <h1>Viaggi</h1>
 </div>

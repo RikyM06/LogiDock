@@ -13,9 +13,10 @@ Il codice è **source available** con doppia licenza: gratuito per gli usi non c
 [licenza commerciale separata](COMMERCIAL-LICENSE.md) per gli usi commerciali o professionali.
 Dettagli in [Licenza](#licenza).
 
-> **Stato:** Fasi 1-6 e 8-15 completate (scheletro, database, autenticazione, prodotti, ambiente e deploy,
+> **Stato:** Fasi 1-6, 8-15 e 17 completate (scheletro, database, autenticazione, prodotti, ambiente e deploy,
 > test, anagrafiche e impostazioni, arrivi di merce, richieste dei clienti, utenti, giacenze, pianificazione dei
-> viaggi con modifiche a mano e ricalcolo, partenza dei viaggi e documenti in PDF, storico e pagamenti). Le altre
+> viaggi con modifiche a mano e ricalcolo, partenza dei viaggi e documenti in PDF, storico e pagamenti, briciole
+> di pane; la ricerca globale è saltata per ora). Le altre
 > funzionalità arrivano una alla volta, vedi [Roadmap](#roadmap).
 
 ## Stack
@@ -553,6 +554,24 @@ Punti di sicurezza da conoscere:
   Un altro utente, separato, applica le migrazioni.
 - Il seed è disabilitato in produzione: il primo admin si crea con `php bin/create-user.php`.
 
+### Briciole di pane
+
+In cima a ogni pagina interna c'è il suo percorso, per esempio **Home › Richieste › ORD-2026-000004**: ogni livello è
+un link e l'ultimo (la pagina corrente) no. Non ci sono nella home, nel login e nelle pagine di errore.
+
+- **Un solo punto per il markup**: il partial `templates/partials/breadcrumb.php`. Ogni pagina lo richiama con una
+  riga e la lista delle sue voci: `$partial('breadcrumb', ['crumbs' => [['Richieste', '/orders'], [$order->code]]])`.
+  «Home» è sempre la prima voce e non si scrive. Nessun controller decide le etichette: le conosce già il template
+  (il codice del viaggio, il numero dell'arrivo). Il parametro si chiama `crumbs` perché molte pagine hanno già `$items`.
+- **Accessibile**: `<nav aria-label="Briciole di pane">` con una lista, `aria-current="page"` sull'ultima voce e il
+  separatore «›» disegnato dal CSS (non finisce nel testo letto dagli screen reader). Etichette e indirizzi passano da
+  `e()`.
+- **Le liste** (anagrafiche, arrivi, utenti) le stampa `partials/list_header.php`: sotto «Anagrafiche» tutte tranne
+  arrivi e utenti, che hanno una voce di menu loro. Per i form delle anagrafiche il nome al plurale arriva da
+  `MasterDataController`.
+- **Un test di copertura** (`tests/View/BreadcrumbCoverageTest.php`) fallisce se un template di pagina nuovo non ha le
+  briciole.
+
 ## Test
 
 I test usano PHPUnit e stanno in `tests/`:
@@ -583,6 +602,8 @@ I test usano PHPUnit e stanno in `tests/`:
 | `tests/Service/TripClosureServiceTest.php` | integrazione | conclusione di un viaggio partito, una volta sola, mai su un viaggio pianificato o inesistente |
 | `tests/Service/HistoryServiceTest.php` | integrazione | le quattro schede: filtri sporchi, periodi, compenso nascosto all'operatore, quantità dei fornitori letta dai movimenti anche dopo la partenza, totali degli incassi |
 | `tests/Core/ReturnUrlTest.php`, `tests/Core/HistoryUrlTest.php` | unitario | l'indirizzo di ritorno accetta solo `/storico...`; l'indirizzo della scheda con i suoi filtri |
+| `tests/View/BreadcrumbPartialTest.php` | unitario | il partial delle briciole da solo: Home sempre prima, pagina corrente senza link con `aria-current`, voci senza indirizzo, testi e indirizzi con HTML o virgolette resi innocui, lista vuota |
+| `tests/View/BreadcrumbCoverageTest.php` | unitario | ogni template di pagina ha le briciole (direttamente o da `list_header`): una pagina nuova che se ne dimentica fa fallire il test |
 | `tests/Core/DatabaseTransactionTest.php` | integrazione | commit, rollback e savepoint quando una transazione è già aperta |
 | `tests/Core/ApplicationConfigTest.php` | unitario | le variabili d'ambiente vere vincono su `.env` |
 
@@ -636,10 +657,10 @@ camionisti). Serve anche lo storico di viaggi, forniture e pagamenti.
   camionisti), con i bancali spediti e i movimenti di uscita
 - [x] **Fase 15:** storico (viaggi, forniture per fornitore, incassi, documenti), conclusione dei viaggi, pagamento
   delle richieste e dei compensi
-- [ ] **Fase 16:** ricerca globale per descrizione: un testo cercato in tutti i campi di tutti i dati (clienti,
-  fornitori, prodotti, arrivi, richieste...), con risultati di ogni tipo e il collegamento al dettaglio di ciascuno
-  (i dettagli si definiscono quando si inizia la fase)
-- [ ] **Fase 17:** navigazione "a lisca di pesce" (da definire)
+- [ ] **Fase 16 (saltata per ora):** ricerca globale per descrizione: un testo cercato in tutti i campi di tutti i dati
+  (clienti, fornitori, prodotti, arrivi, richieste...), con risultati di ogni tipo e il collegamento al dettaglio di
+  ciascuno. Per ora bastano le ricerche delle singole liste; si riprende (o si chiude) alla Fase 18
+- [x] **Fase 17:** briciole di pane in cima a ogni pagina (il percorso, per esempio Home › Richieste › ORD-2026-000004)
 - [ ] **Fase 18:** qualità finale e deploy
 
 ## Versione

@@ -7,6 +7,7 @@
  * @var callable                                              $partial
  */
 ?>
+<?= $partial('breadcrumb', ['crumbs' => [['Impostazioni']]]) ?>
 <div class="page-header">
     <h1>Impostazioni</h1>
 </div>

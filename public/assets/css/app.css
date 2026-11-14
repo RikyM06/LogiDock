@@ -303,6 +303,37 @@ a.button {
     text-decoration: none;
 }
 
+/* Briciole di pane: il percorso della pagina, sopra il titolo */
+.breadcrumb {
+    margin-bottom: 0.6rem;
+    font-size: 0.875rem;
+}
+
+.breadcrumb ol {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    color: var(--color-muted);
+}
+
+/* Il separatore è CSS: lo screen reader legge solo le voci */
+.breadcrumb li + li::before {
+    content: "\203A";
+    margin-right: 0.25rem;
+}
+
+.breadcrumb a {
+    color: var(--color-primary);
+}
+
+.breadcrumb [aria-current="page"] {
+    color: var(--color-text);
+    font-weight: 600;
+}
+
 /* Intestazione di pagina e ricerca */
 .page-header {
     display: flex;

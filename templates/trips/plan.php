@@ -42,6 +42,7 @@ foreach ($plan->leftovers as $leftover) {
     $anyAssumed = $anyAssumed || $leftover->assignment->pallet->typeAssumed;
 }
 ?>
+<?= $partial('breadcrumb', ['crumbs' => [['Viaggi', '/trips'], ['Piano del ' . $day]]]) ?>
 <div class="page-header">
     <h1>Piano dei viaggi del <?= e($day) ?></h1>
     <div class="page-header__actions">

@@ -19,6 +19,7 @@ $threshold = $days($rule->thresholdDays);
 $filtered = $filters['product'] !== null || $filters['location'] !== null || $filters['aging'];
 $totalPallets = array_sum(array_map(static fn ($row): int => $row->palletCount, $summary));
 ?>
+<?= $partial('breadcrumb', ['crumbs' => [['Giacenze']]]) ?>
 <div class="page-header">
     <h1>Giacenze</h1>
 </div>

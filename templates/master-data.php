@@ -18,6 +18,7 @@ $sections = [
     ['/pallet-types', 'Tipi di bancale', 'Le misure dei bancali (EPAL 1 e EPAL 3).', false],
 ];
 ?>
+<?= $partial('breadcrumb', ['crumbs' => [['Anagrafiche']]]) ?>
 <div class="page-header">
     <h1>Anagrafiche</h1>
 </div>

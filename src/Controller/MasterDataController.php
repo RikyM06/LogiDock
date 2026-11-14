@@ -272,6 +272,8 @@ abstract class MasterDataController
             'values' => $values,
             'errors' => $errors,
             'path' => $this->path(),
+            // Serve alle briciole di pane (il nome al plurale dell'anagrafica).
+            'labels' => $this->labels(),
             ...$this->formExtras($current),
         ]), $status);
     }
