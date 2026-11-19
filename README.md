@@ -603,6 +603,7 @@ I test usano PHPUnit e stanno in `tests/`:
 | `tests/Core/ReturnUrlTest.php`, `tests/Core/HistoryUrlTest.php` | unitario | l'indirizzo di ritorno accetta solo `/storico...`; l'indirizzo della scheda con i suoi filtri |
 | `tests/View/BreadcrumbPartialTest.php` | unitario | il partial delle briciole da solo: Home sempre prima, pagina corrente senza link con `aria-current`, voci senza indirizzo, testi e indirizzi con HTML o virgolette resi innocui, lista vuota |
 | `tests/View/BreadcrumbCoverageTest.php` | unitario | ogni template di pagina ha le briciole (direttamente o da `list_header`): una pagina nuova che se ne dimentica fa fallire il test |
+| `tests/Quality/CodingRulesTest.php` | unitario | le regole di progetto che una macchina controlla da sola: `declare(strict_types=1);` in ogni file PHP, una sola riga a capo in fondo a ogni file di testo, nessun `var_dump` dimenticato, migrazioni numerate senza buchi, ogni variabile di `config/app.php` presente in `.env.example` |
 | `tests/Core/DatabaseTransactionTest.php` | integrazione | commit, rollback e savepoint quando una transazione è già aperta |
 | `tests/Core/ApplicationConfigTest.php` | unitario | le variabili d'ambiente vere vincono su `.env` |
 
@@ -623,6 +624,20 @@ Per lanciare un solo test: `php vendor/bin/phpunit --filter testDeactivateAndAct
 
 Il database di test non va riempito col seed. Quando il codice cambia lo schema, rilancia la migrazione
 con la stessa riga di sopra.
+
+### Controlli automatici
+
+```powershell
+composer analyse   # PHPStan (livello 6) su src/ e tests/: errori di tipo, metodi che non esistono, codice morto
+composer check     # analisi + test, nello stesso ordine del workflow
+```
+
+- **PHPStan** (`phpstan/phpstan`, licenza MIT, solo sviluppo) legge il codice senza eseguirlo. Non c'è un «baseline»:
+  ogni segnalazione si corregge nel codice, non si nasconde.
+- **GitHub Actions** (`.github/workflows/tests.yml`): a ogni push e pull request su `main` parte un MySQL di prova,
+  si applicano le migrazioni e girano `composer analyse` e `composer test`. Se qualcosa si rompe, il controllo diventa rosso.
+- Le **regole di progetto** (`tests/Quality/CodingRulesTest.php`) fanno parte dei test: aggiungere un file senza riga
+  finale o una migrazione con un numero saltato fa fallire `composer test` e dice quale file sistemare.
 
 ## Roadmap
 

@@ -93,7 +93,7 @@ final class UserServiceTest extends IntegrationTestCase
 
         $user = $this->users->find($id);
         self::assertSame('Nuovo Nome', $user?->name);
-        self::assertSame(UserRole::Admin, $user?->role);
+        self::assertSame(UserRole::Admin, $user->role);
     }
 
     public function testAdminCannotDemoteThemselves(): void

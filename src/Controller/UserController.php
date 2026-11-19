@@ -72,7 +72,7 @@ final class UserController
             return $this->renderForm(null, $this->formValues($request, ['email', 'name', 'role']), $e->errors(), 422);
         }
 
-        $this->session->flash('success', 'Utente ' . ($this->users->find($id)?->email ?? '') . ' creato.');
+        $this->session->flash('success', 'Utente ' . ($this->users->find($id)->email ?? '') . ' creato.');
 
         return Response::redirect('/users');
     }

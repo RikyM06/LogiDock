@@ -47,7 +47,8 @@ final class AuthService
     {
         $user = $this->users->findByEmail($email);
 
-        $passwordIsCorrect = password_verify($password, $user?->passwordHash ?? self::DUMMY_HASH);
+        // Con $user nullo, "??" dà l'hash finto senza errori: il controllo dura lo stesso tempo anche per un'e-mail sconosciuta.
+        $passwordIsCorrect = password_verify($password, $user->passwordHash ?? self::DUMMY_HASH);
 
         if ($user === null || !$passwordIsCorrect || !$user->isActive) {
             // Nel log sì: serve a notare tentativi sospetti. Mai la password.

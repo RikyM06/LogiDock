@@ -74,7 +74,7 @@ final class HistoryController
 
     /**
      * @param list<object{id: int, name: string}> $items
-     * @return array<string, string> id => nome
+     * @return array<int, string> id => nome
      */
     private function options(array $items): array
     {

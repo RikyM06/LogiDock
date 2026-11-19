@@ -18,6 +18,9 @@ final class LoadCalculatorTest extends TestCase
 {
     use PlanFixtures;
 
+    /** L'EPAL 3 (1200 x 1000) ha id 1 nei dati finti; l'EPAL 1 (id 2) sta nel trait. */
+    private const EPAL3 = 1;
+
     public function testAnEmptyLoadFitsAndUsesNothing(): void
     {
         $usage = (new LoadCalculator(1))->usage($this->smallTruck(), []);

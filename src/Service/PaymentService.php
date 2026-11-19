@@ -86,7 +86,7 @@ final class PaymentService
         // Il log si scrive a transazione chiusa: se ha fallito, non c'è nulla da annullare.
         $order = $this->orders->findById($orderId);
         $this->logger->info('Pagamento richiesta annullato', [
-            'order' => $order?->code ?? (string) $orderId,
+            'order' => $order->code ?? (string) $orderId,
             'amount' => $old['paid_amount'],
             'previous_paid_at' => $old['paid_at'],
             'user_id' => $userId,
@@ -124,7 +124,7 @@ final class PaymentService
 
         $trip = $this->trips->findById($tripId);
         $this->logger->info('Pagamento compenso annullato', [
-            'trip' => $trip?->code ?? (string) $tripId,
+            'trip' => $trip->code ?? (string) $tripId,
             'amount' => $old['carrier_fee'],
             'previous_paid_at' => $old['compensation_paid_at'],
             'user_id' => $userId,

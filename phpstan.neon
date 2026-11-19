@@ -1,0 +1,7 @@
+# Analisi statica con PHPStan: cerca errori senza eseguire il codice (metodi che non esistono, tipi sbagliati...).
+# Si lancia con "composer analyse". Nessun "baseline": ogni segnalazione si corregge nel codice.
+parameters:
+    level: 6
+    paths:
+        - src
+        - tests

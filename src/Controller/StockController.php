@@ -7,7 +7,6 @@ namespace LogiDock\Controller;
 use LogiDock\Core\Request;
 use LogiDock\Core\Response;
 use LogiDock\Core\View;
-use LogiDock\Model\WarehouseLocation;
 use LogiDock\Service\StockService;
 use LogiDock\Service\WarehouseLocationService;
 
@@ -44,9 +43,7 @@ final class StockController
         }
         $locationOptions = [];
         foreach ($this->locations->activeOnes() as $location) {
-            if ($location instanceof WarehouseLocation) {
-                $locationOptions[(string) $location->id] = $location->code;
-            }
+            $locationOptions[(string) $location->id] = $location->code;
         }
 
         return Response::html($this->view->render('stock/index', [

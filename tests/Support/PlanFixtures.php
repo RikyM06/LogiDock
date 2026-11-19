@@ -16,7 +16,6 @@ use LogiDock\Model\PlanVehicle;
 trait PlanFixtures
 {
     private const EPAL1 = 2;
-    private const EPAL3 = 1;
 
     private int $nextPalletId = 1;
 

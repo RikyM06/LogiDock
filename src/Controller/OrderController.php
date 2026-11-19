@@ -11,9 +11,7 @@ use LogiDock\Core\ReturnUrl;
 use LogiDock\Core\Session;
 use LogiDock\Core\ValidationException;
 use LogiDock\Core\View;
-use LogiDock\Model\Customer;
 use LogiDock\Model\Order;
-use LogiDock\Model\Product;
 use LogiDock\Service\AuthService;
 use LogiDock\Service\CustomerService;
 use LogiDock\Service\OrderNotEditableException;
@@ -92,7 +90,7 @@ final class OrderController
         }
 
         $order = $this->orders->find($id);
-        $this->session->flash('success', 'Richiesta ' . ($order?->code ?? '') . ' registrata.');
+        $this->session->flash('success', 'Richiesta ' . ($order->code ?? '') . ' registrata.');
 
         return Response::redirect('/orders/' . $id);
     }
@@ -345,10 +343,8 @@ final class OrderController
         // Clienti attivi (con il loro giro), più quello già sulla richiesta anche se disattivato.
         $customerOptions = [];
         foreach ($this->customers->activeOnes() as $customer) {
-            if ($customer instanceof Customer) {
-                $customerOptions[(string) $customer->id] = $customer->name
-                    . ($customer->roundName !== null ? ' (' . $customer->roundName . ')' : ' (giro non assegnato)');
-            }
+            $customerOptions[(string) $customer->id] = $customer->name
+                . ($customer->roundName !== null ? ' (' . $customer->roundName . ')' : ' (giro non assegnato)');
         }
         if ($current !== null && !isset($customerOptions[(string) $current->customerId])) {
             $customerOptions[(string) $current->customerId] = $current->customerName . ' (disattivato)';
@@ -363,7 +359,7 @@ final class OrderController
         }
         $productOptions = [];
         foreach ($this->products->search() as $product) {
-            if ($product instanceof Product && ($product->isActive || isset($currentProductIds[$product->id]))) {
+            if ($product->isActive || isset($currentProductIds[$product->id])) {
                 $productOptions[(string) $product->id] = $product->code . ' - ' . $product->description
                     . ' (' . $product->unitOfMeasure . ')' . ($product->isActive ? '' : ' (disattivato)');
             }

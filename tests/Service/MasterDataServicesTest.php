@@ -72,7 +72,7 @@ final class MasterDataServicesTest extends IntegrationTestCase
 
         $updated = $this->suppliers->find($id);
         self::assertSame('Zeta Forniture S.r.l.', $updated?->name);
-        self::assertSame('0123', $updated?->phone);
+        self::assertSame('0123', $updated->phone);
     }
 
     public function testEverySupplierFieldIsRequired(): void
@@ -167,7 +167,7 @@ final class MasterDataServicesTest extends IntegrationTestCase
 
         $customer = $this->customers->find($id);
         self::assertSame($roundId, $customer?->roundId);
-        self::assertSame('Giro Costa', $customer?->roundName);
+        self::assertSame('Giro Costa', $customer->roundName);
     }
 
     public function testCustomerWithoutRoundIsAllowed(): void
@@ -260,8 +260,8 @@ final class MasterDataServicesTest extends IntegrationTestCase
 
         $vehicle = $this->vehicles->find($id);
         self::assertSame('ZZ999AA', $vehicle?->plate, 'La targa si salva in maiuscolo e senza spazi.');
-        self::assertSame('Semirimorchio 13,6 m', $vehicle?->trailerTypeName);
-        self::assertSame('Bianchi Trasporti', $vehicle?->carrierName);
+        self::assertSame('Semirimorchio 13,6 m', $vehicle->trailerTypeName);
+        self::assertSame('Bianchi Trasporti', $vehicle->carrierName);
     }
 
     public function testDuplicatePlateIsRejectedEvenInDifferentCase(): void
@@ -304,7 +304,7 @@ final class MasterDataServicesTest extends IntegrationTestCase
         $withOwn = $this->locations->create(['code' => 'ZZ-A2', 'capacity' => '120']);
 
         self::assertSame('ZZ-A1', $this->locations->find($withDefault)?->code);
-        self::assertNull($this->locations->find($withDefault)?->capacity, 'Vuota = vale la capacità predefinita.');
+        self::assertNull($this->locations->find($withDefault)->capacity, 'Vuota = vale la capacità predefinita.');
         self::assertSame(120, $this->locations->find($withOwn)?->capacity);
 
         $errors = $this->errorsOf(fn () => $this->locations->create(['code' => 'ZZ-A3', 'capacity' => '0']));
@@ -335,7 +335,7 @@ final class MasterDataServicesTest extends IntegrationTestCase
         ]);
 
         self::assertSame('ZZ-BIG', $this->palletTypes->find($id)?->code);
-        self::assertSame(900, $this->palletTypes->find($id)?->maxHeightMm);
+        self::assertSame(900, $this->palletTypes->find($id)->maxHeightMm);
 
         $errors = $this->errorsOf(fn () => $this->palletTypes->create([
             'code' => 'ZZ-BIG',

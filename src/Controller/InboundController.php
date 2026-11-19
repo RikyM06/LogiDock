@@ -10,9 +10,6 @@ use LogiDock\Core\Response;
 use LogiDock\Core\Session;
 use LogiDock\Core\ValidationException;
 use LogiDock\Core\View;
-use LogiDock\Model\PalletType;
-use LogiDock\Model\Product;
-use LogiDock\Model\WarehouseLocation;
 use LogiDock\Service\AuthService;
 use LogiDock\Service\InboundService;
 use LogiDock\Service\PalletTypeService;
@@ -213,21 +210,17 @@ final class InboundController
         }
         $productOptions = [];
         foreach ($this->products->search() as $product) {
-            if ($product instanceof Product && $product->isActive) {
+            if ($product->isActive) {
                 $productOptions[(string) $product->id] = $product->code . ' - ' . $product->description;
             }
         }
         $palletTypeOptions = [];
         foreach ($this->palletTypes->activeOnes() as $type) {
-            if ($type instanceof PalletType) {
-                $palletTypeOptions[(string) $type->id] = $type->name . ' (' . $type->lengthMm . ' × ' . $type->widthMm . ' mm)';
-            }
+            $palletTypeOptions[(string) $type->id] = $type->name . ' (' . $type->lengthMm . ' × ' . $type->widthMm . ' mm)';
         }
         $locationOptions = [];
         foreach ($this->locations->activeOnes() as $location) {
-            if ($location instanceof WarehouseLocation) {
-                $locationOptions[(string) $location->id] = $location->code . ($location->zone !== null ? ' (' . $location->zone . ')' : '');
-            }
+            $locationOptions[(string) $location->id] = $location->code . ($location->zone !== null ? ' (' . $location->zone . ')' : '');
         }
 
         return Response::html($this->view->render('inbound/form', [

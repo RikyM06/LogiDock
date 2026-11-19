@@ -91,11 +91,22 @@ final class Database
 
             return $result;
         } catch (Throwable $e) {
-            if ($pdo->inTransaction()) {
+            if ($this->isInTransaction()) {
                 $pdo->rollBack();
             }
 
             throw $e;
         }
+    }
+
+    /**
+     * C'è una transazione aperta in questo momento? Il risultato cambia mentre il programma gira (il callback
+     * può chiuderla), quindi va chiesto ogni volta: l'annotazione lo dice a PHPStan.
+     *
+     * @phpstan-impure
+     */
+    private function isInTransaction(): bool
+    {
+        return $this->pdo()->inTransaction();
     }
 }

@@ -133,6 +133,7 @@ final class OrderService
     }
 
     /**
+     * @param array<string, mixed> $input
      * @return array{
      *     0: array{customer_id: int, requested_date: string, delivery_date: string, notes: ?string},
      *     1: list<array{product_id: int, quantity: string, unit_price: string}>

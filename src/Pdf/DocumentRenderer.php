@@ -102,8 +102,8 @@ final class DocumentRenderer
     /**
      * DDT (documento di trasporto) di UN cliente, con i prezzi di vendita.
      *
-     * @param non-empty-list<DocumentLine> $lines i bancali di quel cliente
-     * @param string                       $issuedAt "AAAA-MM-GG HH:MM:SS" in UTC
+     * @param list<DocumentLine> $lines i bancali di quel cliente (almeno uno: lo controlla il codice)
+     * @param string             $issuedAt "AAAA-MM-GG HH:MM:SS" in UTC
      */
     public function ddt(CompanyData $company, Trip $trip, array $lines, string $code, string $issuedAt): string
     {

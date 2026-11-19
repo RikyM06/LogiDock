@@ -31,6 +31,9 @@ abstract class MasterDataController
     ) {
     }
 
+    /**
+     * @return MasterDataService<covariant object>
+     */
     abstract protected function service(): MasterDataService;
 
     /** Percorso base delle rotte, es. "/suppliers". */
@@ -74,7 +77,7 @@ abstract class MasterDataController
      * Voci di un menu a tendina (id => testo): gli elementi attivi, più quello già assegnato al record
      * che si sta modificando, anche se nel frattempo è stato disattivato (con la nota "disattivato").
      *
-     * @param MasterDataService<object> $source   anagrafica da cui prendere le voci
+     * @param MasterDataService<covariant object> $source anagrafica da cui prendere le voci
      * @param callable(object): string  $label    come mostrare una voce
      * @return array<string, string>
      */
@@ -85,7 +88,7 @@ abstract class MasterDataController
             $options[(string) $item->id] = $label($item);
         }
 
-        if ($currentId !== null && !isset($options[(string) $currentId])) {
+        if ($currentId !== null && !array_key_exists($currentId, $options)) {
             $current = $source->find($currentId);
             if ($current !== null) {
                 $options[(string) $currentId] = $label($current) . ' (disattivato)';

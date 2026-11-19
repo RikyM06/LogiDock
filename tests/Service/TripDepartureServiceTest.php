@@ -292,7 +292,7 @@ final class TripDepartureServiceTest extends IntegrationTestCase
         self::assertSame(Order::STATUS_PLANNED, $this->orders->find($orderId)?->status, 'un bancale è ancora a terra');
 
         $this->departures->depart($tripIds[1], $this->userId, $this->now);
-        self::assertSame(Order::STATUS_SHIPPED, $this->orders->find($orderId)?->status);
+        self::assertSame(Order::STATUS_SHIPPED, $this->orders->find($orderId)->status);
     }
 
     // --- documenti ---

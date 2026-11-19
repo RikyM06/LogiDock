@@ -223,7 +223,7 @@ final class OrderServiceTest extends IntegrationTestCase
         $order = $this->orders->find($id);
         self::assertSame($code, $order?->code, 'Il codice non cambia con la modifica.');
         self::assertSame('2026-11-12', $order?->deliveryDate);
-        self::assertSame('Cambiata', $order?->notes);
+        self::assertSame('Cambiata', $order->notes);
 
         $lines = $this->orders->linesOf($id);
         self::assertCount(1, $lines, 'La riga tolta dal form sparisce.');
@@ -249,7 +249,7 @@ final class OrderServiceTest extends IntegrationTestCase
 
         $this->orders->cancel($id);
         self::assertSame(Order::STATUS_CANCELLED, $this->orders->find($id)?->status);
-        self::assertFalse($this->orders->find($id)?->isEditable());
+        self::assertFalse($this->orders->find($id)->isEditable());
 
         $this->expectException(OrderNotEditableException::class);
         $this->orders->update($id, $this->input([$this->line($this->waterId)]), $this->now);

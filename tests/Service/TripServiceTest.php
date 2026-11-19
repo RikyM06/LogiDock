@@ -410,7 +410,7 @@ final class TripServiceTest extends IntegrationTestCase
         $this->trips->cancel($firstTrip);
         self::assertSame(Order::STATUS_PLANNED, $this->orders->find($orderId)?->status);
         $this->trips->cancel($secondTrip);
-        self::assertSame(Order::STATUS_OPEN, $this->orders->find($orderId)?->status);
+        self::assertSame(Order::STATUS_OPEN, $this->orders->find($orderId)->status);
     }
 
     // --- annullamento ---
@@ -494,13 +494,13 @@ final class TripServiceTest extends IntegrationTestCase
 
         $new = $this->trips->find($newTripId);
         self::assertSame('ZZ002TR', $new?->vehiclePlate);
-        self::assertSame($this->roundId, $new?->roundId, 'stesso giro del viaggio di partenza');
-        self::assertSame('200.00', $new?->carrierFee, 'compenso del trasportatore del nuovo mezzo');
-        self::assertSame(Trip::STATUS_PLANNED, $new?->status);
-        self::assertSame(1, $new?->palletCount);
-        self::assertSame(1, $new?->lockedCount);
+        self::assertSame($this->roundId, $new->roundId, 'stesso giro del viaggio di partenza');
+        self::assertSame('200.00', $new->carrierFee, 'compenso del trasportatore del nuovo mezzo');
+        self::assertSame(Trip::STATUS_PLANNED, $new->status);
+        self::assertSame(1, $new->palletCount);
+        self::assertSame(1, $new->lockedCount);
         self::assertSame(2, $this->trips->find($tripId)?->palletCount);
-        self::assertSame(0, $this->trips->find($tripId)?->lockedCount);
+        self::assertSame(0, $this->trips->find($tripId)->lockedCount);
 
         $item = $this->trips->itemsOf($newTripId)[0];
         self::assertSame($p3, $item->palletId);
@@ -601,8 +601,8 @@ final class TripServiceTest extends IntegrationTestCase
 
         $trip = $this->trips->find($tripId);
         self::assertSame('ZZ002TR', $trip?->vehiclePlate);
-        self::assertSame('Zz Altri Trasporti', $trip?->carrierName);
-        self::assertSame('200.00', $trip?->carrierFee);
+        self::assertSame('Zz Altri Trasporti', $trip->carrierName);
+        self::assertSame('200.00', $trip->carrierFee);
         self::assertContains('ZZ001TR', $this->freePlates());
         self::assertNotContains('ZZ002TR', $this->freePlates());
     }

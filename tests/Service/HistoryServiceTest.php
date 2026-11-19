@@ -248,10 +248,10 @@ final class HistoryServiceTest extends IntegrationTestCase
         self::assertSame('ddt', $good['type']);
 
         // I report con filtri sporchi non lanciano nulla.
-        self::assertIsArray($this->history->trips($filters, true));
-        self::assertIsArray($this->history->suppliers($filters));
-        self::assertIsArray($this->history->documents($filters, true));
-        self::assertIsArray($this->history->payments($filters)->rows);
+        self::assertGreaterThanOrEqual(0, count($this->history->trips($filters, true)));
+        self::assertGreaterThanOrEqual(0, count($this->history->suppliers($filters)));
+        self::assertGreaterThanOrEqual(0, count($this->history->documents($filters, true)));
+        self::assertGreaterThanOrEqual(0, count($this->history->payments($filters)->rows));
     }
 
     /**

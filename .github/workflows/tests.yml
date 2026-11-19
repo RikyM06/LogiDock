@@ -1,0 +1,66 @@
+# Controlli automatici: a ogni push e a ogni pull request su main installa il progetto, crea un MySQL
+# di prova, applica le migrazioni e lancia l'analisi (PHPStan) e i test (PHPUnit).
+# Lo stesso controllo si fa in locale con: composer check
+name: Controlli
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  controlli:
+    name: Analisi e test
+    # Stessa famiglia di sistema del server di produzione (Ubuntu 24.04).
+    runs-on: ubuntu-24.04
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          # Password usa-e-getta: questo MySQL esiste solo per la durata del job.
+          MYSQL_ROOT_PASSWORD: ci-solo-per-i-test
+          MYSQL_DATABASE: logidock_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --host=127.0.0.1 --password=ci-solo-per-i-test"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    env:
+      # Le variabili vere vincono su .env, che qui non esiste.
+      DB_HOST: 127.0.0.1
+      DB_PORT: "3306"
+      DB_NAME: logidock_test
+      DB_USER: root
+      DB_PASSWORD: ci-solo-per-i-test
+
+    steps:
+      - name: Scarica il codice
+        uses: actions/checkout@v4
+
+      - name: Installa PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: pdo_mysql, intl, mbstring, zip
+          tools: composer:v2
+          coverage: none
+
+      - name: Installa le dipendenze
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Applica le migrazioni al database di prova
+        run: php bin/migrate.php
+
+      - name: Analisi statica (PHPStan)
+        run: composer analyse
+
+      - name: Test (PHPUnit)
+        run: composer test

@@ -47,6 +47,7 @@ final class TripDepartureService
      * @param DateTimeImmutable|null $now l'ora corrente; si passa solo nei test
      * @return list<TransportDocument> i documenti emessi
      * @throws TripChangeNotAllowedException se il viaggio non esiste, non è pianificato o non ha bancali
+     * @throws LogicException se i dati sono incoerenti (una riga senza la riga della richiesta, un bancale non prenotato): la partenza si ferma e nulla viene salvato
      */
     public function depart(int $tripId, int $userId, ?DateTimeImmutable $now = null): array
     {

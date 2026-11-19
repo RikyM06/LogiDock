@@ -24,16 +24,18 @@ final class DatabaseTransactionTest extends IntegrationTestCase
     {
         $this->insertRound('Zz scritto prima');
 
+        $caught = null;
         try {
             $this->database->transaction(function (): void {
                 $this->insertRound('Zz scritto dentro');
                 throw new RuntimeException('errore a metà');
             });
-            self::fail('L\'eccezione doveva uscire dalla transazione, non essere ingoiata.');
         } catch (RuntimeException $e) {
-            self::assertSame('errore a metà', $e->getMessage());
+            $caught = $e;
         }
 
+        self::assertInstanceOf(RuntimeException::class, $caught, 'L\'eccezione doveva uscire dalla transazione, non essere ingoiata.');
+        self::assertSame('errore a metà', $caught->getMessage());
         self::assertSame(0, $this->roundsNamed('Zz scritto dentro'), 'Quello scritto dentro si annulla.');
         self::assertSame(1, $this->roundsNamed('Zz scritto prima'), 'Quello scritto prima resta.');
     }
@@ -42,14 +44,16 @@ final class DatabaseTransactionTest extends IntegrationTestCase
     {
         $this->database->transaction(fn () => $this->insertRound('Zz primo'));
 
+        $caught = null;
         try {
             $this->database->transaction(function (): void {
                 $this->insertRound('Zz secondo');
                 throw new RuntimeException('fallisce');
             });
-        } catch (RuntimeException) {
-            // atteso
+        } catch (RuntimeException $e) {
+            $caught = $e;
         }
+        self::assertInstanceOf(RuntimeException::class, $caught, 'L\'eccezione doveva uscire dalla transazione.');
 
         $this->database->transaction(fn () => $this->insertRound('Zz terzo'));
 
@@ -63,15 +67,17 @@ final class DatabaseTransactionTest extends IntegrationTestCase
         // Chiude la transazione del test: qui serve provare quella "vera", senza nessuna già aperta.
         $this->database->pdo()->rollBack();
 
+        $caught = null;
         try {
             $this->database->transaction(function (): void {
                 $this->insertRound('Zz mai salvato');
                 throw new RuntimeException('fallisce');
             });
-        } catch (RuntimeException) {
-            // atteso
+        } catch (RuntimeException $e) {
+            $caught = $e;
         }
 
+        self::assertInstanceOf(RuntimeException::class, $caught, 'L\'eccezione doveva uscire dalla transazione, non essere ingoiata.');
         self::assertFalse($this->database->pdo()->inTransaction(), 'La transazione deve essere chiusa.');
         self::assertSame(0, $this->roundsNamed('Zz mai salvato'));
     }
