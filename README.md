@@ -537,9 +537,8 @@ docker compose run --rm php php bin/seed.php
 
 Apri <http://localhost:8080>. MySQL è raggiungibile dal PC su `127.0.0.1:3307`.
 
-> **Non testato:** quando sono stati scritti non c'era Docker a disposizione, quindi `docker-compose.yml`
-> e i file in `docker/` non sono mai stati eseguiti. Se qualcosa non parte, il primo posto dove guardare
-> sono i log (`docker compose logs`).
+> **Provato:** `docker-compose.yml` e i file in `docker/` sono stati eseguiti su un ambiente Ubuntu di prova
+> (novembre 2026). Se qualcosa non parte, il primo posto dove guardare sono i log (`docker compose logs`).
 
 ### Produzione e backup
 

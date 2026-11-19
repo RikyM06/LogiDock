@@ -267,7 +267,15 @@ Se una migrazione fallisce a metà, correggi la causa e rilancia: le migrazioni 
 
 ## Cosa è stato provato (e cosa no)
 
-Provato su MySQL 8.4 locale con Git Bash:
+**Provato su un ambiente Ubuntu** (novembre 2026, dal titolare del progetto), seguendo questa guida da zero:
+installazione dei pacchetti, MySQL con i tre utenti, migrazioni, primo admin (compreso il prompt nascosto della
+password di `create-user.php`), `nginx/logidock.conf` e `php-fpm/logidock.conf` con i controlli del punto 11,
+`deploy.sh` per gli aggiornamenti, backup con cron e ripristino, e `docker-compose.yml` con i file in `docker/`
+per lo sviluppo. Ha funzionato come scritto, senza modifiche alla guida.
+
+Era un ambiente di prova: l'installazione sul server definitivo dell'azienda seguirà gli stessi passaggi.
+
+Prima, in locale, era stato provato su MySQL 8.4 con Git Bash:
 - `backup.sh`: dump valido, ripristino identico (righe, trigger, chiavi esterne), nessun file a metà in
   caso di errore, rotazione, rifiuto di parametri sbagliati.
 - `mysql/grant-app-user.sh`: l'utente dell'app legge e inserisce in `pallet_movements` ma `UPDATE`,
@@ -275,6 +283,4 @@ Provato su MySQL 8.4 locale con Git Bash:
 - `bin/create-user.php`: creazione da stdin e controlli sugli input.
 - Le variabili d'ambiente reali prevalgono su `.env` (è ciò che usa `deploy.sh` per le migrazioni).
 
-**Non provato** (nessun Ubuntu né Docker a disposizione quando sono stati scritti): `nginx/logidock.conf`,
-`php-fpm/logidock.conf`, `deploy.sh`, il prompt nascosto della password in `create-user.php` (richiede
-Linux), `docker-compose.yml` e i file in `docker/`. Segui i controlli del punto 11.
+Se qualcosa non parte, i controlli del punto 11 dicono dove guardare.
