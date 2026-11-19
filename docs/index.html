@@ -429,7 +429,7 @@ Nginx ──► public/index.php (front controller)
                     se il nome del database non finisce in <code>_test</code>.
                 </p>
                 <p class="section__intro" style="margin-top: 1rem;">
-                    A ogni push, <strong>GitHub Actions</strong> installa il progetto, crea un MySQL di prova, applica le migrazioni
+                    A ogni push su <code>main</code> e a ogni pull request, <strong>GitHub Actions</strong> installa il progetto, crea un MySQL di prova, applica le migrazioni
                     e lancia l'analisi statica (<strong>PHPStan</strong>, livello 6, senza «baseline») e tutti i test.
                     In locale basta <code>composer check</code>.
                 </p>
@@ -515,7 +515,7 @@ php -S localhost:8000 -t public  # apri http://localhost:8000</code></pre>
     <footer class="footer">
         <div class="container">
             LogiDock · gestionale di magazzino e logistica · progetto personale per il portfolio ·
-            source available, <a href="#licenza">licenza</a> · versione <span data-version>0.0.18.1</span>
+            source available, <a href="#licenza">licenza</a> · versione <span data-version>0.0.18.2</span>
         </div>
     </footer>
 </body>

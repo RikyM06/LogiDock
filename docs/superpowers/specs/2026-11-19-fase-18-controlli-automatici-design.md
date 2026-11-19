@@ -1,6 +1,6 @@
 # Fase 18, passo 2 - Controlli automatici (design breve)
 
-Issue [#32](https://github.com/RikyM06/LogiDock/issues/32). Data: 2026-11-19. Stato: da approvare.
+Issue [#32](https://github.com/RikyM06/LogiDock/issues/32). Data: 2026-11-19. Stato: approvato il 2026-11-19 e realizzato (v0.0.18.1).
 Taglia: piccola/media (un workflow, un file di configurazione, un test di regole, ritocchi al codice che l'analisi
 farà emergere). Versione: 0.0.18.1.
 
@@ -64,7 +64,8 @@ un test che dipendeva da un'estensione PHP non dichiarata.
 - Un solo job su `ubuntu-24.04` (come il server), con un servizio MySQL 8 (`mysql:8.0`, con controllo di salute).
 - Passi: checkout, PHP 8.3 con le estensioni usate dal progetto (`pdo_mysql`, `intl`, `mbstring`, `zip`; se il PHP
   già presente sul runner non basta si usa l'azione `shivammathur/setup-php`), `composer install`, abilitazione dei
-  trigger (`log_bin_trust_function_creators=1`, serve alla migrazione 0009), creazione di `logidock_test`,
+  database `logidock_test` creato dal servizio MySQL (utente root, che ha il permesso SUPER: i trigger della migrazione
+  0009 si creano senza `log_bin_trust_function_creators`, scoperta durante la realizzazione),
   `php bin/migrate.php` con le variabili d'ambiente del database di prova, `composer analyse`, `composer test`.
 - Nessun segreto: la password del MySQL di prova è un valore usa-e-getta scritto nel workflow (il servizio vive solo
   per la durata del job).

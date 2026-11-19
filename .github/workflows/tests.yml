@@ -17,6 +17,8 @@ jobs:
     name: Analisi e test
     # Stessa famiglia di sistema del server di produzione (Ubuntu 24.04).
     runs-on: ubuntu-24.04
+    # Se qualcosa si pianta (per esempio MySQL che non parte) il job si ferma da solo invece di restare appeso per ore.
+    timeout-minutes: 15
 
     services:
       mysql:
@@ -34,7 +36,8 @@ jobs:
           --health-retries=20
 
     env:
-      # Le variabili vere vincono su .env, che qui non esiste.
+      # L'utente è root, che ha il permesso SUPER: i trigger della migrazione 0009 si creano senza
+      # log_bin_trust_function_creators. Le variabili vere vincono su .env, che qui non esiste.
       DB_HOST: 127.0.0.1
       DB_PORT: "3306"
       DB_NAME: logidock_test
@@ -43,7 +46,7 @@ jobs:
 
     steps:
       - name: Scarica il codice
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Installa PHP 8.3
         uses: shivammathur/setup-php@v2

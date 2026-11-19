@@ -16,8 +16,8 @@ use SplFileInfo;
  */
 final class CodingRulesTest extends TestCase
 {
-    /** Cartelle che non fanno parte del codice nostro. */
-    private const SKIPPED_DIRECTORIES = ['vendor', '.git', '.phpunit.cache', 'node_modules', 'storage', 'LinkedIn', 'images', '.superpowers'];
+    /** Cartelle che non fanno parte del codice nostro (percorsi dalla radice del progetto). */
+    private const SKIPPED_DIRECTORIES = ['vendor', '.git', '.phpunit.cache', 'node_modules', 'storage', 'LinkedIn', 'docs/images', '.superpowers'];
 
     /** Estensioni dei file di testo del progetto. */
     private const TEXT_EXTENSIONS = ['php', 'sql', 'md', 'css', 'js', 'html', 'ps1', 'sh', 'yml', 'yaml', 'neon', 'json'];
@@ -30,7 +30,8 @@ final class CodingRulesTest extends TestCase
             if (str_starts_with($relative, 'templates/')) {
                 continue;
             }
-            if (!str_contains((string) file_get_contents($path), 'declare(strict_types=1);')) {
+            // All'inizio di una riga: una dichiarazione commentata ("// declare(...)") non conta.
+            if (preg_match('/^declare\(strict_types=1\);/m', (string) file_get_contents($path)) !== 1) {
                 $missing[] = $relative;
             }
         }
@@ -149,7 +150,11 @@ final class CodingRulesTest extends TestCase
         $directory = new RecursiveDirectoryIterator($root, RecursiveDirectoryIterator::SKIP_DOTS);
         $filter = new RecursiveCallbackFilterIterator(
             $directory,
-            static fn (SplFileInfo $file): bool => !($file->isDir() && in_array($file->getFilename(), self::SKIPPED_DIRECTORIES, true))
+            static fn (SplFileInfo $file): bool => !($file->isDir() && in_array(
+                str_replace('\\', '/', substr($file->getPathname(), strlen($root) + 1)),
+                self::SKIPPED_DIRECTORIES,
+                true
+            ))
         );
 
         $found = [];

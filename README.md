@@ -1,5 +1,7 @@
 # <img src="docs/assets/logo.svg" alt="" width="40" height="40" align="top"> LogiDock
 
+[![Controlli](https://github.com/RikyM06/LogiDock/actions/workflows/tests.yml/badge.svg)](https://github.com/RikyM06/LogiDock/actions/workflows/tests.yml)
+
 ![Dettaglio di un arrivo in LogiDock](docs/assets/screenshots/arrivo-dettaglio.png)
 
 Gestionale web per una piccola azienda di logistica locale: anagrafica prodotti, bancali in ingresso,
