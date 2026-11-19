@@ -25,10 +25,10 @@ final class CustomerService extends MasterDataService
 
         $values = [
             'name' => $v->requiredString('name', 'Ragione sociale', 150),
-            'tax_code' => $v->optionalString('tax_code', 'Partita IVA / codice fiscale', 30),
-            'address' => $v->optionalString('address', 'Indirizzo', 255),
+            'tax_code' => $v->requiredTaxCode('tax_code', 'Partita IVA / codice fiscale'),
+            'address' => $v->requiredString('address', 'Indirizzo di consegna', 255),
             'contact_email' => $v->optionalEmail('contact_email', 'E-mail'),
-            'phone' => $v->optionalString('phone', 'Telefono', 30),
+            'phone' => $v->optionalPhone('phone', 'Telefono'),
             'round_id' => $v->optionalReference(
                 'round_id',
                 'Giro',

@@ -68,11 +68,11 @@ final class MasterDataServicesTest extends IntegrationTestCase
         self::assertSame('02 0000999', $supplier->phone);
         self::assertTrue($supplier->isActive);
 
-        $this->suppliers->update($id, $this->supplier(['name' => 'Zeta Forniture S.r.l.', 'phone' => '0123']));
+        $this->suppliers->update($id, $this->supplier(['name' => 'Zeta Forniture S.r.l.', 'phone' => '02 0001234']));
 
         $updated = $this->suppliers->find($id);
         self::assertSame('Zeta Forniture S.r.l.', $updated?->name);
-        self::assertSame('0123', $updated->phone);
+        self::assertSame('02 0001234', $updated->phone);
     }
 
     public function testEverySupplierFieldIsRequired(): void
@@ -163,7 +163,7 @@ final class MasterDataServicesTest extends IntegrationTestCase
     {
         $roundId = $this->rounds->create(['name' => 'Giro Costa']);
 
-        $id = $this->customers->create(['name' => 'Bar Sole', 'round_id' => (string) $roundId]);
+        $id = $this->customers->create(['tax_code' => 'IT00000000001', 'address' => 'Via Prova 1', 'name' => 'Bar Sole', 'round_id' => (string) $roundId]);
 
         $customer = $this->customers->find($id);
         self::assertSame($roundId, $customer?->roundId);
@@ -172,7 +172,7 @@ final class MasterDataServicesTest extends IntegrationTestCase
 
     public function testCustomerWithoutRoundIsAllowed(): void
     {
-        $id = $this->customers->create(['name' => 'Bar Luna', 'round_id' => '', 'phone' => '  ']);
+        $id = $this->customers->create(['tax_code' => 'IT00000000001', 'address' => 'Via Prova 1', 'name' => 'Bar Luna', 'round_id' => '', 'phone' => '  ']);
 
         self::assertNull($this->customers->find($id)?->roundId);
         self::assertNull($this->customers->find($id)?->phone, 'Un campo facoltativo vuoto diventa NULL, non una stringa vuota.');
@@ -180,7 +180,7 @@ final class MasterDataServicesTest extends IntegrationTestCase
 
     public function testCustomerCannotGetANonExistingRound(): void
     {
-        $errors = $this->errorsOf(fn () => $this->customers->create(['name' => 'X', 'round_id' => '2000000000']));
+        $errors = $this->errorsOf(fn () => $this->customers->create(['tax_code' => 'IT00000000001', 'address' => 'Via Prova 1', 'name' => 'X', 'round_id' => '2000000000']));
 
         self::assertSame(['round_id'], array_keys($errors));
     }
@@ -190,7 +190,7 @@ final class MasterDataServicesTest extends IntegrationTestCase
         $roundId = $this->rounds->create(['name' => 'Giro Chiuso']);
         $this->rounds->deactivate($roundId);
 
-        $errors = $this->errorsOf(fn () => $this->customers->create(['name' => 'X', 'round_id' => (string) $roundId]));
+        $errors = $this->errorsOf(fn () => $this->customers->create(['tax_code' => 'IT00000000001', 'address' => 'Via Prova 1', 'name' => 'X', 'round_id' => (string) $roundId]));
 
         self::assertSame(['round_id'], array_keys($errors));
     }
@@ -198,11 +198,11 @@ final class MasterDataServicesTest extends IntegrationTestCase
     public function testCustomerKeepsItsRoundEvenIfTheRoundIsDeactivatedLater(): void
     {
         $roundId = $this->rounds->create(['name' => 'Giro Vecchio']);
-        $id = $this->customers->create(['name' => 'Bar Stella', 'round_id' => (string) $roundId]);
+        $id = $this->customers->create(['tax_code' => 'IT00000000001', 'address' => 'Via Prova 1', 'name' => 'Bar Stella', 'round_id' => (string) $roundId]);
         $this->rounds->deactivate($roundId);
 
         // Salvare il cliente senza toccare il giro non deve dare errore né perderlo.
-        $this->customers->update($id, ['name' => 'Bar Stella 2', 'round_id' => (string) $roundId]);
+        $this->customers->update($id, ['tax_code' => 'IT00000000001', 'address' => 'Via Prova 1', 'name' => 'Bar Stella 2', 'round_id' => (string) $roundId]);
 
         self::assertSame($roundId, $this->customers->find($id)?->roundId);
     }
@@ -344,6 +344,60 @@ final class MasterDataServicesTest extends IntegrationTestCase
             'width_mm' => '1200',
         ]));
         self::assertSame(['code'], array_keys($errors));
+    }
+
+    public function testSupplierTaxCodeAndPhoneAreCheckedAndTheTaxCodeIsNormalized(): void
+    {
+        $errors = $this->errorsOf(fn () => $this->suppliers->create($this->supplier(['tax_code' => 'x', 'phone' => 'abc'])));
+
+        self::assertSame(['tax_code', 'phone'], array_keys($errors));
+
+        $id = $this->suppliers->create($this->supplier(['name' => 'Zz Normalizzato', 'tax_code' => ' it 0000 0000 999 ']));
+        self::assertSame('IT00000000999', $this->suppliers->find($id)?->taxCode);
+    }
+
+    public function testCustomerNeedsTaxCodeAndAddress(): void
+    {
+        $errors = $this->errorsOf(fn () => $this->customers->create(['name' => 'Zz Incompleto']));
+
+        self::assertSame(['tax_code', 'address'], array_keys($errors));
+        self::assertStringContainsString('obbligatorio', $errors['tax_code']);
+    }
+
+    public function testCustomerEmailAndPhoneStayOptionalButAreCheckedWhenWritten(): void
+    {
+        $id = $this->customers->create(['name' => 'Zz Solo DDT', 'tax_code' => 'it12345678901', 'address' => 'Via Prova 1']);
+        $customer = $this->customers->find($id);
+
+        self::assertSame('IT12345678901', $customer?->taxCode);
+        self::assertNull($customer->contactEmail);
+        self::assertNull($customer->phone);
+
+        $errors = $this->errorsOf(fn () => $this->customers->create([
+            'name' => 'Zz Sbagliato', 'tax_code' => 'IT12345678901', 'address' => 'Via Prova 1',
+            'contact_email' => 'no', 'phone' => 'abc',
+        ]));
+        self::assertSame(['contact_email', 'phone'], array_keys($errors));
+    }
+
+    public function testUpdatingACustomerWithoutTaxCodeAsksToCompleteIt(): void
+    {
+        $id = $this->customers->create(['name' => 'Zz Da Completare', 'tax_code' => 'IT12345678901', 'address' => 'Via Prova 1']);
+
+        $errors = $this->errorsOf(fn () => $this->customers->update($id, ['name' => 'Zz Da Completare', 'tax_code' => '', 'address' => '']));
+
+        self::assertSame(['tax_code', 'address'], array_keys($errors));
+    }
+
+    public function testCarrierTaxCodeAndPhoneAreOptionalButCheckedWhenWritten(): void
+    {
+        $id = $this->carriers->create(['name' => 'Zz Trasporti', 'trip_fee' => '100']);
+        self::assertNull($this->carriers->find($id)?->phone);
+
+        $errors = $this->errorsOf(fn () => $this->carriers->create([
+            'name' => 'Zz Sbagliati', 'trip_fee' => '100', 'tax_code' => 'x', 'phone' => 'abc',
+        ]));
+        self::assertSame(['tax_code', 'phone'], array_keys($errors));
     }
 
     /**

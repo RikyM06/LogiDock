@@ -127,7 +127,7 @@ final class TripDepartureServiceTest extends IntegrationTestCase
             'name' => 'Zz Alfa Market', 'round_id' => (string) $this->roundId,
             'tax_code' => 'IT00000000001', 'address' => 'Via Alfa 1',
         ]);
-        $this->betaId = $customers->create(['name' => 'Zz Beta Bar', 'round_id' => (string) $this->roundId]);
+        $this->betaId = $customers->create(['tax_code' => 'IT00000000001', 'address' => 'Via Prova 1', 'name' => 'Zz Beta Bar', 'round_id' => (string) $this->roundId]);
         $this->waterId = $products->create([
             'code' => 'ZZ-DP-ACQUA', 'description' => 'Acqua di prova', 'unit_of_measure' => 'ct', 'unit_weight_kg' => '10',
         ]);

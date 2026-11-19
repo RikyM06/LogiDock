@@ -104,8 +104,8 @@ final class TripServiceTest extends IntegrationTestCase
         );
 
         $this->roundId = $rounds->create(['name' => 'Zz Giro Viaggi']);
-        $this->alfaId = $this->customers->create(['name' => 'Zz Alfa Market', 'round_id' => (string) $this->roundId]);
-        $this->betaId = $this->customers->create(['name' => 'Zz Beta Bar', 'round_id' => (string) $this->roundId]);
+        $this->alfaId = $this->customers->create(['tax_code' => 'IT00000000001', 'address' => 'Via Prova 1', 'name' => 'Zz Alfa Market', 'round_id' => (string) $this->roundId]);
+        $this->betaId = $this->customers->create(['tax_code' => 'IT00000000001', 'address' => 'Via Prova 1', 'name' => 'Zz Beta Bar', 'round_id' => (string) $this->roundId]);
         $this->waterId = $products->create([
             'code' => 'ZZ-TR-ACQUA', 'description' => 'Acqua di prova', 'unit_of_measure' => 'ct', 'unit_weight_kg' => '10',
         ]);
@@ -191,7 +191,7 @@ final class TripServiceTest extends IntegrationTestCase
 
     public function testCustomerWithoutRoundIsNotPlanned(): void
     {
-        $noRound = $this->customers->create(['name' => 'Zz Senza Giro']);
+        $noRound = $this->customers->create(['tax_code' => 'IT00000000001', 'address' => 'Via Prova 1', 'name' => 'Zz Senza Giro']);
         $this->order($noRound, [[$this->waterId, '10']]);
         $pallet = $this->pallet($this->waterId, '30', '2026-11-01 08:00:00');
 
@@ -289,7 +289,7 @@ final class TripServiceTest extends IntegrationTestCase
     {
         $this->vehicle('ZZ002TR');
         $otherRound = (new RoundService(new RoundRepository($this->database)))->create(['name' => 'Zz Giro Viaggi 2']);
-        $gamma = $this->customers->create(['name' => 'Zz Gamma', 'round_id' => (string) $otherRound]);
+        $gamma = $this->customers->create(['tax_code' => 'IT00000000001', 'address' => 'Via Prova 1', 'name' => 'Zz Gamma', 'round_id' => (string) $otherRound]);
         $this->order($this->alfaId, [[$this->waterId, '10']]);
         $this->order($gamma, [[$this->waterId, '10']]);
         $this->pallet($this->waterId, '30', '2026-11-01 08:00:00');
@@ -544,7 +544,7 @@ final class TripServiceTest extends IntegrationTestCase
     public function testAPalletCannotMoveToATripOfAnotherRound(): void
     {
         $otherRound = (new RoundService(new RoundRepository($this->database)))->create(['name' => 'Zz Giro Viaggi 3']);
-        $gamma = $this->customers->create(['name' => 'Zz Gamma 3', 'round_id' => (string) $otherRound]);
+        $gamma = $this->customers->create(['tax_code' => 'IT00000000001', 'address' => 'Via Prova 1', 'name' => 'Zz Gamma 3', 'round_id' => (string) $otherRound]);
         $this->vehicle('ZZ002TR');
         $this->order($this->alfaId, [[$this->waterId, '60']]);
         $this->order($gamma, [[$this->waterId, '30']]);

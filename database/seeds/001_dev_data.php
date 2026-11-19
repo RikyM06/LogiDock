@@ -173,18 +173,26 @@ return static function (Database $database): void {
             ?? $insert('INSERT INTO rounds (name, description) VALUES (?, ?)', [$name, $description]);
     }
 
+    // Dal passo 3 della Fase 18 partita IVA e indirizzo sono obbligatori anche per i clienti (come sul DDT):
+    // i valori sono finti (IT000...), e i clienti già presenti li ricevono solo se non ce li hanno.
     $customers = [
-        ['Supermercato Il Girasole', 'Via Milano 21, Bergamo', 'Giro Nord'],
-        ['Alimentari Bianchi', 'Via Garibaldi 5, Lecco', 'Giro Nord'],
-        ['Emporio del Borgo', 'Piazza Duomo 3, Parma', 'Giro Sud'],
+        ['Supermercato Il Girasole', 'IT00000000201', 'Via Milano 21, Bergamo', 'Giro Nord'],
+        ['Alimentari Bianchi', 'IT00000000202', 'Via Garibaldi 5, Lecco', 'Giro Nord'],
+        ['Emporio del Borgo', 'IT00000000203', 'Piazza Duomo 3, Parma', 'Giro Sud'],
     ];
-    foreach ($customers as [$name, $address, $round]) {
-        if ($firstId('SELECT id FROM customers WHERE name = ?', [$name]) === null) {
+    foreach ($customers as [$name, $taxCode, $address, $round]) {
+        $existing = $firstId('SELECT id FROM customers WHERE name = ?', [$name]);
+        if ($existing === null) {
             $insert(
-                'INSERT INTO customers (name, address, round_id) VALUES (?, ?, ?)',
-                [$name, $address, $roundIds[$round]]
+                'INSERT INTO customers (name, tax_code, address, round_id) VALUES (?, ?, ?, ?)',
+                [$name, $taxCode, $address, $roundIds[$round]]
             );
+            continue;
         }
+
+        $database->pdo()->prepare(
+            'UPDATE customers SET tax_code = COALESCE(tax_code, ?), address = COALESCE(address, ?) WHERE id = ?'
+        )->execute([$taxCode, $address, $existing]);
     }
 
     $carrierId = $firstId('SELECT id FROM carriers WHERE name = ?', ['Autotrasporti Verdi'])

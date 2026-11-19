@@ -22,10 +22,10 @@ final class SupplierService extends MasterDataService
 
         $values = [
             'name' => $v->requiredString('name', 'Ragione sociale', 150),
-            'tax_code' => $v->requiredString('tax_code', 'Partita IVA / codice fiscale', 30),
+            'tax_code' => $v->requiredTaxCode('tax_code', 'Partita IVA / codice fiscale'),
             'address' => $v->requiredString('address', 'Indirizzo', 255),
             'contact_email' => $v->requiredEmail('contact_email', 'E-mail'),
-            'phone' => $v->requiredString('phone', 'Telefono', 30),
+            'phone' => $v->requiredPhone('phone', 'Telefono'),
         ];
 
         $v->assertValid();

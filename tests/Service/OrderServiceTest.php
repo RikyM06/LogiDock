@@ -61,7 +61,7 @@ final class OrderServiceTest extends IntegrationTestCase
             UserRole::Operatore
         );
         $roundId = $rounds->create(['name' => 'Zz Giro Prova']);
-        $this->customerId = $this->customers->create(['name' => 'Zz Bar Centrale', 'round_id' => (string) $roundId]);
+        $this->customerId = $this->customers->create(['tax_code' => 'IT00000000001', 'address' => 'Via Prova 1', 'name' => 'Zz Bar Centrale', 'round_id' => (string) $roundId]);
         $this->waterId = $this->products->create([
             'code' => 'ZZ-ACQUA', 'description' => 'Acqua di prova', 'unit_of_measure' => 'ct', 'unit_weight_kg' => '12',
         ]);

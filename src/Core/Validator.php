@@ -60,6 +60,43 @@ final class Validator
         return $value === '' ? null : $this->checkLength($field, $label, $value, $max);
     }
 
+    /**
+     * Partita IVA o codice fiscale: controllo leggero, perché la partita IVA può essere anche estera.
+     * Si tolgono gli spazi e si scrive in maiuscolo; restano solo lettere e numeri, da 8 a 16 caratteri
+     * (11 cifre la partita IVA italiana, 13 con "IT", 16 il codice fiscale). Non si calcola la cifra di controllo.
+     */
+    public function requiredTaxCode(string $field, string $label): string
+    {
+        $value = $this->requiredString($field, $label, 30);
+
+        return $value === '' ? '' : $this->normalizedTaxCode($field, $label, $value);
+    }
+
+    public function optionalTaxCode(string $field, string $label): ?string
+    {
+        $value = $this->optionalString($field, $label, 30);
+
+        return $value === null ? null : $this->normalizedTaxCode($field, $label, $value);
+    }
+
+    /**
+     * Telefono: cifre, spazi e i simboli + - . / ( ), con il + solo all'inizio, da 6 a 15 cifre
+     * (15 è il massimo dei numeri internazionali). Si salva come è scritto.
+     */
+    public function requiredPhone(string $field, string $label): string
+    {
+        $value = $this->requiredString($field, $label, 30);
+
+        return $value === '' ? '' : $this->checkedPhone($field, $label, $value);
+    }
+
+    public function optionalPhone(string $field, string $label): ?string
+    {
+        $value = $this->optionalString($field, $label, 30);
+
+        return $value === null ? null : $this->checkedPhone($field, $label, $value);
+    }
+
     public function requiredEmail(string $field, string $label): string
     {
         $value = $this->requiredString($field, $label, 255);
@@ -239,6 +276,30 @@ final class Validator
         if ($this->errors !== []) {
             throw new ValidationException($this->errors);
         }
+    }
+
+    /** Toglie gli spazi, mette in maiuscolo e controlla che restino da 8 a 16 lettere e numeri. */
+    private function normalizedTaxCode(string $field, string $label, string $value): string
+    {
+        $normalized = strtoupper((string) preg_replace('/\s+/', '', $value));
+
+        if (preg_match('/^[A-Z0-9]{8,16}\z/', $normalized) !== 1) {
+            $this->fail($field, 'Il campo «' . $label . '» può contenere solo lettere e numeri (da 8 a 16 caratteri).');
+        }
+
+        return $normalized;
+    }
+
+    /** Controlla i caratteri ammessi e che le cifre siano da 6 a 15; il telefono si salva come è scritto. */
+    private function checkedPhone(string $field, string $label, string $value): string
+    {
+        $digits = preg_match_all('/[0-9]/', $value);
+
+        if (preg_match('/^\+?[0-9 .\/()-]+\z/', $value) !== 1 || $digits < 6 || $digits > 15) {
+            $this->fail($field, 'Il campo «' . $label . '» può contenere solo numeri, spazi e i simboli + - . / ( ) (da 6 a 15 cifre).');
+        }
+
+        return $value;
     }
 
     /** Valore grezzo come stringa senza spazi; un campo mancante o un array (field[]=x) vale "". */

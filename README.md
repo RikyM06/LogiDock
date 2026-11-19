@@ -210,13 +210,15 @@ passano sempre da prepared statement.
 | Anagrafica | Rotta | Regole particolari |
 |---|---|---|
 | Fornitori | `/suppliers` | **tutti i campi obbligatori** (ragione sociale, partita IVA / codice fiscale, indirizzo, e-mail valida, telefono); nel database restano facoltativi per i fornitori registrati prima della regola |
-| Clienti | `/customers` | ogni cliente può avere un giro (solo giri attivi) |
+| Clienti | `/customers` | **obbligatori ragione sociale, partita IVA / codice fiscale e indirizzo** (i campi del DDT); e-mail e telefono facoltativi; ogni cliente può avere un giro (solo giri attivi). Nel database restano facoltativi per i clienti registrati prima della regola |
 | Giri | `/rounds` | nome unico |
 | Veicoli | `/vehicles` | targa unica (maiuscola), tipo di rimorchio e trasportatore facoltativi |
 | Tipi di rimorchio | `/trailer-types` | lunghezza, larghezza, altezza interna (mm) e portata; il pianale è un rettangolo |
 | Trasportatori | `/carriers` | compenso fisso per viaggio; **solo admin**, anche la lista |
 | Posizioni di magazzino | `/locations` | codice unico, capacità facoltativa (vuota = capacità predefinita) |
 | Tipi di bancale | `/pallet-types` | codice unico; EPAL 3 (1200 × 1000 mm) ed EPAL 1 (1200 × 800 mm) già presenti |
+
+La **partita IVA / codice fiscale** e il **telefono** (di fornitori, clienti e trasportatori) hanno un controllo di formato leggero, scritto una volta sola in `Core\Validator`: la partita IVA accetta solo lettere e numeri (da 8 a 16 caratteri, salvata in maiuscolo e senza spazi), il telefono cifre, spazi e `+ - . / ( )` (da 6 a 15 cifre). Non si calcola la cifra di controllo, perché la partita IVA può essere estera.
 
 In tutte le schede i **campi obbligatori hanno un asterisco rosso** accanto all'etichetta (nelle tabelle a righe di
 arrivi e richieste, accanto al titolo della colonna). L'asterisco è solo visivo: ai lettori di schermo l'obbligo

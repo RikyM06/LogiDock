@@ -18,8 +18,8 @@ final class CarrierService extends MasterDataService
 
         $values = [
             'name' => $v->requiredString('name', 'Nome o ragione sociale', 150),
-            'tax_code' => $v->optionalString('tax_code', 'Partita IVA / codice fiscale', 30),
-            'phone' => $v->optionalString('phone', 'Telefono', 30),
+            'tax_code' => $v->optionalTaxCode('tax_code', 'Partita IVA / codice fiscale'),
+            'phone' => $v->optionalPhone('phone', 'Telefono'),
             // DECIMAL(10,2): al massimo 8 cifre intere e 2 decimali.
             'trip_fee' => $v->requiredDecimal('trip_fee', 'Compenso per viaggio (€)', 8, 2),
         ];

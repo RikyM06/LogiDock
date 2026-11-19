@@ -372,18 +372,23 @@ try {
         Write-Host '  pdftoppm non trovato: documento-ddt.png non rigenerato.'
     }
 
-    # Scheda fornitore inviata vuota: mostra che tutti i campi sono obbligatori (non salva niente).
-    Open-Page '/suppliers/create'
-    Invoke-Js 'document.querySelector("form.form").submit(); true' | Out-Null
-    $shown = $false
-    for ($i = 0; $i -lt 50 -and -not $shown; $i++) {
-        Start-Sleep -Milliseconds 200
-        # Durante il cambio di pagina il browser può non rispondere: si riprova al giro dopo.
-        try { $shown = [bool] (Invoke-Js 'document.readyState === "complete" && document.querySelectorAll(".form__error").length > 0') } catch { }
+    # Schede fornitore e cliente inviate vuote: mostrano i campi obbligatori e gli errori (non salvano niente).
+    function Save-EmptyFormErrors([string] $path, [string] $name, [string] $what) {
+        Open-Page $path
+        Invoke-Js 'document.querySelector("form.form").submit(); true' | Out-Null
+        $shown = $false
+        for ($i = 0; $i -lt 50 -and -not $shown; $i++) {
+            Start-Sleep -Milliseconds 200
+            # Durante il cambio di pagina il browser puo' non rispondere: si riprova al giro dopo.
+            try { $shown = [bool] (Invoke-Js 'document.readyState === "complete" && document.querySelectorAll(".form__error").length > 0') } catch { }
+        }
+        if (-not $shown) { throw "Il form $what non ha mostrato gli errori." }
+        Start-Sleep -Milliseconds 300
+        Save-Screenshot $name
     }
-    if (-not $shown) { throw 'Il form del fornitore non ha mostrato gli errori.' }
-    Start-Sleep -Milliseconds 300
-    Save-Screenshot 'fornitore-obbligatori'
+
+    Save-EmptyFormErrors '/suppliers/create' 'fornitore-obbligatori' 'del fornitore'
+    Save-EmptyFormErrors '/customers/create' 'cliente-obbligatori' 'del cliente'
 
     Open-Page '/settings';     Save-Screenshot 'impostazioni'
 

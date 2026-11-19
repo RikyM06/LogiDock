@@ -24,8 +24,8 @@
             'options' => $roundOptions,
             'blank' => 'Non assegnato',
         ]) ?>
-        <?= $partial('field', ['name' => 'tax_code', 'label' => 'Partita IVA / codice fiscale', 'maxlength' => 30, 'required' => false]) ?>
-        <?= $partial('field', ['name' => 'address', 'label' => 'Indirizzo di consegna', 'maxlength' => 255, 'required' => false]) ?>
+        <?= $partial('field', ['name' => 'tax_code', 'label' => 'Partita IVA / codice fiscale', 'maxlength' => 30]) ?>
+        <?= $partial('field', ['name' => 'address', 'label' => 'Indirizzo di consegna', 'maxlength' => 255]) ?>
         <div class="form__row">
             <?= $partial('field', ['name' => 'contact_email', 'label' => 'E-mail', 'maxlength' => 255, 'required' => false]) ?>
             <?= $partial('field', ['name' => 'phone', 'label' => 'Telefono', 'maxlength' => 30, 'required' => false]) ?>

@@ -309,4 +309,147 @@ final class ValidatorTest extends TestCase
             'negativo' => ['-3', null, false],
         ];
     }
+
+    // --- partita IVA / codice fiscale e telefono ---
+
+    public function testTaxCodeIsNormalizedToUpperCaseWithoutSpaces(): void
+    {
+        $v = new Validator(['a' => ' it 0000 0000 101 ', 'b' => 'rssmra80a01h501u']);
+
+        self::assertSame('IT00000000101', $v->requiredTaxCode('a', 'Partita IVA'));
+        self::assertSame('RSSMRA80A01H501U', $v->optionalTaxCode('b', 'Partita IVA'));
+        $v->assertValid();
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function validTaxCodes(): array
+    {
+        return [
+            'italiana con IT' => ['IT00000000101'],
+            'italiana di 11 cifre' => ['12345678901'],
+            'codice fiscale' => ['RSSMRA80A01H501U'],
+            'estera' => ['DE123456789'],
+            'lunghezza minima' => ['12345678'],
+            'lunghezza massima' => ['ABCDEFGH12345678'],
+        ];
+    }
+
+    #[DataProvider('validTaxCodes')]
+    public function testValidTaxCodesAreAccepted(string $value): void
+    {
+        self::assertSame([], $this->errorsAfter(['a' => $value], static function (Validator $v): void {
+            $v->requiredTaxCode('a', 'Partita IVA');
+            $v->optionalTaxCode('a', 'Partita IVA');
+        }));
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function invalidTaxCodes(): array
+    {
+        return [
+            'una lettera' => ['x'],
+            'troppo corta' => ['1234567'],
+            'troppo lunga' => ['ABCDEFGH123456789'],
+            'con trattino' => ['IT-0000000101'],
+            'con punto' => ['IT.00000000101'],
+            'con lettere accentate' => ['ÀÈÌÒÙ12345'],
+            'con un tag' => ['<b>12345678</b>'],
+            'con un apice' => ["IT0000000010'1"],
+        ];
+    }
+
+    #[DataProvider('invalidTaxCodes')]
+    public function testInvalidTaxCodesAreRejectedOnTheRightField(string $value): void
+    {
+        $errors = $this->errorsAfter(['a' => $value, 'b' => $value], static function (Validator $v): void {
+            $v->requiredTaxCode('a', 'Partita IVA');
+            $v->optionalTaxCode('b', 'Partita IVA');
+        });
+
+        self::assertSame(['a', 'b'], array_keys($errors));
+        self::assertStringContainsString('lettere e numeri', $errors['a']);
+    }
+
+    public function testRequiredTaxCodeNeedsAValueButOptionalOneDoesNot(): void
+    {
+        $errors = $this->errorsAfter(['a' => '  ', 'b' => ''], static function (Validator $v): void {
+            $v->requiredTaxCode('a', 'Partita IVA');
+            self::assertNull($v->optionalTaxCode('b', 'Partita IVA'));
+            self::assertNull($v->optionalTaxCode('missing', 'Partita IVA'));
+        });
+
+        self::assertSame(['a'], array_keys($errors));
+        self::assertStringContainsString('obbligatorio', $errors['a']);
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function validPhones(): array
+    {
+        return [
+            'con spazio' => ['035 0000101'],
+            'internazionale' => ['+39 035 0000101'],
+            'con parentesi e trattini' => ['(035) 000-0101'],
+            'con punto' => ['035.0000101'],
+            'con barra' => ['035/0000101'],
+            'solo cifre' => ['0350000000'],
+            'minimo 6 cifre' => ['12 34 56'],
+            'massimo 15 cifre' => ['+123456789012345'],
+        ];
+    }
+
+    #[DataProvider('validPhones')]
+    public function testValidPhonesAreAcceptedAndKeptAsWritten(string $value): void
+    {
+        $v = new Validator(['a' => '  ' . $value . '  ']);
+
+        self::assertSame($value, $v->requiredPhone('a', 'Telefono'));
+        self::assertSame($value, $v->optionalPhone('a', 'Telefono'));
+        $v->assertValid();
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function invalidPhones(): array
+    {
+        return [
+            'troppe poche cifre' => ['12345'],
+            'troppe cifre' => ['1234567890123456'],
+            'solo lettere' => ['abc'],
+            'lettere in mezzo' => ['035-abc-0000'],
+            'doppio più' => ['++39 0350000'],
+            'più in mezzo' => ['39+0350000'],
+            'con un tag' => ['<b>0350000000</b>'],
+            'solo simboli' => ['() - /'],
+        ];
+    }
+
+    #[DataProvider('invalidPhones')]
+    public function testInvalidPhonesAreRejectedOnTheRightField(string $value): void
+    {
+        $errors = $this->errorsAfter(['a' => $value, 'b' => $value], static function (Validator $v): void {
+            $v->requiredPhone('a', 'Telefono');
+            $v->optionalPhone('b', 'Telefono');
+        });
+
+        self::assertSame(['a', 'b'], array_keys($errors));
+        self::assertStringContainsString('numeri', $errors['a']);
+    }
+
+    public function testRequiredPhoneNeedsAValueButOptionalOneDoesNot(): void
+    {
+        $errors = $this->errorsAfter(['a' => ''], static function (Validator $v): void {
+            $v->requiredPhone('a', 'Telefono');
+            self::assertNull($v->optionalPhone('a', 'Telefono'));
+            self::assertNull($v->optionalPhone('missing', 'Telefono'));
+        });
+
+        self::assertSame(['a'], array_keys($errors));
+    }
 }
