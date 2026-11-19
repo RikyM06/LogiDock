@@ -65,7 +65,5 @@ $stateBadges = ['paid' => 'ok', 'unpaid' => 'aging', 'partial' => 'off'];
             </tbody>
         </table>
     </div>
-    <?php if (count($report->rows) >= $listLimit) : ?>
-        <p class="muted">Mostrate le prime <?= e($listLimit) ?> richieste (i totali sopra comprendono tutte): restringi il periodo per vedere le altre.</p>
-    <?php endif; ?>
+    <?= $partial('pagination', ['path' => '/storico']) ?>
 <?php endif; ?>

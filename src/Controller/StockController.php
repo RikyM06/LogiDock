@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace LogiDock\Controller;
 
+use LogiDock\Core\Pagination;
 use LogiDock\Core\Request;
 use LogiDock\Core\Response;
 use LogiDock\Core\View;
+use LogiDock\Service\ListPager;
 use LogiDock\Service\StockService;
 use LogiDock\Service\WarehouseLocationService;
 
@@ -19,7 +21,8 @@ final class StockController
     public function __construct(
         private readonly View $view,
         private readonly StockService $stock,
-        private readonly WarehouseLocationService $locations
+        private readonly WarehouseLocationService $locations,
+        private readonly ListPager $pager
     ) {
     }
 
@@ -46,14 +49,28 @@ final class StockController
             $locationOptions[(string) $location->id] = $location->code;
         }
 
+        $page = $this->stock->palletsPage(
+            $rule,
+            $productId,
+            $locationId,
+            $onlyAging,
+            $request->query(Pagination::PARAM),
+            $this->pager->perPage()
+        );
+
         return Response::html($this->view->render('stock/index', [
             'title' => 'Giacenze',
             'wide' => true,
             'rule' => $rule,
             'summary' => $summary,
-            'pallets' => $this->stock->pallets($rule, $productId, $locationId, $onlyAging),
+            'pallets' => $page->items,
+            'pagination' => $page->pagination,
+            'query' => [
+                'product' => $productId,
+                'location' => $locationId,
+                'aging' => $onlyAging ? '1' : '',
+            ],
             'agingCount' => $this->stock->agingCount($rule),
-            'listLimit' => StockService::LIST_LIMIT,
             'productOptions' => $productOptions,
             'locationOptions' => $locationOptions,
             'filters' => ['product' => $productId, 'location' => $locationId, 'aging' => $onlyAging],

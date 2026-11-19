@@ -54,9 +54,51 @@ final class StockRepository
      * @param string|null $receivedBefore solo quelli arrivati prima di questa data (Y-m-d)
      * @return list<StockPallet>
      */
-    public function pallets(?int $productId, ?int $locationId, ?string $receivedBefore, int $limit): array
+    public function pallets(?int $productId, ?int $locationId, ?string $receivedBefore, int $limit, int $offset = 0): array
     {
-        // Le condizioni sono testo fisso scritto qui; i valori passano sempre come parametri.
+        [$where, $params] = $this->conditions($productId, $locationId, $receivedBefore);
+
+        $statement = $this->database->pdo()->prepare(
+            'SELECT p.id, p.code, p.status, p.quantity, p.lot_number, p.expiry_date, p.received_at,
+                    p.product_id, pr.code AS product_code, pr.description AS product_description, pr.unit_of_measure,
+                    pt.name AS pallet_type_name, l.code AS location_code, s.name AS supplier_name,
+                    p.supplier_document_id, d.number AS document_number
+             FROM pallets p
+             JOIN products pr ON pr.id = p.product_id
+             LEFT JOIN pallet_types pt ON pt.id = p.pallet_type_id
+             LEFT JOIN warehouse_locations l ON l.id = p.location_id
+             LEFT JOIN suppliers s ON s.id = p.supplier_id
+             LEFT JOIN supplier_documents d ON d.id = p.supplier_document_id
+             WHERE ' . $where . '
+             ORDER BY p.received_at, p.id
+             LIMIT ' . max(1, $limit) . ' OFFSET ' . max(0, $offset)
+        );
+        $statement->execute($params);
+
+        return array_map(StockPallet::fromRow(...), $statement->fetchAll());
+    }
+
+    /**
+     * Quanti bancali trova pallets() con questi filtri (stessa condizione).
+     */
+    public function countPallets(?int $productId, ?int $locationId, ?string $receivedBefore): int
+    {
+        [$where, $params] = $this->conditions($productId, $locationId, $receivedBefore);
+
+        $statement = $this->database->pdo()->prepare('SELECT COUNT(*) FROM pallets p WHERE ' . $where);
+        $statement->execute($params);
+
+        return (int) $statement->fetchColumn();
+    }
+
+    /**
+     * La condizione WHERE della lista (scritta una volta sola, per le righe e per il conteggio).
+     * Il testo SQL e' fisso, scritto qui; i valori passano sempre come parametri.
+     *
+     * @return array{string, list<int|string>}
+     */
+    private function conditions(?int $productId, ?int $locationId, ?string $receivedBefore): array
+    {
         $conditions = [self::IN_WAREHOUSE];
         $params = [];
         if ($productId !== null) {
@@ -72,24 +114,7 @@ final class StockRepository
             $params[] = $receivedBefore;
         }
 
-        $statement = $this->database->pdo()->prepare(
-            'SELECT p.id, p.code, p.status, p.quantity, p.lot_number, p.expiry_date, p.received_at,
-                    p.product_id, pr.code AS product_code, pr.description AS product_description, pr.unit_of_measure,
-                    pt.name AS pallet_type_name, l.code AS location_code, s.name AS supplier_name,
-                    p.supplier_document_id, d.number AS document_number
-             FROM pallets p
-             JOIN products pr ON pr.id = p.product_id
-             LEFT JOIN pallet_types pt ON pt.id = p.pallet_type_id
-             LEFT JOIN warehouse_locations l ON l.id = p.location_id
-             LEFT JOIN suppliers s ON s.id = p.supplier_id
-             LEFT JOIN supplier_documents d ON d.id = p.supplier_document_id
-             WHERE ' . implode(' AND ', $conditions) . '
-             ORDER BY p.received_at, p.id
-             LIMIT ' . max(1, $limit)
-        );
-        $statement->execute($params);
-
-        return array_map(StockPallet::fromRow(...), $statement->fetchAll());
+        return [implode(' AND ', $conditions), $params];
     }
 
     /**

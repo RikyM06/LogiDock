@@ -56,7 +56,5 @@
             </tbody>
         </table>
     </div>
-    <?php if (count($trips) >= $listLimit) : ?>
-        <p class="muted">Mostrati i primi <?= e($listLimit) ?> viaggi: restringi il periodo per vedere gli altri.</p>
-    <?php endif; ?>
+    <?= $partial('pagination', ['path' => '/storico']) ?>
 <?php endif; ?>

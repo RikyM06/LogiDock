@@ -666,6 +666,34 @@ a.button {
     flex-wrap: wrap;
 }
 
+/* Paginazione delle liste: totale a sinistra, Precedente / Successivo a destra. */
+.pagination {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space);
+    margin: var(--space) 0;
+}
+
+.pagination p {
+    margin: 0;
+}
+
+.pagination__summary {
+    color: var(--color-muted);
+}
+
+.pagination__links {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.pagination .is-disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 /* Schede dello storico: semplici link, quella aperta ha la riga sotto (aria-current). */
 .tabs {
     display: flex;

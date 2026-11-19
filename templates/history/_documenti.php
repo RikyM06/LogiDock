@@ -32,7 +32,5 @@
             </tbody>
         </table>
     </div>
-    <?php if (count($documents) >= $listLimit) : ?>
-        <p class="muted">Mostrati i primi <?= e($listLimit) ?> documenti: restringi il periodo per vedere gli altri.</p>
-    <?php endif; ?>
+    <?= $partial('pagination', ['path' => '/storico']) ?>
 <?php endif; ?>

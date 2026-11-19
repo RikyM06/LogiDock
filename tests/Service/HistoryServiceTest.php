@@ -77,7 +77,7 @@ final class HistoryServiceTest extends IntegrationTestCase
             ['dal' => '2027-05-01', 'al' => '2027-05-31', 'fornitore' => (string) $supplierId],
             false
         );
-        $rows = $this->history->suppliers($filters);
+        $rows = $this->supplierRows($filters);
 
         self::assertCount(1, $rows);
         self::assertSame($supplierId, $rows[0]->supplierId);
@@ -89,7 +89,7 @@ final class HistoryServiceTest extends IntegrationTestCase
 
         // Un altro fornitore non vede nulla.
         $other = $this->history->normalizeFilters(['dal' => '2027-05-01', 'al' => '2027-05-31', 'fornitore' => '999999999'], false);
-        self::assertSame([], $this->history->suppliers($other));
+        self::assertSame([], $this->supplierRows($other));
     }
 
     public function testPaymentsReportSplitsCollectedDueAndPartial(): void
@@ -107,7 +107,7 @@ final class HistoryServiceTest extends IntegrationTestCase
             new Logger(sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'logidock-history-' . uniqid() . '.log')
         ))->markOrderPaid($paid['orderId'], $this->flow->userId);
 
-        $report = $this->history->payments($this->history->normalizeFilters(self::PERIOD, false));
+        $report = $this->paymentReport($this->history->normalizeFilters(self::PERIOD, false));
         $byOrder = [];
         foreach ($report->rows as $row) {
             $byOrder[$row->orderId] = $row;
@@ -129,10 +129,48 @@ final class HistoryServiceTest extends IntegrationTestCase
         self::assertSame('60.00', $report->partialTotal);
 
         // Filtro sullo stato: solo le richieste da pagare.
-        $onlyDue = $this->history->payments($this->history->normalizeFilters(self::PERIOD + ['pagamento' => 'unpaid'], false));
+        $onlyDue = $this->paymentReport($this->history->normalizeFilters(self::PERIOD + ['pagamento' => 'unpaid'], false));
         self::assertCount(1, $onlyDue->rows);
         self::assertSame('0.00', $onlyDue->collectedTotal);
         self::assertSame('30.00', $onlyDue->dueTotal);
+    }
+
+    public function testPaymentTotalsCoverAllRowsNotJustThePage(): void
+    {
+        $this->flow->departedTrip('2', '60');
+        $this->flow->departedTrip('1', '30');
+        $filters = $this->history->normalizeFilters(self::PERIOD, false);
+
+        $whole = $this->history->payments($filters, 1, 100);
+        // Una riga per pagina: stesse richieste, pagine diverse, ma i totali dei soldi non cambiano.
+        $firstPage = $this->history->payments($filters, 1, 1);
+        $lastPage = $this->history->payments($filters, 99, 1);
+
+        self::assertGreaterThanOrEqual(2, $whole->pagination->total);
+        self::assertSame($whole->pagination->total, $firstPage->pagination->total);
+        self::assertCount(1, $firstPage->rows);
+        self::assertSame($whole->pagination->total, $lastPage->pagination->page, 'oltre l\'ultima si mostra l\'ultima');
+        foreach ([$firstPage, $lastPage] as $report) {
+            self::assertSame($whole->collectedTotal, $report->collectedTotal);
+            self::assertSame($whole->dueTotal, $report->dueTotal);
+            self::assertSame($whole->partialTotal, $report->partialTotal);
+        }
+        self::assertNotSame($firstPage->rows[0]->orderId, $lastPage->rows[0]->orderId, 'pagine diverse = righe diverse');
+    }
+
+    public function testEveryTabCountsExactlyTheRowsItCanList(): void
+    {
+        $this->flow->plannedTrip();
+        $this->flow->departedTrip('2', '60');
+
+        foreach ([true, false] as $isAdmin) {
+            $filters = $this->history->normalizeFilters(self::PERIOD, $isAdmin);
+
+            self::assertSame($this->history->trips($filters, $isAdmin, 1, 100)->pagination->total, count($this->tripRows($filters, $isAdmin)));
+            self::assertSame($this->history->suppliers($filters, 1, 100)->pagination->total, count($this->supplierRows($filters)));
+            self::assertSame($this->history->documents($filters, $isAdmin, 1, 100)->pagination->total, count($this->documentRows($filters, $isAdmin)));
+            self::assertSame($this->history->payments($filters, 1, 100)->pagination->total, count($this->paymentReport($filters)->rows));
+        }
     }
 
     public function testTripsReportShowsBilledTotalOnlyForDepartedTrips(): void
@@ -141,7 +179,7 @@ final class HistoryServiceTest extends IntegrationTestCase
         $departed = $this->flow->departedTrip('2', '60');
 
         $rows = [];
-        foreach ($this->history->trips($this->history->normalizeFilters(self::PERIOD, true), true) as $row) {
+        foreach ($this->tripRows($this->history->normalizeFilters(self::PERIOD, true), true) as $row) {
             $rows[$row->id] = $row;
         }
 
@@ -156,7 +194,7 @@ final class HistoryServiceTest extends IntegrationTestCase
         self::assertSame('in_transit', $rows[$departed['tripId']]->status);
 
         // Filtro per stato.
-        $onlyPlanned = $this->history->trips(
+        $onlyPlanned = $this->tripRows(
             $this->history->normalizeFilters(self::PERIOD + ['stato' => 'planned'], false),
             false
         );
@@ -176,17 +214,17 @@ final class HistoryServiceTest extends IntegrationTestCase
         // Operatore: nessun compenso nei viaggi.
         $operatorFilters = $this->history->normalizeFilters(self::PERIOD + ['tipo' => 'compensation'], false);
         self::assertNull($operatorFilters['type'], 'tipo=compensation forzato da un operatore viene ignorato');
-        $operatorTrips = $this->history->trips($operatorFilters, false);
+        $operatorTrips = $this->tripRows($operatorFilters, false);
         $operatorRow = $this->findTrip($operatorTrips, $departed['tripId']);
         self::assertNull($operatorRow->fee);
         self::assertNull($operatorRow->compensationPaidAt);
 
         // Operatore: nessun documento di compenso, anche se il filtro lo chiede a mano (aggira normalizeFilters).
         $forged = ['type' => 'compensation'] + $operatorFilters;
-        self::assertSame([], $this->history->documents($forged, false));
+        self::assertSame([], $this->documentRows($forged, false));
         // I documenti sono emessi alla partenza (10 novembre 2026, data del fixture).
         $documentFilters = $this->history->normalizeFilters(['dal' => '2026-11-10', 'al' => '2026-11-10'], false);
-        $documents = $this->history->documents($documentFilters, false);
+        $documents = $this->documentRows($documentFilters, false);
         $types = [];
         foreach ($documents as $row) {
             if ($row->tripId === $departed['tripId']) {
@@ -198,11 +236,11 @@ final class HistoryServiceTest extends IntegrationTestCase
 
         // Admin: li vede.
         $adminFilters = $this->history->normalizeFilters(self::PERIOD, true);
-        $adminRow = $this->findTrip($this->history->trips($adminFilters, true), $departed['tripId']);
+        $adminRow = $this->findTrip($this->tripRows($adminFilters, true), $departed['tripId']);
         self::assertSame('150.00', $adminRow->fee);
         self::assertNotNull($adminRow->compensationPaidAt);
 
-        $adminDocs = $this->history->documents(
+        $adminDocs = $this->documentRows(
             $this->history->normalizeFilters(['dal' => '2026-11-10', 'al' => '2026-11-10', 'tipo' => 'compensation'], true),
             true
         );
@@ -248,12 +286,50 @@ final class HistoryServiceTest extends IntegrationTestCase
         self::assertSame('ddt', $good['type']);
 
         // I report con filtri sporchi non lanciano nulla.
-        self::assertGreaterThanOrEqual(0, count($this->history->trips($filters, true)));
-        self::assertGreaterThanOrEqual(0, count($this->history->suppliers($filters)));
-        self::assertGreaterThanOrEqual(0, count($this->history->documents($filters, true)));
-        self::assertGreaterThanOrEqual(0, count($this->history->payments($filters)->rows));
+        self::assertGreaterThanOrEqual(0, count($this->tripRows($filters, true)));
+        self::assertGreaterThanOrEqual(0, count($this->supplierRows($filters)));
+        self::assertGreaterThanOrEqual(0, count($this->documentRows($filters, true)));
+        self::assertGreaterThanOrEqual(0, count($this->paymentReport($filters)->rows));
     }
 
+    // Le liste sono a pagine: i test leggono la prima pagina con il massimo di righe consentito.
+    private const PAGE = 1;
+    private const PER_PAGE = 100;
+
+    /**
+     * @param array<string, mixed> $filters
+     * @return list<\LogiDock\Model\History\TripHistoryRow>
+     */
+    private function tripRows(array $filters, bool $isAdmin): array
+    {
+        return $this->history->trips($filters, $isAdmin, self::PAGE, self::PER_PAGE)->items;
+    }
+
+    /**
+     * @param array<string, mixed> $filters
+     * @return list<\LogiDock\Model\History\SupplierHistoryRow>
+     */
+    private function supplierRows(array $filters): array
+    {
+        return $this->history->suppliers($filters, self::PAGE, self::PER_PAGE)->items;
+    }
+
+    /**
+     * @param array<string, mixed> $filters
+     * @return list<\LogiDock\Model\History\DocumentHistoryRow>
+     */
+    private function documentRows(array $filters, bool $isAdmin): array
+    {
+        return $this->history->documents($filters, $isAdmin, self::PAGE, self::PER_PAGE)->items;
+    }
+
+    /**
+     * @param array<string, mixed> $filters
+     */
+    private function paymentReport(array $filters): \LogiDock\Model\History\PaymentReport
+    {
+        return $this->history->payments($filters, self::PAGE, self::PER_PAGE);
+    }
     /**
      * @param list<\LogiDock\Model\History\TripHistoryRow> $rows
      */

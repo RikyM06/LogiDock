@@ -97,5 +97,5 @@ $date = static fn (string $value): string => date('d/m/Y', strtotime($value));
             </tbody>
         </table>
     </div>
-    <p class="muted">Si vedono gli ultimi 200 viaggi, dal giorno più lontano al più vicino.</p>
+    <?= $partial('pagination', ['path' => '/trips']) ?>
 <?php endif; ?>

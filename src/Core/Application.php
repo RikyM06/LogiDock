@@ -59,6 +59,7 @@ use LogiDock\Service\CustomerService;
 use LogiDock\Service\DocumentService;
 use LogiDock\Service\HistoryService;
 use LogiDock\Service\InboundService;
+use LogiDock\Service\ListPager;
 use LogiDock\Service\LoginThrottle;
 use LogiDock\Service\OrderService;
 use LogiDock\Service\PalletTypeService;
@@ -199,6 +200,7 @@ final class Application
         $c->set(SettingRepository::class, fn (Container $c): SettingRepository => new SettingRepository(
             $c->get(Database::class)
         ));
+        $c->set(ListPager::class, fn (Container $c): ListPager => new ListPager($c->get(SettingService::class)));
         $c->set(SettingService::class, fn (Container $c): SettingService => new SettingService(
             $c->get(SettingRepository::class),
             $c->get(Database::class)
@@ -403,7 +405,8 @@ final class Application
         $c->set(StockController::class, fn (Container $c): StockController => new StockController(
             $c->get(View::class),
             $c->get(StockService::class),
-            $c->get(WarehouseLocationService::class)
+            $c->get(WarehouseLocationService::class),
+            $c->get(ListPager::class)
         ));
         $c->set(HistoryController::class, fn (Container $c): HistoryController => new HistoryController(
             $c->get(View::class),
@@ -411,13 +414,15 @@ final class Application
             $c->get(HistoryService::class),
             $c->get(RoundService::class),
             $c->get(SupplierService::class),
-            $c->get(CustomerService::class)
+            $c->get(CustomerService::class),
+            $c->get(ListPager::class)
         ));
         $c->set(ProductController::class, fn (Container $c): ProductController => new ProductController(
             $c->get(View::class),
             $c->get(ProductService::class),
             $c->get(AuthService::class),
-            $c->get(Session::class)
+            $c->get(Session::class),
+            $c->get(ListPager::class)
         ));
         $c->set(AuthController::class, fn (Container $c): AuthController => new AuthController(
             $c->get(View::class),
@@ -430,7 +435,8 @@ final class Application
             $c->get(View::class),
             $c->get(Session::class),
             $c->get(AuthService::class),
-            $c->get(SupplierService::class)
+            $c->get(SupplierService::class),
+            $c->get(ListPager::class)
         ));
         $c->set(RoundController::class, fn (Container $c): RoundController => new RoundController(
             $c->get(View::class),
@@ -443,7 +449,8 @@ final class Application
             $c->get(Session::class),
             $c->get(AuthService::class),
             $c->get(CustomerService::class),
-            $c->get(RoundService::class)
+            $c->get(RoundService::class),
+            $c->get(ListPager::class)
         ));
         $c->set(CarrierController::class, fn (Container $c): CarrierController => new CarrierController(
             $c->get(View::class),
@@ -486,7 +493,8 @@ final class Application
             $c->get(SupplierService::class),
             $c->get(ProductService::class),
             $c->get(PalletTypeService::class),
-            $c->get(WarehouseLocationService::class)
+            $c->get(WarehouseLocationService::class),
+            $c->get(ListPager::class)
         ));
         $c->set(OrderController::class, fn (Container $c): OrderController => new OrderController(
             $c->get(View::class),
@@ -495,7 +503,8 @@ final class Application
             $c->get(OrderService::class),
             $c->get(CustomerService::class),
             $c->get(ProductService::class),
-            $c->get(PaymentService::class)
+            $c->get(PaymentService::class),
+            $c->get(ListPager::class)
         ));
         $c->set(TripController::class, fn (Container $c): TripController => new TripController(
             $c->get(View::class),
@@ -505,7 +514,8 @@ final class Application
             $c->get(TripDepartureService::class),
             $c->get(DocumentService::class),
             $c->get(TripClosureService::class),
-            $c->get(PaymentService::class)
+            $c->get(PaymentService::class),
+            $c->get(ListPager::class)
         ));
         $c->set(DocumentController::class, fn (Container $c): DocumentController => new DocumentController(
             $c->get(AuthService::class),

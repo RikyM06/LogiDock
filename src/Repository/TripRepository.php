@@ -14,25 +14,29 @@ use LogiDock\Model\TripItem;
  */
 final class TripRepository
 {
-    /** Quanti viaggi mostrare al massimo nella lista. */
-    private const LIST_LIMIT = 200;
-
     public function __construct(private readonly Database $database)
     {
     }
 
     /**
-     * I viaggi più recenti per primi.
+     * Una pagina dei viaggi, i più recenti per primi.
      *
      * @return list<Trip>
      */
-    public function latest(): array
+    public function latestPage(int $limit, int $offset): array
     {
         $statement = $this->database->pdo()->query(
-            $this->baseSelect() . $this->groupBy() . ' ORDER BY t.planned_date DESC, t.id DESC LIMIT ' . self::LIST_LIMIT
+            $this->baseSelect() . $this->groupBy()
+            . ' ORDER BY t.planned_date DESC, t.id DESC LIMIT ' . max(1, $limit) . ' OFFSET ' . max(0, $offset)
         );
 
         return array_map(Trip::fromRow(...), $statement->fetchAll());
+    }
+
+    /** Quanti viaggi ci sono in tutto (il totale della lista). */
+    public function countAll(): int
+    {
+        return (int) $this->database->pdo()->query('SELECT COUNT(*) FROM trips')->fetchColumn();
     }
 
     /**

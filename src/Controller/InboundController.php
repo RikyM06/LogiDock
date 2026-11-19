@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LogiDock\Controller;
 
 use LogiDock\Core\HttpException;
+use LogiDock\Core\Pagination;
 use LogiDock\Core\Request;
 use LogiDock\Core\Response;
 use LogiDock\Core\Session;
@@ -12,6 +13,7 @@ use LogiDock\Core\ValidationException;
 use LogiDock\Core\View;
 use LogiDock\Service\AuthService;
 use LogiDock\Service\InboundService;
+use LogiDock\Service\ListPager;
 use LogiDock\Service\PalletTypeService;
 use LogiDock\Service\ProductService;
 use LogiDock\Service\SupplierService;
@@ -34,7 +36,8 @@ final class InboundController
         private readonly SupplierService $suppliers,
         private readonly ProductService $products,
         private readonly PalletTypeService $palletTypes,
-        private readonly WarehouseLocationService $locations
+        private readonly WarehouseLocationService $locations,
+        private readonly ListPager $pager
     ) {
     }
 
@@ -45,9 +48,13 @@ final class InboundController
     {
         $search = mb_substr(trim((string) $request->query('q', '')), 0, 100);
 
+        $page = $this->inbound->searchPage($search, $request->query(Pagination::PARAM), $this->pager->perPage());
+
         return Response::html($this->view->render('inbound/index', [
             'title' => 'Arrivi',
-            'items' => $this->inbound->search($search),
+            'items' => $page->items,
+            'pagination' => $page->pagination,
+            'query' => ['q' => $search],
             'search' => $search,
             'canManage' => true,
             'path' => '/inbound',

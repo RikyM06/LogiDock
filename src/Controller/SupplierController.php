@@ -8,6 +8,7 @@ use LogiDock\Core\Session;
 use LogiDock\Core\View;
 use LogiDock\Model\Supplier;
 use LogiDock\Service\AuthService;
+use LogiDock\Service\ListPager;
 use LogiDock\Service\SupplierService;
 
 final class SupplierController extends MasterDataController
@@ -16,9 +17,15 @@ final class SupplierController extends MasterDataController
         View $view,
         Session $session,
         AuthService $auth,
-        private readonly SupplierService $suppliers
+        private readonly SupplierService $suppliers,
+        private readonly ListPager $pager
     ) {
         parent::__construct($view, $session, $auth);
+    }
+
+    protected function perPage(): int
+    {
+        return $this->pager->perPage();
     }
 
     protected function service(): SupplierService

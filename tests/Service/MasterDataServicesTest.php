@@ -147,6 +147,33 @@ final class MasterDataServicesTest extends IntegrationTestCase
         self::assertSame(['Zz Alfa'], $names($this->suppliers->search('zz al')));
     }
 
+    public function testSupplierPagesAreConsecutiveAndMatchTheSearch(): void
+    {
+        foreach (range(1, 5) as $n) {
+            $this->suppliers->create($this->supplier(['name' => 'Zz Pagina ' . $n, 'tax_code' => 'IT0000000010' . $n]));
+        }
+
+        $all = $this->suppliers->searchPage('Zz Pagina', 1, 100);
+        $pages = [
+            $this->suppliers->searchPage('Zz Pagina', '1', 2),
+            $this->suppliers->searchPage('Zz Pagina', '2', 2),
+            $this->suppliers->searchPage('Zz Pagina', '3', 2),
+        ];
+        $tooFar = $this->suppliers->searchPage('Zz Pagina', '99', 2);
+        $names = static fn (array $found): array => array_map(static fn ($s): string => $s->name, $found);
+
+        self::assertSame(5, $all->pagination->total);
+        self::assertSame(count($this->suppliers->search('Zz Pagina')), $all->pagination->total, 'stesso totale della lista intera');
+        self::assertSame(3, $pages[0]->pagination->pages);
+        self::assertSame(
+            $names($all->items),
+            array_merge($names($pages[0]->items), $names($pages[1]->items), $names($pages[2]->items)),
+            'le pagine una dopo l\'altra danno tutta la lista, senza righe doppie o saltate'
+        );
+        self::assertSame($names($pages[2]->items), $names($tooFar->items), 'oltre l\'ultima si mostra l\'ultima');
+        self::assertSame(0, $this->suppliers->searchPage('Zz Nessuno', 1, 10)->pagination->total);
+    }
+
     public function testDuplicateIsDecidedByTheDatabaseAndShownOnTheField(): void
     {
         $this->rounds->create(['name' => 'Giro Nord']);

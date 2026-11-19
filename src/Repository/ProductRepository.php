@@ -28,20 +28,57 @@ final class ProductRepository
      */
     public function search(string $search = ''): array
     {
-        $sql = 'SELECT * FROM products';
-        $params = [];
+        [$where, $params] = $this->searchCondition($search);
 
-        if ($search !== '') {
-            // % e _ scritti dall'utente valgono come caratteri normali, non come jolly del LIKE.
-            $like = '%' . addcslashes($search, '%_\\') . '%';
-            $sql .= ' WHERE code LIKE ? OR description LIKE ?';
-            $params = [$like, $like];
-        }
-
-        $statement = $this->database->pdo()->prepare($sql . ' ORDER BY is_active DESC, code ASC');
+        $statement = $this->database->pdo()->prepare('SELECT * FROM products' . $where . ' ORDER BY is_active DESC, code ASC');
         $statement->execute($params);
 
         return array_map(Product::fromRow(...), $statement->fetchAll());
+    }
+
+    /**
+     * Una pagina della stessa lista di search(): stessa condizione, stesso ordine.
+     *
+     * @return list<Product>
+     */
+    public function searchPage(string $search, int $limit, int $offset): array
+    {
+        [$where, $params] = $this->searchCondition($search);
+
+        $statement = $this->database->pdo()->prepare(
+            'SELECT * FROM products' . $where . ' ORDER BY is_active DESC, code ASC LIMIT ' . max(1, $limit) . ' OFFSET ' . max(0, $offset)
+        );
+        $statement->execute($params);
+
+        return array_map(Product::fromRow(...), $statement->fetchAll());
+    }
+
+    /** Quante righe trova search() con questa ricerca (stessa condizione di searchPage). */
+    public function countSearch(string $search): int
+    {
+        [$where, $params] = $this->searchCondition($search);
+
+        $statement = $this->database->pdo()->prepare('SELECT COUNT(*) FROM products' . $where);
+        $statement->execute($params);
+
+        return (int) $statement->fetchColumn();
+    }
+
+    /**
+     * La condizione WHERE della ricerca (scritta una volta sola, per la lista e per il conteggio).
+     *
+     * @return array{string, list<string>} testo SQL (vuoto se non si cerca nulla) e valori da legare
+     */
+    private function searchCondition(string $search): array
+    {
+        if ($search === '') {
+            return ['', []];
+        }
+
+        // % e _ scritti dall'utente valgono come caratteri normali, non come jolly del LIKE.
+        $like = '%' . addcslashes($search, '%_\\') . '%';
+
+        return [' WHERE code LIKE ? OR description LIKE ?', [$like, $like]];
     }
 
     public function findById(int $id): ?Product

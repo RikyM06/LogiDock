@@ -6,6 +6,8 @@ namespace LogiDock\Service;
 
 use DateTimeImmutable;
 use LogiDock\Core\Database;
+use LogiDock\Core\Page;
+use LogiDock\Core\Pagination;
 use LogiDock\Core\ValidationException;
 use LogiDock\Core\Validator;
 use LogiDock\Model\Order;
@@ -38,16 +40,24 @@ final class OrderService
     }
 
     /**
+     * Una pagina della lista. Uno stato sconosciuto vale "tutti"; $requestedPage arriva grezzo dall'indirizzo.
+     *
      * @param string|null $status uno degli stati di Order, o null per tutti
-     * @return list<Order>
+     * @return Page<Order>
      */
-    public function search(string $term = '', ?string $status = null): array
+    public function searchPage(string $term, ?string $status, mixed $requestedPage, int $perPage): Page
     {
         if ($status !== null && !isset(Order::STATUS_LABELS[$status])) {
             $status = null;
         }
 
-        return $this->orders->search(trim($term), $status);
+        $term = trim($term);
+        $pagination = new Pagination($this->orders->countSearch($term, $status), $perPage, $requestedPage);
+
+        return new Page(
+            $this->orders->searchPage($term, $status, $pagination->perPage, $pagination->offset()),
+            $pagination
+        );
     }
 
     public function find(int $id): ?Order

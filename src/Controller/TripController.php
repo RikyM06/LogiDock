@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LogiDock\Controller;
 
 use LogiDock\Core\HttpException;
+use LogiDock\Core\Pagination;
 use LogiDock\Core\Request;
 use LogiDock\Core\Response;
 use LogiDock\Core\Session;
@@ -14,6 +15,7 @@ use LogiDock\Model\Trip;
 use LogiDock\Model\User;
 use LogiDock\Service\AuthService;
 use LogiDock\Service\DocumentService;
+use LogiDock\Service\ListPager;
 use LogiDock\Service\PaymentNotAllowedException;
 use LogiDock\Service\PaymentService;
 use LogiDock\Service\PlanChangedException;
@@ -38,7 +40,8 @@ final class TripController
         private readonly TripDepartureService $departures,
         private readonly DocumentService $documents,
         private readonly TripClosureService $closures,
-        private readonly PaymentService $payments
+        private readonly PaymentService $payments,
+        private readonly ListPager $pager
     ) {
     }
 
@@ -49,10 +52,14 @@ final class TripController
      */
     public function index(Request $request, array $params): Response
     {
+        $page = $this->trips->recentPage($request->query(Pagination::PARAM), $this->pager->perPage());
+
         return Response::html($this->view->render('trips/index', [
             'title' => 'Viaggi',
             'days' => $this->trips->planningDays(),
-            'items' => $this->trips->recent(),
+            'items' => $page->items,
+            'pagination' => $page->pagination,
+            'query' => [],
             'today' => date('Y-m-d'),
         ]));
     }

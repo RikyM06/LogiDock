@@ -38,5 +38,5 @@
             </tbody>
         </table>
     </div>
-    <p class="muted">Si vedono gli ultimi 200 arrivi; la ricerca cerca per numero del documento o fornitore.</p>
+    <?= $partial('pagination', ['path' => '/inbound']) ?>
 <?php endif; ?>

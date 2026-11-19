@@ -58,5 +58,5 @@ $filtered = $search !== '' || $status !== '';
             </tbody>
         </table>
     </div>
-    <p class="muted">Si vedono le ultime 200 richieste, dalla consegna più lontana alla più vicina.</p>
+    <?= $partial('pagination', ['path' => '/orders']) ?>
 <?php endif; ?>

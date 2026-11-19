@@ -6,12 +6,14 @@ namespace LogiDock\Controller;
 
 use LogiDock\Core\HistoryUrl;
 use LogiDock\Core\HttpException;
+use LogiDock\Core\Pagination;
 use LogiDock\Core\Request;
 use LogiDock\Core\Response;
 use LogiDock\Core\View;
 use LogiDock\Service\AuthService;
 use LogiDock\Service\CustomerService;
 use LogiDock\Service\HistoryService;
+use LogiDock\Service\ListPager;
 use LogiDock\Service\RoundService;
 use LogiDock\Service\SupplierService;
 
@@ -27,7 +29,8 @@ final class HistoryController
         private readonly HistoryService $history,
         private readonly RoundService $rounds,
         private readonly SupplierService $suppliers,
-        private readonly CustomerService $customers
+        private readonly CustomerService $customers,
+        private readonly ListPager $pager
     ) {
     }
 
@@ -41,25 +44,43 @@ final class HistoryController
         $tab = HistoryUrl::tab($request->query('scheda'));
         $filters = $this->history->normalizeFilters($this->queryStrings($request), $isAdmin);
 
-        // Alla vista arrivano solo i dati della scheda scelta e le opzioni dei suoi filtri.
-        $data = match ($tab) {
-            'fornitori' => [
-                'suppliers' => $this->history->suppliers($filters),
-                'supplierOptions' => $this->options($this->suppliers->search()),
-            ],
-            'incassi' => [
-                'report' => $this->history->payments($filters),
-                'customerOptions' => $this->options($this->customers->search()),
-            ],
-            'documenti' => [
-                'documents' => $this->history->documents($filters, $isAdmin),
-                'customerOptions' => $this->options($this->customers->search()),
-            ],
-            default => [
-                'trips' => $this->history->trips($filters, $isAdmin),
-                'roundOptions' => $this->options($this->rounds->search()),
-            ],
-        };
+        $requestedPage = $request->query(Pagination::PARAM);
+        $perPage = $this->pager->perPage();
+
+        // Alla vista arrivano solo i dati della scheda scelta (una pagina) e le opzioni dei suoi filtri.
+        switch ($tab) {
+            case 'fornitori':
+                $page = $this->history->suppliers($filters, $requestedPage, $perPage);
+                $pagination = $page->pagination;
+                $data = [
+                    'suppliers' => $page->items,
+                    'supplierOptions' => $this->options($this->suppliers->search()),
+                ];
+                break;
+            case 'incassi':
+                $report = $this->history->payments($filters, $requestedPage, $perPage);
+                $pagination = $report->pagination;
+                $data = [
+                    'report' => $report,
+                    'customerOptions' => $this->options($this->customers->search()),
+                ];
+                break;
+            case 'documenti':
+                $page = $this->history->documents($filters, $isAdmin, $requestedPage, $perPage);
+                $pagination = $page->pagination;
+                $data = [
+                    'documents' => $page->items,
+                    'customerOptions' => $this->options($this->customers->search()),
+                ];
+                break;
+            default:
+                $page = $this->history->trips($filters, $isAdmin, $requestedPage, $perPage);
+                $pagination = $page->pagination;
+                $data = [
+                    'trips' => $page->items,
+                    'roundOptions' => $this->options($this->rounds->search()),
+                ];
+        }
 
         return Response::html($this->view->render('history/index', [
             'title' => 'Storico',
@@ -67,8 +88,10 @@ final class HistoryController
             'tab' => $tab,
             'tabs' => HistoryUrl::TABS,
             'filters' => $filters,
-            'currentUrl' => HistoryUrl::build($tab, $filters),
-            'listLimit' => HistoryService::LIST_LIMIT,
+            // Con la pagina: dopo "Segna pagata" si torna alla stessa pagina.
+            'currentUrl' => HistoryUrl::build($tab, $filters, $pagination->page),
+            'pagination' => $pagination,
+            'query' => HistoryUrl::query($tab, $filters),
         ] + $data));
     }
 

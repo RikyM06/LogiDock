@@ -12,7 +12,11 @@ use LogiDock\Model\History\TripHistoryRow;
 
 /**
  * Solo letture, per le quattro schede dello storico. Nessuna regola: i filtri arrivano già validati
- * dal service (valori null = nessun filtro) e passano sempre come parametri. Le liste sono limitate.
+ * dal service (valori null = nessun filtro) e passano sempre come parametri.
+ *
+ * Ogni scheda ha una query scritta una volta sola (xxxSql, senza ordine né limite): le righe di una pagina
+ * la completano con ORDER BY / LIMIT / OFFSET, il conteggio la racchiude in un COUNT(*). Così il totale
+ * è sempre uguale alle righe che la lista può mostrare.
  *
  * Gli importi usano TransportDocumentRepository::LINE_TOTAL_SQL (alias ti = trip_items, ol = order_lines),
  * la stessa espressione del DDT, e contano solo i viaggi partiti (in_transit o completed).
@@ -34,7 +38,33 @@ final class HistoryRepository
      * @param array<string, mixed> $filters
      * @return list<TripHistoryRow>
      */
-    public function trips(array $filters, int $limit): array
+    public function trips(array $filters, int $limit, int $offset = 0): array
+    {
+        [$sql, $params] = $this->tripsSql($filters);
+
+        $statement = $this->database->pdo()->prepare(
+            $sql . ' ORDER BY t.planned_date DESC, t.id DESC' . $this->page($limit, $offset)
+        );
+        $statement->execute($params);
+
+        return array_map(TripHistoryRow::fromRow(...), $statement->fetchAll());
+    }
+
+    /**
+     * Quanti viaggi trova trips() con questi filtri.
+     *
+     * @param array<string, mixed> $filters
+     */
+    public function countTrips(array $filters): int
+    {
+        return $this->countOf($this->tripsSql($filters));
+    }
+
+    /**
+     * @param array<string, mixed> $filters
+     * @return array{0: string, 1: list<string|int>}
+     */
+    private function tripsSql(array $filters): array
     {
         [$where, $params] = $this->conditions([
             ['t.planned_date >= ?', $filters['from'] ?? null],
@@ -43,26 +73,21 @@ final class HistoryRepository
             ['t.status = ?', $filters['status'] ?? null],
         ]);
 
-        $statement = $this->database->pdo()->prepare(
-            'SELECT t.id, t.code, t.planned_date, r.name AS round_name, v.plate AS vehicle_plate,
-                    ca.name AS carrier_name, t.status, t.carrier_fee, t.compensation_paid_at,
-                    COUNT(ti.id) AS pallet_count,
-                    COUNT(DISTINCT o.customer_id) AS customer_count,
-                    SUM(CASE WHEN t.status IN ' . self::DEPARTED . ' THEN ' . TransportDocumentRepository::LINE_TOTAL_SQL . ' END) AS billed_total
-             FROM trips t
-             JOIN rounds r ON r.id = t.round_id
-             JOIN vehicles v ON v.id = t.vehicle_id
-             LEFT JOIN carriers ca ON ca.id = t.carrier_id
-             LEFT JOIN trip_items ti ON ti.trip_id = t.id
-             LEFT JOIN orders o ON o.id = ti.order_id
-             LEFT JOIN order_lines ol ON ol.id = ti.order_line_id' . $where . '
-             GROUP BY t.id, r.name, v.plate, ca.name
-             ORDER BY t.planned_date DESC, t.id DESC
-             LIMIT ' . max(1, $limit)
-        );
-        $statement->execute($params);
+        $sql = 'SELECT t.id, t.code, t.planned_date, r.name AS round_name, v.plate AS vehicle_plate,
+                       ca.name AS carrier_name, t.status, t.carrier_fee, t.compensation_paid_at,
+                       COUNT(ti.id) AS pallet_count,
+                       COUNT(DISTINCT o.customer_id) AS customer_count,
+                       SUM(CASE WHEN t.status IN ' . self::DEPARTED . ' THEN ' . TransportDocumentRepository::LINE_TOTAL_SQL . ' END) AS billed_total
+                FROM trips t
+                JOIN rounds r ON r.id = t.round_id
+                JOIN vehicles v ON v.id = t.vehicle_id
+                LEFT JOIN carriers ca ON ca.id = t.carrier_id
+                LEFT JOIN trip_items ti ON ti.trip_id = t.id
+                LEFT JOIN orders o ON o.id = ti.order_id
+                LEFT JOIN order_lines ol ON ol.id = ti.order_line_id' . $where . '
+                GROUP BY t.id, r.name, v.plate, ca.name';
 
-        return array_map(TripHistoryRow::fromRow(...), $statement->fetchAll());
+        return [$sql, $params];
     }
 
     /**
@@ -73,7 +98,31 @@ final class HistoryRepository
      * @param array<string, mixed> $filters
      * @return list<SupplierHistoryRow>
      */
-    public function suppliers(array $filters, int $limit): array
+    public function suppliers(array $filters, int $limit, int $offset = 0): array
+    {
+        [$sql, $params] = $this->suppliersSql($filters);
+
+        $statement = $this->database->pdo()->prepare($sql . ' ORDER BY s.name, pr.code, pr.id' . $this->page($limit, $offset));
+        $statement->execute($params);
+
+        return array_map(SupplierHistoryRow::fromRow(...), $statement->fetchAll());
+    }
+
+    /**
+     * Quante righe (fornitore + prodotto) trova suppliers() con questi filtri.
+     *
+     * @param array<string, mixed> $filters
+     */
+    public function countSuppliers(array $filters): int
+    {
+        return $this->countOf($this->suppliersSql($filters));
+    }
+
+    /**
+     * @param array<string, mixed> $filters
+     * @return array{0: string, 1: list<string|int>}
+     */
+    private function suppliersSql(array $filters): array
     {
         [$where, $params] = $this->conditions([
             ['sd.received_date >= ?', $filters['from'] ?? null],
@@ -81,25 +130,20 @@ final class HistoryRepository
             ['sd.supplier_id = ?', $filters['supplier'] ?? null],
         ]);
 
-        $statement = $this->database->pdo()->prepare(
-            "SELECT s.id AS supplier_id, s.name AS supplier_name, pr.id AS product_id, pr.code AS product_code,
-                    pr.description AS product_description, pr.unit_of_measure,
-                    COUNT(DISTINCT sd.id) AS document_count,
-                    COUNT(DISTINCT p.id) AS pallet_count,
-                    SUM(m.quantity_delta) AS quantity,
-                    ROUND(COALESCE(SUM(m.quantity_delta * p.unit_price), 0), 2) AS purchase_value
-             FROM supplier_documents sd
-             JOIN suppliers s ON s.id = sd.supplier_id
-             JOIN pallets p ON p.supplier_document_id = sd.id
-             JOIN pallet_movements m ON m.pallet_id = p.id AND m.type = 'inbound'
-             JOIN products pr ON pr.id = p.product_id" . $where . '
-             GROUP BY s.id, s.name, pr.id, pr.code, pr.description, pr.unit_of_measure
-             ORDER BY s.name, pr.code
-             LIMIT ' . max(1, $limit)
-        );
-        $statement->execute($params);
+        $sql = "SELECT s.id AS supplier_id, s.name AS supplier_name, pr.id AS product_id, pr.code AS product_code,
+                       pr.description AS product_description, pr.unit_of_measure,
+                       COUNT(DISTINCT sd.id) AS document_count,
+                       COUNT(DISTINCT p.id) AS pallet_count,
+                       SUM(m.quantity_delta) AS quantity,
+                       ROUND(COALESCE(SUM(m.quantity_delta * p.unit_price), 0), 2) AS purchase_value
+                FROM supplier_documents sd
+                JOIN suppliers s ON s.id = sd.supplier_id
+                JOIN pallets p ON p.supplier_document_id = sd.id
+                JOIN pallet_movements m ON m.pallet_id = p.id AND m.type = 'inbound'
+                JOIN products pr ON pr.id = p.product_id" . $where . '
+                GROUP BY s.id, s.name, pr.id, pr.code, pr.description, pr.unit_of_measure';
 
-        return array_map(SupplierHistoryRow::fromRow(...), $statement->fetchAll());
+        return [$sql, $params];
     }
 
     /**
@@ -109,12 +153,12 @@ final class HistoryRepository
      * @param array<string, mixed> $filters
      * @return list<PaymentHistoryRow>
      */
-    public function payments(array $filters, int $limit): array
+    public function payments(array $filters, int $limit, int $offset = 0): array
     {
         [$sql, $params] = $this->paymentsSql($filters);
 
         $statement = $this->database->pdo()->prepare(
-            'SELECT * FROM (' . $sql . ') x ORDER BY x.delivery_date DESC, x.id DESC LIMIT ' . max(1, $limit)
+            'SELECT * FROM (' . $sql . ') x ORDER BY x.delivery_date DESC, x.id DESC' . $this->page($limit, $offset)
         );
         $statement->execute($params);
 
@@ -122,7 +166,17 @@ final class HistoryRepository
     }
 
     /**
-     * Totale per stato di pagamento su TUTTE le richieste che rispettano i filtri (non solo quelle mostrate).
+     * Quante richieste trova payments() con questi filtri.
+     *
+     * @param array<string, mixed> $filters
+     */
+    public function countPayments(array $filters): int
+    {
+        return $this->countOf($this->paymentsSql($filters));
+    }
+
+    /**
+     * Totale per stato di pagamento su TUTTE le richieste che rispettano i filtri (non solo quelle della pagina).
      * Le somme le fa MySQL in DECIMAL. Una pagata conta per l'importo pagato (fotografato).
      *
      * @param array<string, mixed> $filters
@@ -153,7 +207,33 @@ final class HistoryRepository
      * @param bool $includeCompensation false = i prospetti del compenso non escono mai (solo admin)
      * @return list<DocumentHistoryRow>
      */
-    public function documents(array $filters, bool $includeCompensation, int $limit): array
+    public function documents(array $filters, bool $includeCompensation, int $limit, int $offset = 0): array
+    {
+        [$sql, $params] = $this->documentsSql($filters, $includeCompensation);
+
+        $statement = $this->database->pdo()->prepare(
+            $sql . ' ORDER BY d.issued_at DESC, d.id DESC' . $this->page($limit, $offset)
+        );
+        $statement->execute($params);
+
+        return array_map(DocumentHistoryRow::fromRow(...), $statement->fetchAll());
+    }
+
+    /**
+     * Quanti documenti trova documents() con questi filtri.
+     *
+     * @param array<string, mixed> $filters
+     */
+    public function countDocuments(array $filters, bool $includeCompensation): int
+    {
+        return $this->countOf($this->documentsSql($filters, $includeCompensation));
+    }
+
+    /**
+     * @param array<string, mixed> $filters
+     * @return array{0: string, 1: list<string|int>}
+     */
+    private function documentsSql(array $filters, bool $includeCompensation): array
     {
         $rules = [
             ['d.issued_at >= ?', $filters['from'] ?? null],
@@ -167,17 +247,12 @@ final class HistoryRepository
             $where .= ($where === '' ? ' WHERE ' : ' AND ') . "d.type <> 'compensation'";
         }
 
-        $statement = $this->database->pdo()->prepare(
-            'SELECT d.id, d.type, d.year, d.number, d.trip_id, t.code AS trip_code, c.name AS customer_name, d.issued_at
-             FROM transport_documents d
-             JOIN trips t ON t.id = d.trip_id
-             LEFT JOIN customers c ON c.id = d.customer_id' . $where . '
-             ORDER BY d.issued_at DESC, d.id DESC
-             LIMIT ' . max(1, $limit)
-        );
-        $statement->execute($params);
+        $sql = 'SELECT d.id, d.type, d.year, d.number, d.trip_id, t.code AS trip_code, c.name AS customer_name, d.issued_at
+                FROM transport_documents d
+                JOIN trips t ON t.id = d.trip_id
+                LEFT JOIN customers c ON c.id = d.customer_id' . $where;
 
-        return array_map(DocumentHistoryRow::fromRow(...), $statement->fetchAll());
+        return [$sql, $params];
     }
 
     /**
@@ -218,6 +293,27 @@ final class HistoryRepository
                 GROUP BY o.id, o.code, o.customer_id, c.name, o.delivery_date, o.paid_at, o.paid_amount, o.status';
 
         return [$sql, $params];
+    }
+
+    /**
+     * Conta le righe di una query (senza ordine né limite) racchiudendola in un COUNT(*).
+     *
+     * @param array{0: string, 1: list<string|int>} $query testo SQL e valori da legare
+     */
+    private function countOf(array $query): int
+    {
+        [$sql, $params] = $query;
+
+        $statement = $this->database->pdo()->prepare('SELECT COUNT(*) FROM (' . $sql . ') x');
+        $statement->execute($params);
+
+        return (int) $statement->fetchColumn();
+    }
+
+    /** " LIMIT n OFFSET m" con i due numeri sempre interi (mai testo dell'utente). */
+    private function page(int $limit, int $offset): string
+    {
+        return ' LIMIT ' . max(1, $limit) . ' OFFSET ' . max(0, $offset);
     }
 
     /**

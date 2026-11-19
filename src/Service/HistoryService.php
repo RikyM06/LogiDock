@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace LogiDock\Service;
 
+use LogiDock\Core\Page;
+use LogiDock\Core\Pagination;
 use LogiDock\Core\Thousandths;
 use LogiDock\Model\History\DocumentHistoryRow;
 use LogiDock\Model\History\PaymentHistoryRow;
@@ -21,9 +23,6 @@ use LogiDock\Repository\HistoryRepository;
  */
 final class HistoryService
 {
-    /** Righe mostrate al massimo in ogni lista, come /stock. */
-    public const LIST_LIMIT = 200;
-
     private const PAYMENT_STATES = [PaymentHistoryRow::PAID, PaymentHistoryRow::UNPAID, PaymentHistoryRow::PARTIAL];
 
     public function __construct(private readonly HistoryRepository $history)
@@ -71,53 +70,64 @@ final class HistoryService
 
     /**
      * @param array<string, mixed> $filters
-     * @return list<TripHistoryRow>
+     * @return Page<TripHistoryRow>
      */
-    public function trips(array $filters, bool $isAdmin): array
+    public function trips(array $filters, bool $isAdmin, mixed $requestedPage, int $perPage): Page
     {
-        $rows = $this->history->trips($filters, self::LIST_LIMIT);
+        $pagination = new Pagination($this->history->countTrips($filters), $perPage, $requestedPage);
+        $rows = $this->history->trips($filters, $pagination->perPage, $pagination->offset());
 
-        return $isAdmin ? $rows : array_map(static fn (TripHistoryRow $row): TripHistoryRow => $row->withoutCompensation(), $rows);
+        return new Page(
+            $isAdmin ? $rows : array_map(static fn (TripHistoryRow $row): TripHistoryRow => $row->withoutCompensation(), $rows),
+            $pagination
+        );
     }
 
     /**
      * Una riga per fornitore e prodotto (righe piatte: la vista raggruppa per fornitore).
      *
      * @param array<string, mixed> $filters
-     * @return list<SupplierHistoryRow>
+     * @return Page<SupplierHistoryRow>
      */
-    public function suppliers(array $filters): array
+    public function suppliers(array $filters, mixed $requestedPage, int $perPage): Page
     {
-        return $this->history->suppliers($filters, self::LIST_LIMIT);
+        $pagination = new Pagination($this->history->countSuppliers($filters), $perPage, $requestedPage);
+
+        return new Page($this->history->suppliers($filters, $pagination->perPage, $pagination->offset()), $pagination);
     }
 
     /**
      * @param array<string, mixed> $filters
      */
-    public function payments(array $filters): PaymentReport
+    public function payments(array $filters, mixed $requestedPage, int $perPage): PaymentReport
     {
+        // I totali sono sempre su TUTTE le richieste del filtro, non solo su quelle della pagina.
         $totals = $this->history->paymentTotals($filters);
+        $pagination = new Pagination($this->history->countPayments($filters), $perPage, $requestedPage);
 
         return new PaymentReport(
-            $this->history->payments($filters, self::LIST_LIMIT),
+            $this->history->payments($filters, $pagination->perPage, $pagination->offset()),
             $this->total($totals[PaymentHistoryRow::PAID] ?? '0'),
             $this->total($totals[PaymentHistoryRow::UNPAID] ?? '0'),
-            $this->total($totals[PaymentHistoryRow::PARTIAL] ?? '0')
+            $this->total($totals[PaymentHistoryRow::PARTIAL] ?? '0'),
+            $pagination
         );
     }
 
     /**
      * @param array<string, mixed> $filters
-     * @return list<DocumentHistoryRow>
+     * @return Page<DocumentHistoryRow>
      */
-    public function documents(array $filters, bool $isAdmin): array
+    public function documents(array $filters, bool $isAdmin, mixed $requestedPage, int $perPage): Page
     {
         // Anche con un filtro costruito a mano, un non admin non vede mai i compensi.
         if (!$isAdmin && ($filters['type'] ?? null) === TransportDocument::TYPE_COMPENSATION) {
-            return [];
+            return new Page([], new Pagination(0, $perPage, 1));
         }
 
-        return $this->history->documents($filters, $isAdmin, self::LIST_LIMIT);
+        $pagination = new Pagination($this->history->countDocuments($filters, $isAdmin), $perPage, $requestedPage);
+
+        return new Page($this->history->documents($filters, $isAdmin, $pagination->perPage, $pagination->offset()), $pagination);
     }
 
     /** Importo a due decimali passando dai millesimi interi (mai da float). */

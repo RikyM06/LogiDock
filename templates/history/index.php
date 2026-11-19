@@ -6,7 +6,6 @@
  * @var array<string, string>              $tabs        scheda => nome
  * @var array<string, mixed>               $filters     filtri normalizzati (from, to, round, status, ...)
  * @var string                             $currentUrl  URL della scheda con i suoi filtri (per i form "return")
- * @var int                                $listLimit
  * @var array<string, string>|null         $roundOptions
  * @var array<string, string>|null         $supplierOptions
  * @var array<string, string>|null         $customerOptions

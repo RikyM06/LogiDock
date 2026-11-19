@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LogiDock\Controller;
 
 use LogiDock\Core\HttpException;
+use LogiDock\Core\Pagination;
 use LogiDock\Core\Request;
 use LogiDock\Core\Response;
 use LogiDock\Core\ReturnUrl;
@@ -14,6 +15,7 @@ use LogiDock\Core\View;
 use LogiDock\Model\Order;
 use LogiDock\Service\AuthService;
 use LogiDock\Service\CustomerService;
+use LogiDock\Service\ListPager;
 use LogiDock\Service\OrderNotEditableException;
 use LogiDock\Service\OrderService;
 use LogiDock\Service\PaymentNotAllowedException;
@@ -36,7 +38,8 @@ final class OrderController
         private readonly OrderService $orders,
         private readonly CustomerService $customers,
         private readonly ProductService $products,
-        private readonly PaymentService $payments
+        private readonly PaymentService $payments,
+        private readonly ListPager $pager
     ) {
     }
 
@@ -49,9 +52,18 @@ final class OrderController
         $status = (string) $request->query('status', '');
         $status = isset(Order::STATUS_LABELS[$status]) ? $status : '';
 
+        $page = $this->orders->searchPage(
+            $search,
+            $status === '' ? null : $status,
+            $request->query(Pagination::PARAM),
+            $this->pager->perPage()
+        );
+
         return Response::html($this->view->render('orders/index', [
             'title' => 'Richieste',
-            'items' => $this->orders->search($search, $status === '' ? null : $status),
+            'items' => $page->items,
+            'pagination' => $page->pagination,
+            'query' => ['q' => $search, 'status' => $status],
             'search' => $search,
             'status' => $status,
             'statusLabels' => Order::STATUS_LABELS,

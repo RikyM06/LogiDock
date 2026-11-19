@@ -282,7 +282,7 @@ final class TripServiceTest extends IntegrationTestCase
         self::assertCount(1, $this->trips->tripsOn(self::DAY));
         // Nella lista dei viaggi recenti (non per forza al primo posto: nel database di test possono
         // esserci viaggi di prove HTTP con una data più lontana).
-        self::assertContains($tripIds[0], array_map(static fn (Trip $trip): int => $trip->id, $this->trips->recent()));
+        self::assertContains($tripIds[0], array_map(static fn (Trip $trip): int => $trip->id, $this->trips->recentPage(1, 100)->items));
     }
 
     public function testTripCodesAreConsecutive(): void

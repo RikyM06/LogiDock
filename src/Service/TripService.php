@@ -7,6 +7,8 @@ namespace LogiDock\Service;
 use DateTimeImmutable;
 use LogicException;
 use LogiDock\Core\Database;
+use LogiDock\Core\Page;
+use LogiDock\Core\Pagination;
 use LogiDock\Core\ValidationException;
 use LogiDock\Core\Validator;
 use LogiDock\Model\Order;
@@ -337,11 +339,15 @@ final class TripService
     }
 
     /**
-     * @return list<Trip> gli ultimi viaggi, i più recenti per primi
+     * Una pagina dei viaggi, i più recenti per primi. $requestedPage arriva grezzo dall'indirizzo.
+     *
+     * @return Page<Trip>
      */
-    public function recent(): array
+    public function recentPage(mixed $requestedPage, int $perPage): Page
     {
-        return $this->trips->latest();
+        $pagination = new Pagination($this->trips->countAll(), $perPage, $requestedPage);
+
+        return new Page($this->trips->latestPage($pagination->perPage, $pagination->offset()), $pagination);
     }
 
     /**

@@ -188,6 +188,30 @@ final class ProductServiceTest extends IntegrationTestCase
         self::assertSame([], $this->testCodes('ZZ_ALFA'));
     }
 
+    public function testPagesAreConsecutiveAndMatchTheSearch(): void
+    {
+        foreach (range(1, 5) as $n) {
+            $this->service->create($this->validInput(['code' => 'ZZ-PAG-' . $n, 'description' => 'Pagina ' . $n]));
+        }
+
+        $all = $this->service->searchPage('ZZ-PAG-', 1, 100);
+        $codes = static fn (array $found): array => array_map(static fn (Product $p): string => $p->code, $found);
+        $pages = [
+            $this->service->searchPage('ZZ-PAG-', '1', 2),
+            $this->service->searchPage('ZZ-PAG-', '2', 2),
+            $this->service->searchPage('ZZ-PAG-', '3', 2),
+        ];
+
+        self::assertSame(5, $all->pagination->total);
+        self::assertSame(count($this->service->search('ZZ-PAG-')), $all->pagination->total);
+        self::assertSame(
+            $codes($all->items),
+            array_merge($codes($pages[0]->items), $codes($pages[1]->items), $codes($pages[2]->items))
+        );
+        self::assertSame($codes($pages[0]->items), $codes($this->service->searchPage('ZZ-PAG-', 'abc', 2)->items), 'pagina non valida = prima pagina');
+        self::assertSame($codes($pages[2]->items), $codes($this->service->searchPage('ZZ-PAG-', '99', 2)->items), 'oltre l\'ultima = ultima pagina');
+    }
+
     public function testSearchPutsActiveProductsFirst(): void
     {
         $firstId = $this->service->create($this->validInput(['code' => 'ZZ-1']));

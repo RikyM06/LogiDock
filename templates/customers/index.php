@@ -36,4 +36,5 @@
             </tbody>
         </table>
     </div>
+    <?= $partial('pagination', ['path' => $path]) ?>
 <?php endif; ?>

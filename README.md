@@ -467,7 +467,7 @@ pagata» sta dentro l'`UPDATE` e la riga è bloccata con `FOR UPDATE`; il second
 non cambia. Lo stesso vale per la conclusione del viaggio e per il compenso.
 
 La pagina **Storico** (`/storico`, una sola voce di menu, per tutti gli utenti collegati) ha quattro schede, ognuna con
-i suoi filtri nell'indirizzo (funziona senza JavaScript) e al massimo 200 righe:
+i suoi filtri nell'indirizzo (funziona senza JavaScript) e a pagine (vedi «Paginazione delle liste»):
 
 | Scheda | Cosa mostra | Filtri |
 |---|---|---|
@@ -491,7 +491,7 @@ Scelte da conoscere:
 - Codice: `Service\TripClosureService`, `Service\PaymentService` (con `PaymentNotAllowedException`),
   `Service\HistoryService` e `Repository\HistoryRepository` (solo lettura), `Controller\HistoryController`,
   `Core\HistoryUrl` e `Core\ReturnUrl`, template in `templates/history/`.
-- Non ci sono esportazione CSV, paginazione (c'è il limite di 200 righe), fatturazione né IVA.
+- Non ci sono esportazione CSV, fatturazione né IVA.
 
 ### Utenti
 
@@ -523,7 +523,7 @@ Sicurezza:
 ### Impostazioni
 
 Pagina `/settings`, solo admin. I valori di business non sono scritti nel codice: si chiedono a
-`SettingService`. Le impostazioni sono divise in **schede** (Magazzino e bancali, Accesso e sicurezza, Dati
+`SettingService`. Le impostazioni sono divise in **schede** (Magazzino e bancali, Accesso e sicurezza, Liste, Dati
 dell'azienda sui documenti), generate dai gruppi di `SettingService::GROUPS` (identificativo stabile => etichetta; ogni
 impostazione dichiara l'identificativo del suo gruppo). Con JavaScript sono schede accessibili (WAI-ARIA Tabs, frecce,
 Home e Fine; un solo pulsante «Salva impostazioni» salva tutto; la scheda aperta sta nell'indirizzo, `/settings#accesso`,
@@ -592,6 +592,30 @@ un link e l'ultimo (la pagina corrente) no. Non ci sono nella home, nel login e 
 - **Un test di copertura** (`tests/View/BreadcrumbCoverageTest.php`) fallisce se un template di pagina nuovo non ha le
   briciole.
 
+### Paginazione delle liste
+
+Le liste che possono crescere (arrivi, richieste, viaggi, giacenze, le quattro schede dello storico, prodotti,
+fornitori, clienti) sono **a pagine**: sotto la tabella si legge il totale («37 risultati - pagina 2 di 3») e ci sono
+i link **Precedente / Successivo**. Le anagrafiche piccole (giri, tipi, posizioni, veicoli, trasportatori, utenti)
+restano intere.
+
+- **Righe per pagina**: impostazione dell'admin (`list_page_size`, 25 di partenza, da 10 a 100), nella scheda «Liste»
+  di `/settings`. Non c'è più un limite fisso di 200 righe che tagliava la lista senza dirlo.
+- **`Core\Pagination`** (puro, senza database): da totale, righe per pagina e pagina chiesta calcola la pagina vera e
+  da quale riga partire. Un valore sporco (`?pagina=abc`, `0`, `-3`, `99999`) non è mai un errore: si ripiega sulla
+  pagina valida più vicina. `Core\Page` porta insieme le righe e la `Pagination`.
+- **Chi fa cosa**: il controller passa `?pagina=` grezzo al service; il service conta, costruisce la `Pagination` e chiede
+  la pagina al repository; il repository usa `LIMIT ? OFFSET ?` con interi forzati (mai testo dell'utente nell'SQL).
+- **Totale e righe non possono dividersi**: la condizione di ricerca/filtro è scritta una sola volta in ogni repository
+  (`searchCondition()`, o `xxxSql()` nello storico) e la usano sia la lista sia il conteggio. L'ordine di ogni lista
+  finisce con l'`id`, così due pagine di fila non ripetono né saltano righe. Nello storico i totali dei soldi
+  (incassato, da incassare) restano calcolati su **tutte** le righe del filtro, non solo su quelle della pagina.
+- **Link**: sono normali link (`?pagina=2`), quindi funzionano senza JavaScript e conservano ricerca e filtri
+  (`partials/pagination.php`, `Pagination::url()`); la pagina 1 non porta il parametro. Dopo «Segna pagata» nello storico
+  si torna alla stessa pagina.
+- **Accessibile**: `<nav aria-label="Paginazione">`, «Precedente» e «Successivo» non disponibili sono testo con
+  `aria-disabled`, non link morti.
+
 ## Test
 
 I test usano PHPUnit e stanno in `tests/`:
@@ -600,6 +624,8 @@ I test usano PHPUnit e stanno in `tests/`:
 |---|---|---|
 | `tests/Core/RouterTest.php` | unitario | rotte, parametri `{id}`, 404 e 405, ordine dei middleware, gruppi, middleware che blocca |
 | `tests/Core/RequestTest.php` | unitario | normalizzazione di percorso e metodo, lettura dell'input |
+| `tests/Core/PaginationTest.php` | unitario | pagina sporca (testo, 0, negativa, oltre l'ultima), offset, nessun risultato, multipli esatti, indirizzi che conservano i filtri |
+| `tests/View/PaginationPartialTest.php` | unitario | totale e link Precedente/Successivo, filtri e ancora conservati, pulsanti non disponibili, escape |
 | `tests/Core/MigrationRunnerTest.php` | unitario | lo spezzatore delle istruzioni SQL delle migrazioni |
 | `tests/Core/ValidatorTest.php` | unitario | ogni controllo del validatore, con valori limite e input ostili (apici, tag, array) |
 | `tests/Service/ProductServiceTest.php` | integrazione | validazione, normalizzazione, codici duplicati, attiva/disattiva, ricerca (con il vero repository) |

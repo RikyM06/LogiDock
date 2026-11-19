@@ -14,20 +14,48 @@ use LogiDock\Model\OrderLine;
  */
 final class OrderRepository
 {
-    /** Quante richieste mostrare al massimo nella lista. */
-    private const LIST_LIMIT = 200;
+    private const GROUP_BY = ' GROUP BY o.id, c.name, r.name, pu.name';
 
     public function __construct(private readonly Database $database)
     {
     }
 
     /**
-     * Le richieste con consegna più vicina per prime (le più recenti in cima). Si può filtrare per
-     * codice o cliente e per stato.
+     * Una pagina della lista: le richieste con consegna piu' vicina per prime (le piu' recenti in cima).
+     * Si puo' filtrare per codice o cliente e per stato.
      *
      * @return list<Order>
      */
-    public function search(string $search = '', ?string $status = null): array
+    public function searchPage(string $search, ?string $status, int $limit, int $offset): array
+    {
+        [$where, $params] = $this->searchCondition($search, $status);
+
+        $statement = $this->database->pdo()->prepare(
+            $this->baseSelect() . $where . self::GROUP_BY
+            . ' ORDER BY o.delivery_date DESC, o.id DESC LIMIT ' . max(1, $limit) . ' OFFSET ' . max(0, $offset)
+        );
+        $statement->execute($params);
+
+        return array_map(Order::fromRow(...), $statement->fetchAll());
+    }
+
+    /** Quante richieste trova la lista con questi filtri (stessa condizione di searchPage). */
+    public function countSearch(string $search, ?string $status): int
+    {
+        [$where, $params] = $this->searchCondition($search, $status);
+
+        $statement = $this->database->pdo()->prepare('SELECT COUNT(*) FROM (' . $this->baseSelect() . $where . self::GROUP_BY . ') x');
+        $statement->execute($params);
+
+        return (int) $statement->fetchColumn();
+    }
+
+    /**
+     * La condizione WHERE dei filtri (scritta una volta sola, per la lista e per il conteggio).
+     *
+     * @return array{string, list<string>}
+     */
+    private function searchCondition(string $search, ?string $status): array
     {
         $conditions = [];
         $params = [];
@@ -43,16 +71,8 @@ final class OrderRepository
             $params[] = $status;
         }
 
-        $sql = $this->baseSelect()
-            . ($conditions === [] ? '' : ' WHERE ' . implode(' AND ', $conditions))
-            . ' GROUP BY o.id, c.name, r.name, pu.name ORDER BY o.delivery_date DESC, o.id DESC LIMIT ' . self::LIST_LIMIT;
-
-        $statement = $this->database->pdo()->prepare($sql);
-        $statement->execute($params);
-
-        return array_map(Order::fromRow(...), $statement->fetchAll());
+        return [$conditions === [] ? '' : ' WHERE ' . implode(' AND ', $conditions), $params];
     }
-
     public function findById(int $id): ?Order
     {
         $statement = $this->database->pdo()->prepare($this->baseSelect() . ' WHERE o.id = ? GROUP BY o.id, c.name, r.name, pu.name');

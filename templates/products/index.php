@@ -78,4 +78,5 @@
             </tbody>
         </table>
     </div>
+    <?= $partial('pagination', ['path' => '/products']) ?>
 <?php endif; ?>

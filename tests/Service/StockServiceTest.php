@@ -14,6 +14,7 @@ use LogiDock\Repository\StockRepository;
 use LogiDock\Repository\SupplierRepository;
 use LogiDock\Repository\UserRepository;
 use LogiDock\Repository\WarehouseLocationRepository;
+use LogiDock\Service\AgingRule;
 use LogiDock\Service\ProductService;
 use LogiDock\Service\SettingService;
 use LogiDock\Service\StockService;
@@ -127,7 +128,7 @@ final class StockServiceTest extends IntegrationTestCase
         // 3 giorni, anche se arrivato all'ultimo secondo: fermo.
         $overThreshold = $this->pallet($this->productA, $this->locationA, '1', '2026-11-06 23:59:59');
 
-        $aging = $this->stock->pallets($this->stock->agingRule($this->today), $this->productA, null, true);
+        $aging = $this->listPallets($this->stock->agingRule($this->today), $this->productA, null, true);
 
         self::assertSame([$overThreshold], $this->ids($aging));
     }
@@ -156,7 +157,7 @@ final class StockServiceTest extends IntegrationTestCase
 
         $rule = $this->stock->agingRule($this->today);
 
-        $byProduct = $this->stock->pallets($rule, $this->productA, null, false);
+        $byProduct = $this->listPallets($rule, $this->productA, null, false);
         self::assertSame([$old, $recent], $this->ids($byProduct), 'dal più vecchio; lo spedito non c\'è');
 
         self::assertTrue($byProduct[0]->isReserved());
@@ -166,14 +167,42 @@ final class StockServiceTest extends IntegrationTestCase
         self::assertSame($documentId, $byProduct[1]->supplierDocumentId);
         self::assertSame('Zz Fornitore Giacenze', $byProduct[1]->supplierName);
 
-        $byLocation = $this->ids($this->stock->pallets($rule, null, $this->locationA, false));
+        $byLocation = $this->ids($this->listPallets($rule, null, $this->locationA, false));
         self::assertSame([$otherProduct, $recent], $byLocation);
 
-        self::assertSame([$old], $this->ids($this->stock->pallets($rule, $this->productA, null, true)), 'solo i fermi');
-        self::assertSame([], $this->stock->pallets($rule, $this->productA, $this->locationA, true), 'filtri insieme');
+        self::assertSame([$old], $this->ids($this->listPallets($rule, $this->productA, null, true)), 'solo i fermi');
+        self::assertSame([], $this->listPallets($rule, $this->productA, $this->locationA, true), 'filtri insieme');
+    }
+
+    public function testPagesAreConsecutiveAndTogetherGiveTheWholeList(): void
+    {
+        $created = [];
+        foreach (range(1, 5) as $day) {
+            $created[] = $this->pallet($this->productB, $this->locationB, '1', '2026-10-0' . $day . ' 09:00:00');
+        }
+        $rule = $this->stock->agingRule($this->today);
+
+        $first = $this->stock->palletsPage($rule, $this->productB, $this->locationB, false, '1', 2);
+        $second = $this->stock->palletsPage($rule, $this->productB, $this->locationB, false, '2', 2);
+        $third = $this->stock->palletsPage($rule, $this->productB, $this->locationB, false, '3', 2);
+        $tooFar = $this->stock->palletsPage($rule, $this->productB, $this->locationB, false, '99', 2);
+
+        self::assertSame(5, $first->pagination->total, 'il totale è quello della lista, non della pagina');
+        self::assertSame(3, $first->pagination->pages);
+        self::assertSame($created, array_merge($this->ids($first->items), $this->ids($second->items), $this->ids($third->items)));
+        self::assertCount(1, $third->items);
+        self::assertSame($this->ids($third->items), $this->ids($tooFar->items), 'oltre l\'ultima: l\'ultima pagina');
     }
 
     // --- aiuti ---
+
+    /**
+     * @return list<StockPallet>
+     */
+    private function listPallets(AgingRule $rule, ?int $productId, ?int $locationId, bool $onlyAging): array
+    {
+        return $this->stock->palletsPage($rule, $productId, $locationId, $onlyAging, 1, 100)->items;
+    }
 
     private function setThreshold(string $days): void
     {

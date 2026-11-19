@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace LogiDock\Service;
 
 use DateTimeImmutable;
+use LogiDock\Core\Page;
+use LogiDock\Core\Pagination;
 use LogiDock\Model\StockPallet;
 use LogiDock\Model\StockProductSummary;
 use LogiDock\Repository\StockRepository;
@@ -17,9 +19,6 @@ use LogiDock\Repository\StockRepository;
  */
 final class StockService
 {
-    /** Bancali mostrati al massimo nella lista, come le altre liste (200 righe). */
-    public const LIST_LIMIT = 200;
-
     public function __construct(
         private readonly StockRepository $stock,
         private readonly SettingService $settings
@@ -48,16 +47,25 @@ final class StockService
     }
 
     /**
+     * Una pagina dell'elenco dei bancali, dal più vecchio. $requestedPage arriva grezzo dall'indirizzo.
+     *
      * @param bool $onlyAging true = solo i bancali fermi oltre la soglia
-     * @return list<StockPallet>
+     * @return Page<StockPallet>
      */
-    public function pallets(AgingRule $rule, ?int $productId, ?int $locationId, bool $onlyAging): array
-    {
-        return $this->stock->pallets(
-            $productId,
-            $locationId,
-            $onlyAging ? $rule->receivedBefore() : null,
-            self::LIST_LIMIT
+    public function palletsPage(
+        AgingRule $rule,
+        ?int $productId,
+        ?int $locationId,
+        bool $onlyAging,
+        mixed $requestedPage,
+        int $perPage
+    ): Page {
+        $before = $onlyAging ? $rule->receivedBefore() : null;
+        $pagination = new Pagination($this->stock->countPallets($productId, $locationId, $before), $perPage, $requestedPage);
+
+        return new Page(
+            $this->stock->pallets($productId, $locationId, $before, $pagination->perPage, $pagination->offset()),
+            $pagination
         );
     }
 

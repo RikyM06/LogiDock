@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace LogiDock\Service;
 
+use LogiDock\Core\Page;
+use LogiDock\Core\Pagination;
 use LogiDock\Core\ValidationException;
 use LogiDock\Repository\DuplicateEntryException;
 use LogiDock\Repository\MasterDataRepository;
@@ -55,6 +57,22 @@ abstract class MasterDataService
     public function search(string $term = ''): array
     {
         return $this->repository->search(trim($term));
+    }
+
+    /**
+     * Una pagina della lista con ricerca: `$requestedPage` arriva grezzo dall'indirizzo e viene sistemato da Pagination.
+     *
+     * @return Page<T>
+     */
+    public function searchPage(string $term, mixed $requestedPage, int $perPage): Page
+    {
+        $term = trim($term);
+        $pagination = new Pagination($this->repository->countSearch($term), $perPage, $requestedPage);
+
+        return new Page(
+            $this->repository->searchPage($term, $pagination->perPage, $pagination->offset()),
+            $pagination
+        );
     }
 
     /**

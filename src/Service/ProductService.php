@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace LogiDock\Service;
 
+use LogiDock\Core\Page;
+use LogiDock\Core\Pagination;
 use LogiDock\Core\ValidationException;
 use LogiDock\Model\Product;
 use LogiDock\Model\ProductData;
@@ -36,6 +38,22 @@ final class ProductService
     public function search(string $term = ''): array
     {
         return $this->products->search(trim($term));
+    }
+
+    /**
+     * Una pagina della lista con ricerca: $requestedPage arriva grezzo dall'indirizzo e lo sistema Pagination.
+     *
+     * @return Page<Product>
+     */
+    public function searchPage(string $term, mixed $requestedPage, int $perPage): Page
+    {
+        $term = trim($term);
+        $pagination = new Pagination($this->products->countSearch($term), $perPage, $requestedPage);
+
+        return new Page(
+            $this->products->searchPage($term, $pagination->perPage, $pagination->offset()),
+            $pagination
+        );
     }
 
     public function find(int $id): ?Product

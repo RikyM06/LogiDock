@@ -6,6 +6,7 @@ namespace LogiDock\Controller;
 
 use LogiDock\Core\HttpException;
 use LogiDock\Core\Request;
+use LogiDock\Core\Pagination;
 use LogiDock\Core\Response;
 use LogiDock\Core\Session;
 use LogiDock\Core\ValidationException;
@@ -13,6 +14,7 @@ use LogiDock\Core\View;
 use LogiDock\Enum\UserRole;
 use LogiDock\Model\Product;
 use LogiDock\Service\AuthService;
+use LogiDock\Service\ListPager;
 use LogiDock\Service\ProductService;
 
 /**
@@ -26,7 +28,8 @@ final class ProductController
         private readonly View $view,
         private readonly ProductService $products,
         private readonly AuthService $auth,
-        private readonly Session $session
+        private readonly Session $session,
+        private readonly ListPager $pager
     ) {
     }
 
@@ -36,10 +39,13 @@ final class ProductController
     public function index(Request $request, array $params): Response
     {
         $search = mb_substr(trim((string) $request->query('q', '')), 0, 100);
+        $page = $this->products->searchPage($search, $request->query(Pagination::PARAM), $this->pager->perPage());
 
         return Response::html($this->view->render('products/index', [
             'title' => 'Prodotti',
-            'products' => $this->products->search($search),
+            'products' => $page->items,
+            'pagination' => $page->pagination,
+            'query' => ['q' => $search],
             'search' => $search,
             'canManage' => $this->auth->hasRole(UserRole::Admin),
         ]));

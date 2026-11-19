@@ -27,6 +27,7 @@ final class SettingService
     public const MAX_STACK_LEVELS = 'max_stack_levels';
     public const LOGIN_MAX_ATTEMPTS = 'login_max_attempts';
     public const LOGIN_LOCKOUT_MINUTES = 'login_lockout_minutes';
+    public const LIST_PAGE_SIZE = 'list_page_size';
     public const COMPANY_NAME = 'company_name';
     public const COMPANY_ADDRESS = 'company_address';
     public const COMPANY_VAT = 'company_vat';
@@ -39,6 +40,7 @@ final class SettingService
     public const GROUPS = [
         'magazzino' => 'Magazzino e bancali',
         'accesso' => 'Accesso e sicurezza',
+        'liste' => 'Liste',
         'azienda' => 'Dati dell\'azienda sui documenti',
     ];
 
@@ -56,6 +58,7 @@ final class SettingService
         $warehouse = 'magazzino';
         $company = 'azienda';
         $access = 'accesso';
+        $lists = 'liste';
 
         return [
             new SettingDefinition(
@@ -126,6 +129,16 @@ final class SettingService
                 1,
                 1440,
                 'È anche la finestra in cui si contano gli errori: il blocco finisce da solo quando il primo errore ha più di questi minuti.'
+            ),
+            new SettingDefinition(
+                self::LIST_PAGE_SIZE,
+                $lists,
+                'Righe per pagina nelle liste',
+                SettingDefinition::TYPE_INT,
+                '25',
+                10,
+                100,
+                'Vale per arrivi, richieste, viaggi, giacenze, storico, prodotti, fornitori e clienti.'
             ),
             new SettingDefinition(self::COMPANY_NAME, $company, 'Ragione sociale', SettingDefinition::TYPE_TEXT, '', 0, 150),
             new SettingDefinition(self::COMPANY_ADDRESS, $company, 'Indirizzo', SettingDefinition::TYPE_TEXT, '', 0, 255),

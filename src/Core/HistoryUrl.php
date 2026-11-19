@@ -47,12 +47,24 @@ final class HistoryUrl
     }
 
     /**
-     * "/storico?scheda=...&filtri" con i soli filtri della scheda che hanno un valore.
+     * "/storico?scheda=...&filtri&pagina=N" con i soli filtri della scheda che hanno un valore: con la pagina,
+     * i form "Segna pagata" tornano proprio a quella pagina (la pagina 1 non porta il parametro).
      * http_build_query codifica gli spazi, quindi il risultato è accettato da ReturnUrl::pick().
      *
      * @param array<string, mixed> $filters filtri già normalizzati
      */
-    public static function build(string $tab, array $filters): string
+    public static function build(string $tab, array $filters, int $page = 1): string
+    {
+        return Pagination::url('/storico', self::query($tab, $filters), $page);
+    }
+
+    /**
+     * I parametri dell'indirizzo della scheda: "scheda" più i soli filtri che hanno un valore.
+     *
+     * @param array<string, mixed> $filters filtri già normalizzati
+     * @return array<string, string>
+     */
+    public static function query(string $tab, array $filters): array
     {
         $tab = self::tab($tab);
         $query = ['scheda' => $tab];
@@ -63,6 +75,6 @@ final class HistoryUrl
             }
         }
 
-        return '/storico?' . http_build_query($query);
+        return $query;
     }
 }

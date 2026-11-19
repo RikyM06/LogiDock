@@ -268,6 +268,36 @@ final class OrderServiceTest extends IntegrationTestCase
 
     // --- ricerca ---
 
+    public function testPagesAreConsecutiveAndTheTotalFollowsTheFilters(): void
+    {
+        $created = [];
+        foreach (range(1, 3) as $n) {
+            $created[] = $this->orders->create($this->input([$this->line($this->waterId)]), $this->userId, $this->now);
+        }
+        $this->orders->cancel($created[0]);
+
+        $ids = static fn (array $found): array => array_map(static fn (Order $o): int => $o->id, $found);
+        $ofMine = static fn (array $found): array => array_values(array_intersect($found, $created));
+
+        $all = $this->orders->searchPage('Zz Bar', null, 1, 500);
+        $open = $this->orders->searchPage('Zz Bar', Order::STATUS_OPEN, 1, 500);
+
+        self::assertSame(count($all->items), $all->pagination->total, 'il totale è quello della lista intera');
+        self::assertSame(count($open->items), $open->pagination->total, 'il totale segue il filtro sullo stato');
+        self::assertSame(2, count($ofMine($ids($open->items))));
+
+        $pages = [];
+        $page = 1;
+        do {
+            $current = $this->orders->searchPage('Zz Bar', null, (string) $page, 2);
+            $pages = array_merge($pages, $ids($current->items));
+            ++$page;
+        } while ($current->pagination->hasNext());
+
+        self::assertSame($ids($all->items), $pages, 'le pagine una dopo l\'altra danno tutta la lista');
+        self::assertSame($pages, array_values(array_unique($pages)), 'nessuna riga doppia');
+    }
+
     public function testSearchByCodeOrCustomerAndByStatus(): void
     {
         $open = $this->orders->create($this->input([$this->line($this->waterId)]), $this->userId, $this->now);
@@ -276,15 +306,15 @@ final class OrderServiceTest extends IntegrationTestCase
 
         $ids = static fn (array $found): array => array_map(static fn (Order $o): int => $o->id, $found);
 
-        self::assertContains($open, $ids($this->orders->search('zz bar')));
-        self::assertSame([$open], $ids($this->orders->search((string) $this->orders->find($open)?->code)));
+        self::assertContains($open, $ids($this->orders->searchPage('zz bar', null, 1, 500)->items));
+        self::assertSame([$open], $ids($this->orders->searchPage((string) $this->orders->find($open)?->code, null, 1, 500)->items));
 
-        $openOnes = $ids($this->orders->search('Zz Bar', Order::STATUS_OPEN));
+        $openOnes = $ids($this->orders->searchPage('Zz Bar', Order::STATUS_OPEN, 1, 500)->items);
         self::assertContains($open, $openOnes);
         self::assertNotContains($cancelled, $openOnes);
 
         // Uno stato sconosciuto si ignora (nessun filtro) invece di dare errore.
-        self::assertContains($cancelled, $ids($this->orders->search('Zz Bar', 'inventato')));
+        self::assertContains($cancelled, $ids($this->orders->searchPage('Zz Bar', 'inventato', 1, 500)->items));
     }
 
     // --- giacenza in magazzino ---

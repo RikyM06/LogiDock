@@ -41,7 +41,5 @@
             </tbody>
         </table>
     </div>
-    <?php if (count($suppliers) >= $listLimit) : ?>
-        <p class="muted">Mostrate le prime <?= e($listLimit) ?> righe: restringi il periodo o scegli un fornitore.</p>
-    <?php endif; ?>
+    <?= $partial('pagination', ['path' => '/storico']) ?>
 <?php endif; ?>

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LogiDock\Controller;
 
 use LogiDock\Core\HttpException;
+use LogiDock\Core\Pagination;
 use LogiDock\Core\Request;
 use LogiDock\Core\Response;
 use LogiDock\Core\Session;
@@ -35,6 +36,12 @@ abstract class MasterDataController
      * @return MasterDataService<covariant object>
      */
     abstract protected function service(): MasterDataService;
+
+    /** Righe per pagina, oppure null se la lista si mostra intera (anagrafiche piccole). */
+    protected function perPage(): ?int
+    {
+        return null;
+    }
 
     /** Percorso base delle rotte, es. "/suppliers". */
     abstract protected function path(): string;
@@ -105,9 +112,22 @@ abstract class MasterDataController
     {
         $search = mb_substr(trim((string) $request->query('q', '')), 0, 100);
 
+        // Le liste che possono crescere (perPage() non nullo) sono a pagine; le altre si mostrano intere.
+        $perPage = $this->perPage();
+        $pagination = null;
+        if ($perPage === null) {
+            $items = $this->service()->search($search);
+        } else {
+            $page = $this->service()->searchPage($search, $request->query(Pagination::PARAM), $perPage);
+            $items = $page->items;
+            $pagination = $page->pagination;
+        }
+
         return Response::html($this->view->render($this->folder() . '/index', [
             'title' => $this->labels()['plural'],
-            'items' => $this->service()->search($search),
+            'items' => $items,
+            'pagination' => $pagination,
+            'query' => ['q' => $search],
             'search' => $search,
             'canManage' => $this->auth->hasRole(UserRole::Admin),
             'path' => $this->path(),

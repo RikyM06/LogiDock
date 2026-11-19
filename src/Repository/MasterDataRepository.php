@@ -93,21 +93,58 @@ abstract class MasterDataRepository
      */
     public function search(string $search = ''): array
     {
-        $sql = $this->baseSelect();
-        $params = [];
+        [$where, $params] = $this->searchCondition($search);
 
-        if ($search !== '') {
-            // % e _ scritti dall'utente valgono come caratteri normali, non come jolly del LIKE.
-            $like = '%' . addcslashes($search, '%_\\') . '%';
-            $conditions = array_map(static fn (string $column): string => $column . ' LIKE ?', $this->searchColumns());
-            $sql .= ' WHERE ' . implode(' OR ', $conditions);
-            $params = array_fill(0, count($conditions), $like);
-        }
-
-        $statement = $this->database->pdo()->prepare($sql . ' ORDER BY ' . $this->orderBy());
+        $statement = $this->database->pdo()->prepare($this->baseSelect() . $where . ' ORDER BY ' . $this->orderBy());
         $statement->execute($params);
 
         return array_map($this->hydrate(...), $statement->fetchAll());
+    }
+
+    /**
+     * Una pagina della stessa lista di search(): stessa condizione, stesso ordine.
+     *
+     * @return list<T>
+     */
+    public function searchPage(string $search, int $limit, int $offset): array
+    {
+        [$where, $params] = $this->searchCondition($search);
+
+        $statement = $this->database->pdo()->prepare(
+            $this->baseSelect() . $where . ' ORDER BY ' . $this->orderBy() . ' LIMIT ' . max(1, $limit) . ' OFFSET ' . max(0, $offset)
+        );
+        $statement->execute($params);
+
+        return array_map($this->hydrate(...), $statement->fetchAll());
+    }
+
+    /** Quante righe trova search() con questa ricerca (stessa condizione di searchPage). */
+    public function countSearch(string $search): int
+    {
+        [$where, $params] = $this->searchCondition($search);
+
+        $statement = $this->database->pdo()->prepare('SELECT COUNT(*) FROM ' . $this->table() . ' t ' . $this->joins() . $where);
+        $statement->execute($params);
+
+        return (int) $statement->fetchColumn();
+    }
+
+    /**
+     * La condizione WHERE della ricerca testuale (scritta una volta sola, per la lista e per il conteggio).
+     *
+     * @return array{string, list<string>} testo SQL (vuoto se non si cerca nulla) e valori da legare
+     */
+    private function searchCondition(string $search): array
+    {
+        if ($search === '') {
+            return ['', []];
+        }
+
+        // % e _ scritti dall'utente valgono come caratteri normali, non come jolly del LIKE.
+        $like = '%' . addcslashes($search, '%_\\') . '%';
+        $conditions = array_map(static fn (string $column): string => $column . ' LIKE ?', $this->searchColumns());
+
+        return [' WHERE ' . implode(' OR ', $conditions), array_fill(0, count($conditions), $like)];
     }
 
     /**

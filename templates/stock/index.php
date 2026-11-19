@@ -6,7 +6,6 @@
  * @var list<\LogiDock\Model\StockProductSummary>                 $summary
  * @var list<\LogiDock\Model\StockPallet>                         $pallets
  * @var int                                                       $agingCount
- * @var int                                                       $listLimit
  * @var array<string, string>                                     $productOptions   id => nome
  * @var array<string, string>                                     $locationOptions  id => codice
  * @var array{product: int|null, location: int|null, aging: bool} $filters
@@ -163,5 +162,6 @@ $totalPallets = array_sum(array_map(static fn ($row): int => $row->palletCount, 
             </tbody>
         </table>
     </div>
-    <p class="muted">Dal bancale arrivato da più tempo; si vedono al massimo <?= e($listLimit) ?> bancali.</p>
+    <p class="muted">Dal bancale arrivato da più tempo.</p>
+    <?= $partial('pagination', ['path' => '/stock', 'fragment' => 'bancali']) ?>
 <?php endif; ?>

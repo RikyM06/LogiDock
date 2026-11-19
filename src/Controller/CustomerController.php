@@ -10,6 +10,7 @@ use LogiDock\Model\Customer;
 use LogiDock\Model\Round;
 use LogiDock\Service\AuthService;
 use LogiDock\Service\CustomerService;
+use LogiDock\Service\ListPager;
 use LogiDock\Service\RoundService;
 
 final class CustomerController extends MasterDataController
@@ -19,9 +20,15 @@ final class CustomerController extends MasterDataController
         Session $session,
         AuthService $auth,
         private readonly CustomerService $customers,
-        private readonly RoundService $rounds
+        private readonly RoundService $rounds,
+        private readonly ListPager $pager
     ) {
         parent::__construct($view, $session, $auth);
+    }
+
+    protected function perPage(): int
+    {
+        return $this->pager->perPage();
     }
 
     protected function service(): CustomerService

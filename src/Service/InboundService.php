@@ -6,6 +6,8 @@ namespace LogiDock\Service;
 
 use DateTimeImmutable;
 use LogiDock\Core\Database;
+use LogiDock\Core\Page;
+use LogiDock\Core\Pagination;
 use LogiDock\Core\ValidationException;
 use LogiDock\Core\Validator;
 use LogiDock\Model\InboundPallet;
@@ -48,11 +50,19 @@ final class InboundService
     }
 
     /**
-     * @return list<SupplierDocument>
+     * Una pagina della lista degli arrivi: $requestedPage arriva grezzo dall'indirizzo e lo sistema Pagination.
+     *
+     * @return Page<SupplierDocument>
      */
-    public function search(string $term = ''): array
+    public function searchPage(string $term, mixed $requestedPage, int $perPage): Page
     {
-        return $this->documents->search(trim($term));
+        $term = trim($term);
+        $pagination = new Pagination($this->documents->countSearch($term), $perPage, $requestedPage);
+
+        return new Page(
+            $this->documents->searchPage($term, $pagination->perPage, $pagination->offset()),
+            $pagination
+        );
     }
 
     public function find(int $id): ?SupplierDocument
