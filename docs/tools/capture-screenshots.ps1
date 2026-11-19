@@ -391,6 +391,8 @@ try {
     Save-EmptyFormErrors '/customers/create' 'cliente-obbligatori' 'del cliente'
 
     Open-Page '/settings';     Save-Screenshot 'impostazioni'
+    # Il secondo riquadro delle impostazioni (accesso e sicurezza): soglia e minuti del blocco del login.
+    Save-Screenshot 'impostazioni-accesso' '.card--form:nth-of-type(2)'
 
     # Gestione utenti: lista e form di un nuovo utente (le password non si compilano mai).
     Open-Page '/users';        Save-Screenshot 'utenti'

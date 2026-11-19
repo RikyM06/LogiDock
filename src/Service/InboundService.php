@@ -251,9 +251,11 @@ final class InboundService
 
     /**
      * Nessuna posizione deve superare la sua capacità (propria o, se vuota, quella predefinita).
-     * Il conteggio è fatto nella stessa transazione dell'inserimento. Resta una piccola finestra se due
-     * persone riempiono la stessa posizione nello stesso istante: la capacità è un avviso pratico,
-     * non un vincolo di integrità come il codice univoco.
+     * Le posizioni coinvolte si bloccano (FOR UPDATE, in ordine di id) PRIMA di contare i bancali, e il blocco
+     * dura fino alla fine della transazione: due arrivi nella stessa posizione si mettono in fila e il secondo
+     * conta anche i bancali del primo, invece di superare la capacità senza accorgersene.
+     * Il blocco deve venire prima di ogni lettura normale della transazione: MySQL fotografa i dati alla prima
+     * SELECT, e una lettura prima del blocco non vedrebbe i bancali che l'altro arrivo sta per salvare.
      *
      * @param array<int|string, array{location_id: int}> $lines
      * @throws ValidationException
@@ -264,6 +266,8 @@ final class InboundService
         foreach ($lines as $index => $line) {
             $byLocation[$line['location_id']][] = $index;
         }
+
+        $this->locations->lockForUpdate(array_keys($byLocation));
 
         $errors = [];
         foreach ($byLocation as $locationId => $indexes) {

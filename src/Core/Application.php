@@ -35,6 +35,7 @@ use LogiDock\Repository\CarrierRepository;
 use LogiDock\Repository\CustomerRepository;
 use LogiDock\Repository\HistoryRepository;
 use LogiDock\Repository\NumberSequenceRepository;
+use LogiDock\Repository\LoginAttemptRepository;
 use LogiDock\Repository\OrderRepository;
 use LogiDock\Repository\PalletMovementRepository;
 use LogiDock\Repository\PalletRepository;
@@ -58,6 +59,7 @@ use LogiDock\Service\CustomerService;
 use LogiDock\Service\DocumentService;
 use LogiDock\Service\HistoryService;
 use LogiDock\Service\InboundService;
+use LogiDock\Service\LoginThrottle;
 use LogiDock\Service\OrderService;
 use LogiDock\Service\PalletTypeService;
 use LogiDock\Service\PaymentService;
@@ -170,11 +172,20 @@ final class Application
         $c->set(UserRepository::class, fn (Container $c): UserRepository => new UserRepository(
             $c->get(Database::class)
         ));
+        $c->set(LoginAttemptRepository::class, fn (Container $c): LoginAttemptRepository => new LoginAttemptRepository(
+            $c->get(Database::class)
+        ));
+        $c->set(LoginThrottle::class, fn (Container $c): LoginThrottle => new LoginThrottle(
+            $c->get(LoginAttemptRepository::class),
+            $c->get(SettingService::class),
+            $c->get(Logger::class)
+        ));
         $c->set(AuthService::class, fn (Container $c): AuthService => new AuthService(
             $c->get(UserRepository::class),
             $c->get(Session::class),
             $c->get(Csrf::class),
-            $c->get(Logger::class)
+            $c->get(Logger::class),
+            $c->get(LoginThrottle::class)
         ));
 
         $c->set(ProductRepository::class, fn (Container $c): ProductRepository => new ProductRepository(

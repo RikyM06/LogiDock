@@ -29,6 +29,29 @@ abstract class MasterDataRepository
     abstract protected function table(): string;
 
     /**
+     * Blocca le righe indicate (FOR UPDATE) fino alla fine della transazione, SEMPRE in ordine di id: due
+     * transazioni che ne bloccano alcune in comune si mettono in fila invece di bloccarsi a vicenda.
+     * Va chiamato dentro una transazione.
+     *
+     * @param list<int> $ids
+     */
+    public function lockForUpdate(array $ids): void
+    {
+        $ids = array_values(array_unique($ids));
+        sort($ids);
+        if ($ids === []) {
+            return;
+        }
+
+        $placeholders = implode(', ', array_fill(0, count($ids), '?'));
+        $statement = $this->database->pdo()->prepare(
+            'SELECT id FROM ' . $this->table() . ' WHERE id IN (' . $placeholders . ') ORDER BY id FOR UPDATE'
+        );
+        $statement->execute($ids);
+        $statement->fetchAll();
+    }
+
+    /**
      * Colonne scrivibili. I valori di insert() e update() arrivano con queste chiavi.
      *
      * @return list<string>

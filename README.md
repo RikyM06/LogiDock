@@ -156,8 +156,18 @@ quelle di `SEED_ADMIN_PASSWORD` e `SEED_OPERATOR_PASSWORD` in `.env`.
 - **CSRF:** ogni POST richiede il token (campo `_csrf` o header `X-CSRF-Token`), altrimenti 419.
 - **Ruoli:** `AuthMiddleware` (qualunque utente collegato) e `AdminMiddleware` (solo admin, gli altri ricevono 403).
   I middleware si assegnano alle rotte in `config/routes.php`, anche a gruppi con `$router->group()`.
-- **Non c'è** un limite ai tentativi di login: l'app è raggiungibile solo dalla rete locale.
-  I tentativi falliti finiscono nel log (mai la password).
+- **Blocco dei tentativi di login:** dopo 5 password sbagliate nei 15 minuti precedenti con la stessa e-mail il login
+  si blocca (risposta 429, «Troppi tentativi di accesso. Riprova tra N minuti.»), anche con la password giusta, finché
+  il primo errore esce dalla finestra. Vale anche per un'e-mail che non esiste, con lo stesso messaggio, così non si
+  scopre chi è registrato. Dallo stesso indirizzo IP il limite è 4 volte più alto (chi prova molte e-mail dallo stesso
+  PC). Un accesso riuscito azzera gli errori di quell'e-mail. Soglia e minuti sono impostazioni dell'admin; i
+  tentativi sono nella tabella `login_attempts` (migrazione `0029`, quelli più vecchi della finestra si cancellano da
+  soli). I tentativi falliti finiscono anche nel log (mai la password). Codice: `Service\LoginThrottle`,
+  `Repository\LoginAttemptRepository`, `TooManyLoginAttemptsException`.
+  **Limiti noti:** chi è sulla rete locale può tenere chiuso fuori un utente (anche l'admin) provando 5 password sbagliate
+  ogni 15 minuti con la sua e-mail: è il prezzo di ogni blocco temporaneo. Per sbloccare subito basta cancellare i tentativi
+  di quell'e-mail dal database (`DELETE FROM login_attempts WHERE email = '...'`). Con richieste in parallelo il limite
+  reale può superare di poco la soglia (al massimo il numero di processi PHP-FPM) prima che il blocco scatti.
 
 ### Anagrafica prodotti (esempio da replicare)
 
@@ -250,7 +260,7 @@ Cosa succede quando si registra un arrivo, **tutto in una sola transazione** (se
 3. si salva il bancale (stato corrente) e **un movimento di ingresso** nello storico, che è append-only.
 
 Regole da sapere:
-- **Capacità:** una posizione non può superare la sua capacità (quella propria o, se vuota, quella delle impostazioni). Il conteggio è fatto nella stessa transazione; resta una piccola finestra se due persone riempiono la stessa posizione nello stesso istante: è un avviso pratico, non un vincolo come il codice univoco.
+- **Capacità:** una posizione non può superare la sua capacità (quella propria o, se vuota, quella delle impostazioni). Prima di contare i bancali le posizioni dell'arrivo si bloccano (`FOR UPDATE`, in ordine di id) e il blocco dura fino alla fine della transazione: due arrivi nella stessa posizione si mettono in fila e il secondo conta anche i bancali del primo. Un test con due connessioni MySQL vere (`InboundCapacityLockTest`) lo prova. Nota: anche i bancali che escono con una partenza prendono (da soli, per la chiave esterna) un blocco leggero sulla posizione di provenienza; se una partenza e un arrivo su più posizioni capitano nello stesso istante MySQL può fermare uno dei due (errore 1213) e l'utente deve ripetere l'operazione: i dati restano coerenti.
 - **Peso:** il peso segnato dal fornitore si confronta con quello calcolato (quantità × peso unitario del prodotto). Se differisce oltre la tolleranza delle impostazioni (5% di partenza) il bancale è evidenziato. Il confronto lo fa MySQL in DECIMAL, senza float in PHP.
 - **Date:** la data di arrivo non può essere nel futuro, il documento non può essere dopo l'arrivo, una scadenza non può precedere l'arrivo.
 - **Prezzo:** è il prezzo d'acquisto **per unità di misura** del prodotto (valore del bancale = quantità × prezzo).
@@ -522,6 +532,8 @@ Pagina `/settings`, solo admin. I valori di business non sono scritti nel codice
 | Capacità predefinita di una posizione | 300 bancali |
 | Tolleranza sul peso dei bancali (segnato dal fornitore contro calcolato) | 5 % |
 | Livelli massimi di bancali impilati sul mezzo | 2 (1 = nessun bancale sopra un altro) |
+| Tentativi di accesso sbagliati prima del blocco del login | 5 (da 3 a 20) |
+| Minuti di blocco del login (e finestra in cui si contano gli errori) | 15 (da 1 a 1440) |
 | Ragione sociale, indirizzo, partita IVA e piè di pagina dei documenti | vuoti |
 
 Le definizioni (limiti e valore di partenza) stanno in un solo elenco in `SettingService::definitions()`: nel
@@ -607,6 +619,9 @@ I test usano PHPUnit e stanno in `tests/`:
 | `tests/Core/ReturnUrlTest.php`, `tests/Core/HistoryUrlTest.php` | unitario | l'indirizzo di ritorno accetta solo `/storico...`; l'indirizzo della scheda con i suoi filtri |
 | `tests/View/BreadcrumbPartialTest.php` | unitario | il partial delle briciole da solo: Home sempre prima, pagina corrente senza link con `aria-current`, voci senza indirizzo, testi e indirizzi con HTML o virgolette resi innocui, lista vuota |
 | `tests/View/BreadcrumbCoverageTest.php` | unitario | ogni template di pagina ha le briciole (direttamente o da `list_header`): una pagina nuova che se ne dimentica fa fallire il test |
+| `tests/Service/LoginThrottleTest.php` | integrazione | il blocco del login con l'ora iniettata: soglia, e-mail inesistenti, maiuscole, fine del blocco, minuti arrotondati, azzeramento dopo un accesso riuscito, limite per IP, pulizia dei vecchi tentativi, impostazioni, cambio dell'ora legale |
+| `tests/Service/AuthServiceTest.php` | integrazione | la password giusta è rifiutata durante il blocco; ogni tipo di errore (password, e-mail sconosciuta, utente disattivato) conta una volta |
+| `tests/Service/InboundCapacityLockTest.php` | integrazione | due connessioni MySQL vere: la seconda aspetta il blocco della prima, e l'arrivo aspetta il blocco sulla sua posizione |
 | `tests/Quality/CodingRulesTest.php` | unitario | le regole di progetto che una macchina controlla da sola: `declare(strict_types=1);` in ogni file PHP, una sola riga a capo in fondo a ogni file di testo, nessun `var_dump` dimenticato, migrazioni numerate senza buchi, ogni variabile di `config/app.php` presente in `.env.example` |
 | `tests/Core/DatabaseTransactionTest.php` | integrazione | commit, rollback e savepoint quando una transazione è già aperta |
 | `tests/Core/ApplicationConfigTest.php` | unitario | le variabili d'ambiente vere vincono su `.env` |

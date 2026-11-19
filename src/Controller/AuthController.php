@@ -9,6 +9,7 @@ use LogiDock\Core\Response;
 use LogiDock\Core\Session;
 use LogiDock\Core\View;
 use LogiDock\Service\AuthService;
+use LogiDock\Service\TooManyLoginAttemptsException;
 
 final class AuthController
 {
@@ -44,7 +45,12 @@ final class AuthController
             return $this->renderLogin($email, 'Inserisci email e password.', 422);
         }
 
-        $user = $this->auth->attempt($email, $password, (string) $request->server('REMOTE_ADDR', ''));
+        try {
+            $user = $this->auth->attempt($email, $password, (string) $request->server('REMOTE_ADDR', ''));
+        } catch (TooManyLoginAttemptsException $e) {
+            // 429 = troppe richieste. Il messaggio è lo stesso per un'e-mail registrata e per una che non esiste.
+            return $this->renderLogin($email, $e->getMessage(), 429);
+        }
 
         if ($user === null) {
             return $this->renderLogin($email, 'Email o password non corrette.', 401);

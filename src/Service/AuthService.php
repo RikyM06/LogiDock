@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LogiDock\Service;
 
+use DateTimeImmutable;
 use LogiDock\Core\Csrf;
 use LogiDock\Core\Logger;
 use LogiDock\Core\Session;
@@ -34,7 +35,8 @@ final class AuthService
         private readonly UserRepository $users,
         private readonly Session $session,
         private readonly Csrf $csrf,
-        private readonly Logger $logger
+        private readonly Logger $logger,
+        private readonly LoginThrottle $throttle
     ) {
     }
 
@@ -42,9 +44,17 @@ final class AuthService
      * Verifica le credenziali e, se corrette, apre la sessione.
      * Il motivo del fallimento (email sconosciuta, password errata, utente disattivato) non viene
      * mai restituito al chiamante: all'utente si mostra sempre lo stesso messaggio.
+     *
+     * Dopo troppi errori il login si blocca per qualche minuto (LoginThrottle): durante il blocco non si
+     * controlla nemmeno la password, nemmeno se è quella giusta.
+     *
+     * @param DateTimeImmutable|null $now l'ora corrente; si passa solo nei test
+     * @throws TooManyLoginAttemptsException se il login è bloccato
      */
-    public function attempt(string $email, string $password, string $ip): ?User
+    public function attempt(string $email, string $password, string $ip, ?DateTimeImmutable $now = null): ?User
     {
+        $this->throttle->assertAllowed($email, $ip, $now);
+
         $user = $this->users->findByEmail($email);
 
         // Con $user nullo, "??" dà l'hash finto senza errori: il controllo dura lo stesso tempo anche per un'e-mail sconosciuta.
@@ -53,6 +63,7 @@ final class AuthService
         if ($user === null || !$passwordIsCorrect || !$user->isActive) {
             // Nel log sì: serve a notare tentativi sospetti. Mai la password.
             $this->logger->warning('Login fallito', ['email' => $email, 'ip' => $ip]);
+            $this->throttle->recordFailure($email, $ip, $now);
 
             return null;
         }
@@ -70,6 +81,7 @@ final class AuthService
         $this->session->set(self::SESSION_USER_KEY, $user->id);
         $this->session->set(self::SESSION_FINGERPRINT_KEY, self::fingerprint($passwordHash));
 
+        $this->throttle->recordSuccess($email);
         $this->users->touchLastLogin($user->id);
         $this->logger->info('Login riuscito', ['user_id' => $user->id, 'ip' => $ip]);
 

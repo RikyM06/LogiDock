@@ -66,6 +66,18 @@ abstract class MasterDataService
     }
 
     /**
+     * Blocca queste righe fino alla fine della transazione in corso (vedi MasterDataRepository::lockForUpdate).
+     * Serve a chi deve contare qualcosa che dipende da una riga, come i bancali di una posizione, senza
+     * che un altro faccia lo stesso nello stesso istante.
+     *
+     * @param list<int> $ids
+     */
+    public function lockForUpdate(array $ids): void
+    {
+        $this->repository->lockForUpdate($ids);
+    }
+
+    /**
      * Gli elementi attivi: servono per riempire i menu a tendina di altri form.
      *
      * @return list<T>

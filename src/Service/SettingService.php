@@ -25,6 +25,8 @@ final class SettingService
     public const LOCATION_DEFAULT_CAPACITY = 'location_default_capacity';
     public const WEIGHT_TOLERANCE_PERCENT = 'weight_tolerance_percent';
     public const MAX_STACK_LEVELS = 'max_stack_levels';
+    public const LOGIN_MAX_ATTEMPTS = 'login_max_attempts';
+    public const LOGIN_LOCKOUT_MINUTES = 'login_lockout_minutes';
     public const COMPANY_NAME = 'company_name';
     public const COMPANY_ADDRESS = 'company_address';
     public const COMPANY_VAT = 'company_vat';
@@ -43,6 +45,7 @@ final class SettingService
     {
         $warehouse = 'Magazzino e bancali';
         $company = 'Dati dell\'azienda sui documenti';
+        $access = 'Accesso e sicurezza';
 
         return [
             new SettingDefinition(
@@ -93,6 +96,26 @@ final class SettingService
                 1,
                 5,
                 '1 = nessun bancale sopra un altro. La pianificazione dei viaggi impila solo bancali dello stesso tipo e non supera mai l\'altezza interna del rimorchio.'
+            ),
+            new SettingDefinition(
+                self::LOGIN_MAX_ATTEMPTS,
+                $access,
+                'Tentativi di accesso sbagliati prima del blocco',
+                SettingDefinition::TYPE_INT,
+                '5',
+                3,
+                20,
+                'Dopo tanti errori con la stessa e-mail il login si blocca per i minuti qui sotto. Dallo stesso indirizzo IP il limite è 4 volte più alto.'
+            ),
+            new SettingDefinition(
+                self::LOGIN_LOCKOUT_MINUTES,
+                $access,
+                'Minuti di blocco del login',
+                SettingDefinition::TYPE_INT,
+                '15',
+                1,
+                1440,
+                'È anche la finestra in cui si contano gli errori: il blocco finisce da solo quando il primo errore ha più di questi minuti.'
             ),
             new SettingDefinition(self::COMPANY_NAME, $company, 'Ragione sociale', SettingDefinition::TYPE_TEXT, '', 0, 150),
             new SettingDefinition(self::COMPANY_ADDRESS, $company, 'Indirizzo', SettingDefinition::TYPE_TEXT, '', 0, 255),
