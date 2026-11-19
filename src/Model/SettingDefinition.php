@@ -14,6 +14,7 @@ final readonly class SettingDefinition
     public const TYPE_TEXT = 'text';
 
     /**
+     * @param string $group   identificativo del gruppo (una chiave di SettingService::GROUPS), mai l'etichetta
      * @param string $type    TYPE_INT oppure TYPE_TEXT
      * @param int    $min     per i numeri il minimo ammesso, per il testo non conta
      * @param int    $max     per i numeri il massimo ammesso, per il testo la lunghezza massima

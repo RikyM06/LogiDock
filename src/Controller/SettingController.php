@@ -65,14 +65,9 @@ final class SettingController
      */
     private function renderForm(array $values, array $errors = [], int $status = 200): Response
     {
-        $groups = [];
-        foreach ($this->settings->definitions() as $definition) {
-            $groups[$definition->group][] = $definition;
-        }
-
         return Response::html($this->view->render('settings/form', [
             'title' => 'Impostazioni',
-            'groups' => $groups,
+            'groups' => $this->settings->groups(),
             'values' => $values,
             'errors' => $errors,
         ]), $status);

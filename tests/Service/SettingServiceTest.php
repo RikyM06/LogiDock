@@ -96,6 +96,55 @@ final class SettingServiceTest extends IntegrationTestCase
         self::assertSame(['company_vat'], array_keys($errors));
     }
 
+    // --- gruppi (le schede della pagina delle impostazioni) ---
+
+    public function testEverySettingBelongsToAKnownGroup(): void
+    {
+        foreach ($this->service->definitions() as $definition) {
+            self::assertArrayHasKey(
+                $definition->group,
+                SettingService::GROUPS,
+                'L\'impostazione ' . $definition->name . ' ha un gruppo (' . $definition->group . ') che non è in SettingService::GROUPS.'
+            );
+        }
+    }
+
+    public function testGroupIdsAreStableLowercaseAndLabelsAreUnique(): void
+    {
+        foreach (array_keys(SettingService::GROUPS) as $id) {
+            self::assertMatchesRegularExpression('/^[a-z][a-z0-9-]*$/', (string) $id, 'L\'identificativo finisce nell\'indirizzo (#id).');
+        }
+
+        $labels = array_values(SettingService::GROUPS);
+        self::assertCount(count($labels), array_unique($labels), 'Le etichette dei gruppi devono essere diverse.');
+        self::assertNotContains('', $labels);
+    }
+
+    public function testGroupsKeepTheOrderAndNeverAreEmpty(): void
+    {
+        $groups = $this->service->groups();
+
+        $expectedIds = array_values(array_filter(
+            array_keys(SettingService::GROUPS),
+            fn (string $id): bool => array_filter(
+                $this->service->definitions(),
+                static fn ($definition): bool => $definition->group === $id
+            ) !== []
+        ));
+        self::assertSame($expectedIds, array_column($groups, 'id'), 'Stesso ordine di GROUPS, senza gruppi vuoti.');
+
+        $total = 0;
+        foreach ($groups as $group) {
+            self::assertSame(SettingService::GROUPS[$group['id']], $group['label']);
+            self::assertNotSame([], $group['definitions']);
+            foreach ($group['definitions'] as $definition) {
+                self::assertSame($group['id'], $definition->group);
+                $total++;
+            }
+        }
+        self::assertCount($total, $this->service->definitions(), 'Ogni impostazione compare in un gruppo, una sola volta.');
+    }
+
     public function testUnknownSettingIsAProgrammingError(): void
     {
         $this->expectException(LogicException::class);

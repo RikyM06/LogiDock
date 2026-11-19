@@ -523,7 +523,12 @@ Sicurezza:
 ### Impostazioni
 
 Pagina `/settings`, solo admin. I valori di business non sono scritti nel codice: si chiedono a
-`SettingService`.
+`SettingService`. Le impostazioni sono divise in **schede** (Magazzino e bancali, Accesso e sicurezza, Dati
+dell'azienda sui documenti), generate dai gruppi di `SettingService::GROUPS` (identificativo stabile => etichetta; ogni
+impostazione dichiara l'identificativo del suo gruppo). Con JavaScript sono schede accessibili (WAI-ARIA Tabs, frecce,
+Home e Fine; un solo pulsante «Salva impostazioni» salva tutto; la scheda aperta sta nell'indirizzo, `/settings#accesso`,
+e si resta sulla stessa dopo il salvataggio; se c'è un errore si apre la scheda giusta e la scheda ha un puntino rosso e
+il testo «contiene errori» per gli screen reader). Senza JavaScript i riquadri restano tutti visibili uno sotto l'altro.
 
 | Impostazione | Valore di partenza |
 |---|---|

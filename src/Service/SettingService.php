@@ -32,6 +32,16 @@ final class SettingService
     public const COMPANY_VAT = 'company_vat';
     public const COMPANY_FOOTER = 'company_footer';
 
+    /**
+     * I gruppi di impostazioni, nell'ordine in cui compaiono come schede in /settings: identificativo => etichetta.
+     * L'identificativo è stabile (finisce nell'indirizzo, /settings#accesso), l'etichetta si può ritoccare.
+     */
+    public const GROUPS = [
+        'magazzino' => 'Magazzino e bancali',
+        'accesso' => 'Accesso e sicurezza',
+        'azienda' => 'Dati dell\'azienda sui documenti',
+    ];
+
     public function __construct(
         private readonly SettingRepository $settings,
         private readonly Database $database
@@ -43,9 +53,9 @@ final class SettingService
      */
     public function definitions(): array
     {
-        $warehouse = 'Magazzino e bancali';
-        $company = 'Dati dell\'azienda sui documenti';
-        $access = 'Accesso e sicurezza';
+        $warehouse = 'magazzino';
+        $company = 'azienda';
+        $access = 'accesso';
 
         return [
             new SettingDefinition(
@@ -130,6 +140,28 @@ final class SettingService
                 500
             ),
         ];
+    }
+
+    /**
+     * Le impostazioni raggruppate per le schede della pagina: in ordine di GROUPS, solo i gruppi che ne hanno.
+     *
+     * @return list<array{id: string, label: string, definitions: list<SettingDefinition>}>
+     */
+    public function groups(): array
+    {
+        $byGroup = [];
+        foreach ($this->definitions() as $definition) {
+            $byGroup[$definition->group][] = $definition;
+        }
+
+        $groups = [];
+        foreach (self::GROUPS as $id => $label) {
+            if (isset($byGroup[$id])) {
+                $groups[] = ['id' => $id, 'label' => $label, 'definitions' => $byGroup[$id]];
+            }
+        }
+
+        return $groups;
     }
 
     /**

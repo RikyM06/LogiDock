@@ -107,14 +107,17 @@ h2 {
 }
 
 /* Form divisi in più card (impostazioni, arrivi): spazio tra un campo e l'altro dentro la card. */
-.form > .card {
+.form > .card,
+.form [data-tab-panel] {
     display: flex;
     flex-direction: column;
     gap: var(--space);
 }
 
 .form > .card > h2,
-.form > .card > p {
+.form > .card > p,
+.form [data-tab-panel] > h2,
+.form [data-tab-panel] > p {
     margin: 0;
 }
 
@@ -685,6 +688,54 @@ a.button {
     color: var(--color-text);
 }
 
+/* Schede delle impostazioni: sono <button> (con JavaScript), stesso aspetto dei link dello storico. */
+/* Il contenitore delle schede sta tra il form e i riquadri: senza JavaScript i riquadri restano impilati,
+   con lo stesso spazio di prima. */
+.form [data-tabs] {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space);
+}
+
+.form [data-tabs] > .tabs {
+    margin-bottom: 0;
+}
+
+/* !important: "hidden" deve vincere sempre, anche sul display: flex dei riquadri, qualunque sia l'ordine delle regole. */
+.tabs[hidden],
+[data-tab-panel][hidden] {
+    display: none !important;
+}
+
+button.tabs__link {
+    border-width: 0 0 3px;
+    border-style: solid;
+    border-color: transparent;
+    background: none;
+    color: var(--color-primary);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.tabs__link[aria-selected="true"] {
+    border-bottom-color: var(--color-primary);
+    color: var(--color-text);
+}
+
+/* Scheda con un errore: puntino rosso (il testo "contiene errori" è solo per gli screen reader). */
+.tabs__link.has-error {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.tabs__dot {
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 50%;
+    background: var(--color-danger);
+}
 .toolbar__check {
     display: inline-flex;
     align-items: center;
